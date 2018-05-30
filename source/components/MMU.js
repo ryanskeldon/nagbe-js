@@ -6,10 +6,9 @@ MMU = {
     _wram: [],
     _zram: [],
     _vram: [],
+    _ie: 0,
 
     _inBios: true,
-
-    _isReady: false,
 
     init: function() {
         var loadBios = new XMLHttpRequest();
@@ -62,8 +61,12 @@ MMU = {
                 if (MMU._inBios) {
                     if (address < 0x0100)
                         return MMU._bios[address];
-                    else (Z80._register.pc === 0x0100)
+                    else if (Z80._register.pc === 0x0100) {
+                        log.write("MMU", "Leaving BIOS");
                         MMU._inBios = false;
+                    } else {
+                        return MMU._rom[address];
+                    }
                 } else {
                     return MMU._rom[address];
                 }
@@ -91,12 +94,13 @@ MMU = {
 
             // Working RAM and shadow RAM.
             case 0xC000:
-            case 0xD000:
+            case 0xD000:                
             case 0xE000:
                 return MMU._wram[address & 0x1FFF];
 
             // The rest...
             case 0xF000:
+                
 
             default:
                 // TODO: HALT execution, unknown memory address.
@@ -104,7 +108,7 @@ MMU = {
     },
     readWord: function (address) {
         // Read byte + next byte shifted by 1 byte.
-        return MMU.readByte(address) + (MMU.readByte(address+1)<<8);
+        return (MMU.readByte(address+1)<<8) + MMU.readByte(address);
     },
     writeByte: function (address, byte) {
         switch (address & 0xF000) {
@@ -140,7 +144,49 @@ MMU = {
 
             case 0xE000:
             case 0xF000:
-                log.write("MMU", "Writing to high memory @ $0x" + address.toString(16) + "\tValue: 0x" + byte.toString(16));
+                switch (address & 0x0F00) {
+                    case 0x000:
+                    case 0x100:
+                    case 0x200:
+                    case 0x300:
+                    case 0x400:
+                    case 0x500:
+                    case 0x600:
+                    case 0x700:
+                    case 0x800:
+                    case 0x900:
+                    case 0xA00:
+                    case 0xB00:
+                    case 0xC00:
+                    case 0xD00:
+                        log.write("MMU", "Writing to working RAM (shadow) @ $0x" + address.toString(16) + "\tValue: 0x" + byte.toString(16));
+                        MMU._wram[address & 0x1FFF] = byte;
+                        break;
+
+                    case 0xE00:
+                        if (address <= 0xFE9F) {
+                            // TODO: Add this.
+                            log.write("MMU", "Writing to Sprite Attribute Table (OAM) @ $0x" + address.toString(16) + "\tValue: 0x" + byte.toString(16));
+                        }
+                        break;
+
+                        // Nothing usable until 0xFF00.
+                    case 0xF00:
+                        if (address <= 0xFF7F) {
+                            // I/O ports
+                            log.write("MMU", "Writing to I/O ports @ $0x" + address.toString(16) + "\tValue: 0x" + byte.toString(16));
+                        } else if (address > 0xFF7F && address < 0xFFFF) {
+                            log.write("MMU", "Writing to stack @ $0x" + address.toString(16) + "\tValue: 0x" + byte.toString(16));
+                        } else if (address === 0xFFFF) {
+                            log.write("MMU", "Writing to IE @ $0x" + address.toString(16) + "\tValue: 0x" + byte.toString(16));
+                            MMU._ie = byte;
+                        }
+                        break;
+
+                    default:
+                        log.write("MMU", "INVALID ADDRESS SPACE @ $0x" + address.toString(16) + "\tValue: 0x" + byte.toString(16));
+                }
+
                 break; // TODO: Handle audio writes.
 
             default:
@@ -149,6 +195,7 @@ MMU = {
         }        
     },
     writeWord: function (address, word) {
-        throw "Error: Write word failed. Address: $0x" + address.toString(16) + "\tValue: 0x" + word.toString(16) + " / " + word;
+        MMU.writeByte(address, word&255); // LSB
+        MMU.writeByte(address+1, word>>8); // MSB        
     }
 };
