@@ -198,25 +198,25 @@ Z80 = {
         },
         
         LD_a_a: function () { // 0x7F LD A, A
-            MMU.writeWord(Z80._register.a, Z80._register.a); Z80._register.t = 4;
+            Z80._register.a = Z80._register.a; Z80._register.t = 4;
         },
         LD_b_a: function () { // 0x47 LD B, A
-            MMU.writeWord(Z80._register.b, Z80._register.a); Z80._register.t = 4;
+            Z80._register.b = Z80._register.a; Z80._register.t = 4;
         },
         LD_c_a: function () { // 0x4F LD C, A
-            MMU.writeWord(Z80._register.c, Z80._register.a); Z80._register.t = 4;
+            Z80._register.c = Z80._register.a; Z80._register.t = 4;
         },
         LD_d_a: function () { // 0x57 LD D, A
-            MMU.writeWord(Z80._register.d, Z80._register.a); Z80._register.t = 4;
+            Z80._register.d = Z80._register.a; Z80._register.t = 4;
         },
         LD_e_a: function () { // 0x5F LD E, A
-            MMU.writeWord(Z80._register.e, Z80._register.a); Z80._register.t = 4;
+            Z80._register.e = Z80._register.a; Z80._register.t = 4;
         },
         LD_h_a: function () { // 0x67 LD H, A
-            MMU.writeWord(Z80._register.h, Z80._register.a); Z80._register.t = 4;
+            Z80._register.h = Z80._register.a; Z80._register.t = 4;
         },
         LD_l_a: function () { // 0x6F LD L, A
-            MMU.writeWord(Z80._register.l, Z80._register.a); Z80._register.t = 4;
+            Z80._register.l = Z80._register.a; Z80._register.t = 4;
         },
         LD_bc_a: function () { // 0x02 LD (BC), A
             MMU.writeWord((Z80._register.b<<8)+Z80._register.c, Z80._register.a); Z80._register.t = 8;
