@@ -1,16 +1,17 @@
 MMU = {
     // Memory regions.
-    _bios: [],
-    _rom: [],
-    _eram: [],
-    _wram: [],
-    _zram: [],
-    _vram: [],
-    _ie: 0,
+    _bios: [], // Boot instructions
+    _rom: [], // Cartridge ROM
+    _vram: [], // TODO: Move to GPU
+    _eram: [], // External RAM
+    _wram: [], // Working RAM
+    _zram: [], // Zero-page RAM
 
-    _inBios: true,
+    _biosEnabled: true,
 
     init: function() {
+        MMU.reset();
+        
         var loadBios = new XMLHttpRequest();
         loadBios.open('GET', '/bios.bin', true);
         loadBios.responseType = 'arraybuffer';         
@@ -36,21 +37,13 @@ MMU = {
         loadRom.send();
     },
 
-    reset: function() {
-        // Move back into BIOS.
-        MMU._inBios = true;
-
-        // Zero ROM space.
-        for (var i = 0; i < 0x8000; i++) MMU._rom[i] = 0;
-
-        // Zero Working RAM (8kB).
-        for (var i = 0; i < 8192; i++) MMU._wram[i] = 0;
-
-        // Zero Video RAM (8kB).
-        for (var i = 0; i < 8192; i++) MMU._vram[i] = 0;
-
-        // Zero Zero-page RAM (128B).
-        for (var i = 0; i < 128; i++) MMU._zram[i] = 0;
+    reset: function() {        
+        MMU._biosEnabled = true; // Enabled BIOS boot code.
+        
+        for (var i = 0; i < 32768; i++) MMU._rom[i] = 0; // Reset cartridge ROM (32kB) 
+        for (var i = 0; i < 8192; i++) MMU._wram[i] = 0;  // Reset Working RAM (8kB)       
+        for (var i = 0; i < 8192; i++) MMU._vram[i] = 0;  // Reset Video RAM (8kB)       
+        for (var i = 0; i < 128; i++) MMU._zram[i] = 0;   // Reset Zero-page RAM (128B)
     },
 
     readByte: function (address) {
@@ -58,12 +51,12 @@ MMU = {
             // ROM bank 0
             case 0x0000: 
                 // BIOS only from 0x0000 to 0x00FF
-                if (MMU._inBios) {
+                if (MMU._biosEnabled) {
                     if (address < 0x0100)
                         return MMU._bios[address];
                     else if (Z80._register.pc === 0x0100) {
                         log.write("MMU", "Leaving BIOS");
-                        MMU._inBios = false;
+                        MMU._biosEnabled = false;
                     } else {
                         return MMU._rom[address];
                     }
@@ -87,10 +80,10 @@ MMU = {
             case 0x9000:
                 return MMU._vram[address & 0x1FFF];
 
-            // External RAM
+            // External RAM            
             case 0xA000:
             case 0xB000:
-                return MMU._eram[address & 0x1FFF];
+                return MMU._eram[address & 0x1FFF]; // NOTE: Is this bankable?
 
             // Working RAM and shadow RAM.
             case 0xC000:
@@ -100,10 +93,39 @@ MMU = {
 
             // The rest...
             case 0xF000:
-                
+                switch (address & 0x0F00) {
+                    case 0x000:
+                    case 0x100:
+                    case 0x200:
+                    case 0x300:
+                    case 0x400:
+                    case 0x500:
+                    case 0x600:
+                    case 0x700:
+                    case 0x800:
+                    case 0x900:
+                    case 0xA00:
+                    case 0xB00:
+                    case 0xC00:
+                    case 0xD00:
+                    case 0xE00:
+                        throw "Error: Reads not implemented at $0x" + address.toString(16);
+
+                    case 0xF00:
+                        if (address > 0xFF7F) { // Zero-page RAM aka the stack
+                            return MMU._zram[address & 0x7F];
+                        } else {
+                            // I/O ports
+                            throw "Error: Reads not implemented at $0x" + address.toString(16);
+                        }
+                        break;
+
+                    default:
+                        log.write("MMU", "INVALID ADDRESS SPACE @ $0x" + address.toString(16) + "\tValue: 0x" + byte.toString(16));
+                }
 
             default:
-                // TODO: HALT execution, unknown memory address.
+                throw "Error: Unknown memory read @ 0x" + address.toString(16);
         }
     },
     readWord: function (address) {
@@ -120,6 +142,7 @@ MMU = {
             case 0x5000:
             case 0x6000:
             case 0x7000:
+                throw "Writes to $0x" + address.toString(16) + " not implemented.";
                 log.write("MMU", "Writing to ROM space @ $0x" + address.toString(16) + "\tValue: 0x" + byte.toString(16));
                 break;
 
@@ -133,12 +156,14 @@ MMU = {
             // External RAM
             case 0xA000:
             case 0xB000:
+                throw "Writes to $0x" + address.toString(16) + " not implemented.";
                 log.write("MMU", "Writing to external RAM @ $0x" + address.toString(16) + "\tValue: 0x" + byte.toString(16));
                 break;
 
             // Working RAM
             case 0xC000:
             case 0xD000:
+                throw "Writes to $0x" + address.toString(16) + " not implemented.";
                 log.write("MMU", "Writing to working RAM @ $0x" + address.toString(16) + "\tValue: 0x" + byte.toString(16));
                 break;
 
@@ -165,21 +190,18 @@ MMU = {
 
                     case 0xE00:
                         if (address <= 0xFE9F) {
-                            // TODO: Add this.
-                            log.write("MMU", "Writing to Sprite Attribute Table (OAM) @ $0x" + address.toString(16) + "\tValue: 0x" + byte.toString(16));
+                            throw "Writes to $0x" + address.toString(16) + " not implemented.";
+                            log.write("MMU", "**DUMMY** Writing to Sprite Attribute Table (OAM) @ $0x" + address.toString(16) + "\tValue: 0x" + byte.toString(16));
                         }
                         break;
 
                         // Nothing usable until 0xFF00.
                     case 0xF00:
-                        if (address <= 0xFF7F) {
-                            // I/O ports
-                            log.write("MMU", "Writing to I/O ports @ $0x" + address.toString(16) + "\tValue: 0x" + byte.toString(16));
-                        } else if (address > 0xFF7F && address < 0xFFFF) {
+                        if (address > 0xFF7F) { // Zero-page RAM aka the stack
                             log.write("MMU", "Writing to stack @ $0x" + address.toString(16) + "\tValue: 0x" + byte.toString(16));
-                        } else if (address === 0xFFFF) {
-                            log.write("MMU", "Writing to IE @ $0x" + address.toString(16) + "\tValue: 0x" + byte.toString(16));
-                            MMU._ie = byte;
+                            MMU._zram[address & 0x7F] = byte;
+                        } else { // I/O ports
+                            log.write("MMU", "**DUMMY** Writing to I/O ports @ $0x" + address.toString(16) + "\tValue: 0x" + byte.toString(16));
                         }
                         break;
 

@@ -242,10 +242,17 @@ Z80 = {
             Z80._register.t = 12;
         },
 
+        LD_hli_a: function () { // 0x22 LD hl+, a
+            MMU.writeByte((Z80._register.h << 8) + Z80._register.l, Z80._register.a);   // Write A to the address stored in HL.
+            Z80._register.l = (Z80._register.l + 1) & 255;                              // Add 1 then mask to 8-bit;
+            if (Z80._register.l == 0) Z80._register.h = (Z80._register.h + 1) & 255;    // Check for overflow of L, increase H by 1.
+            Z80._register.t = 8;                                                        // Set operation time.
+        },
+
         LD_hld_a: function () { // 0x32 LD hl-, a
             MMU.writeByte((Z80._register.h << 8) + Z80._register.l, Z80._register.a);   // Write A to the address stored in HL.
             Z80._register.l = (Z80._register.l - 1) & 255;                              // Minus 1 then mask to 8-bit;
-            if (Z80._register.l == 255) Z80._register.h = (Z80._register.h - 1) & 255;  // Check for underflow of L, decrease H by 1
+            if (Z80._register.l == 255) Z80._register.h = (Z80._register.h - 1) & 255;  // Check for underflow of L, decrease H by 1.
             Z80._register.t = 8;                                                        // Set operation time.
         },
 
@@ -310,12 +317,22 @@ Z80 = {
             Z80._register.pc = address;                         // Jump to new instruction.
         },
 
+
         // Pushes
         PUSH_bc: function () { // 0xC5 PUSH BC
             Z80._register.sp-=2; // Move down 1 word.
             MMU.writeWord(Z80._register.sp, (Z80._register.b<<8)+Z80._register.c); // Store BC on the stack.
             Z80._register.t = 16;
         },
+
+
+        // Pops
+        POP_bc: function () { // 0xC1 POP BC
+            Z80._register.c = MMU.readByte(Z80._register.sp++);
+            Z80._register.b = MMU.readByte(Z80._register.sp++);
+            Z80._register.t = 12;
+        },
+
   
         // XORs
         XOR_a: function () { // 0xAF            
@@ -375,6 +392,47 @@ Z80 = {
             Z80._register.l = (Z80._register.l + 1) & 255;
             Z80._register.f |= Z80._register.l ? 0 : Z80._flags.zero;
             Z80._register.t = 4;
+        },        
+
+        INC_de: function () { // 0x23 INC DE
+            Z80._register.e = (Z80._register.e + 1) & 255;                              // Add 1 then mask to 8-bit;
+            if (Z80._register.e == 0) Z80._register.d = (Z80._register.d + 1) & 255;    // Check for overflow of L, increase H by 1.
+            Z80._register.t = 8;                                                        // Set operation time.
+        },
+        INC_hl: function () { // 0x23 INC HL
+            Z80._register.l = (Z80._register.l + 1) & 255;                              // Add 1 then mask to 8-bit;
+            if (Z80._register.l == 0) Z80._register.h = (Z80._register.h + 1) & 255;    // Check for overflow of L, increase H by 1.
+            Z80._register.t = 8;                                                        // Set operation time.
+        },
+
+        // Decrements
+        DEC_b: function () { // 0x05 DEC B
+            Z80._register.f = Z80._flags.subtraction;                 // Set subtraction flag.
+            let intermediate = Z80._register.b - 1;                   // Calculate carry bit.
+            let carry = (Z80._register.b ^ 1 ^ intermediate);
+            Z80._register.b = (Z80._register.b-1)&255;                // Subtract 1 and mask to 8-bit.
+            Z80._register.f |= carry & Z80._flags.halfCarry ? 0 : 1;  // Check for borrow
+            Z80._register.f |= Z80._register.b ? 0 : Z80._flags.zero; // Check for zero.
+            Z80._register.t = 4;
+        },
+
+
+        // Rotations 
+        RLA: function () { // 0x17
+            let carry = Z80._register.f & Z80._flags.carry ? 1 : 0;
+            let seventh = Z80._register.a & 0x80;
+            Z80._register.a = ((Z80._register.a<<1) + carry)&255;
+            Z80._register.f |= seventh ? Z80._flags.carry : 0;
+            Z80._register.f |= Z80._register.a ? 0 : Z80._flags.zero;
+            Z80._register.t = 4;
+        },
+        RL_c: function () { // CB 0x11            
+            let carry = Z80._register.f & Z80._flags.carry ? 1 : 0;
+            let seventh = Z80._register.c & 0x80;
+            Z80._register.c = ((Z80._register.c<<1) + carry)&255;
+            Z80._register.f |= seventh ? Z80._flags.carry : 0;
+            Z80._register.f |= Z80._register.c ? 0 : Z80._flags.zero;
+            Z80._register.t = 8;
         },
 
 
@@ -393,6 +451,14 @@ Z80 = {
             Z80._cbMap[cbAddress]();                            // Run the OpCode in the CB map.            
             Z80._register.pc &= 65535;                          // Mask the PC to 16-bit.
             Z80._register.m = 1; Z80._register.t = 4;           // Set operation time.
+        },
+        NOP: function () { // 0x00
+            Z80._register.t = 4;
+        },
+        RET: function () { // 0xC9 RET
+            Z80._register.pc = MMU.readWord(Z80._register.sp);
+            Z80._register.sp+=2;
+            Z80._register.t = 8;
         }
     },
 
@@ -401,11 +467,11 @@ Z80 = {
 
 Z80._map = [
     // 00 - 0F
-    null, Z80._ops.LD_bc_nn, Z80._ops.LD_bc_a, null, Z80._ops.INC_b, null, Z80._ops.LD_b_n, null, null, null, Z80._ops.LD_a_bc, null, Z80._ops.INC_c, null, Z80._ops.LD_c_n, null, 
+    Z80._ops.NOP, Z80._ops.LD_bc_nn, Z80._ops.LD_bc_a, null, Z80._ops.INC_b, Z80._ops.DEC_b, Z80._ops.LD_b_n, null, null, null, Z80._ops.LD_a_bc, null, Z80._ops.INC_c, null, Z80._ops.LD_c_n, null, 
     // 10 - 1F
-    null, Z80._ops.LD_de_nn, Z80._ops.LD_de_a, null, Z80._ops.INC_d, null, Z80._ops.LD_d_n, null, null, null, Z80._ops.LD_a_de, null, Z80._ops.INC_e, null, Z80._ops.LD_e_n, null, 
+    null, Z80._ops.LD_de_nn, Z80._ops.LD_de_a, Z80._ops.INC_de, Z80._ops.INC_d, null, Z80._ops.LD_d_n, Z80._ops.RLA, null, null, Z80._ops.LD_a_de, null, Z80._ops.INC_e, null, Z80._ops.LD_e_n, null, 
     // 20 - 2F
-    Z80._ops.JR_nz_n, Z80._ops.LD_hl_nn, null, null, Z80._ops.INC_h, null, Z80._ops.LD_h_n, null, null, null, null, null, Z80._ops.INC_l, null, Z80._ops.LD_l_n, null, 
+    Z80._ops.JR_nz_n, Z80._ops.LD_hl_nn, Z80._ops.LD_hli_a, Z80._ops.INC_hl, Z80._ops.INC_h, null, Z80._ops.LD_h_n, null, null, null, null, null, Z80._ops.INC_l, null, Z80._ops.LD_l_n, null, 
     // 30 - 3F
     null, Z80._ops.LD_sp_nn, Z80._ops.LD_hld_a, null, null, null, null, null, null, null, null, null, Z80._ops.INC_a, null, Z80._ops.LD_a_n, null, 
     // 40 - 4F
@@ -425,7 +491,7 @@ Z80._map = [
     // B0 - BF
     null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 
     // C0 - CF
-    null, null, null, null, null, Z80._ops.PUSH_bc, null, null, null, null, null, Z80._ops.map_to_CB, null, Z80._ops.CALL_nn, null, null, 
+    null, Z80._ops.POP_bc, null, null, null, Z80._ops.PUSH_bc, null, null, null, Z80._ops.RET, null, Z80._ops.map_to_CB, null, Z80._ops.CALL_nn, null, null, 
     // D0 - DF
     null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 
     // E0 - EF
@@ -438,7 +504,7 @@ Z80._cbMap = [
     // 00 - 0F
     null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 
     // 10 - 1F
-    null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 
+    null, Z80._ops.RL_c, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 
     // 20 - 2F
     null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 
     // 30 - 3F
