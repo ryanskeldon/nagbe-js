@@ -11,7 +11,7 @@ MMU = {
 
     init: function() {
         MMU.reset();
-        
+
         var loadBios = new XMLHttpRequest();
         loadBios.open('GET', '/bios.bin', true);
         loadBios.responseType = 'arraybuffer';         
@@ -23,7 +23,7 @@ MMU = {
         };
          
         loadBios.send();
-
+    
         var loadRom = new XMLHttpRequest();
         loadRom.open('GET', '/roms/tetris.gb', true);
         loadRom.responseType = 'arraybuffer';         
@@ -55,7 +55,7 @@ MMU = {
                     if (address < 0x0100)
                         return MMU._bios[address];
                     else if (Z80._register.pc === 0x0100) {
-                        log.write("MMU", "Leaving BIOS");
+                        traceLog.write("MMU", "Leaving BIOS");
                         MMU._biosEnabled = false;
                     } else {
                         return MMU._rom[address];
@@ -121,7 +121,7 @@ MMU = {
                         break;
 
                     default:
-                        log.write("MMU", "INVALID ADDRESS SPACE @ $0x" + address.toString(16) + "\tValue: 0x" + byte.toString(16));
+                        traceLog.write("MMU", "INVALID ADDRESS SPACE @ $0x" + address.toString(16) + "\tValue: 0x" + byte.toString(16));
                 }
 
             default:
@@ -142,29 +142,29 @@ MMU = {
             case 0x5000:
             case 0x6000:
             case 0x7000:
+                traceLog.write("MMU", "Writing to ROM space @ $0x" + address.toString(16) + "\tValue: 0x" + byte.toString(16));
                 throw "Writes to $0x" + address.toString(16) + " not implemented.";
-                log.write("MMU", "Writing to ROM space @ $0x" + address.toString(16) + "\tValue: 0x" + byte.toString(16));
                 break;
 
             // VRAM
             case 0x8000:
             case 0x9000:
-                //log.write("MMU", "Writing to gpu ram space @ $0x" + address.toString(16));
+                //traceLog.write("MMU", "Writing to gpu ram space @ $0x" + address.toString(16));
                 MMU._vram[address & 0x1FFF] = byte;
                 break;
 
             // External RAM
             case 0xA000:
             case 0xB000:
+                traceLog.write("MMU", "Writing to external RAM @ $0x" + address.toString(16) + "\tValue: 0x" + byte.toString(16));
                 throw "Writes to $0x" + address.toString(16) + " not implemented.";
-                log.write("MMU", "Writing to external RAM @ $0x" + address.toString(16) + "\tValue: 0x" + byte.toString(16));
                 break;
 
             // Working RAM
             case 0xC000:
             case 0xD000:
+                traceLog.write("MMU", "Writing to working RAM @ $0x" + address.toString(16) + "\tValue: 0x" + byte.toString(16));
                 throw "Writes to $0x" + address.toString(16) + " not implemented.";
-                log.write("MMU", "Writing to working RAM @ $0x" + address.toString(16) + "\tValue: 0x" + byte.toString(16));
                 break;
 
             case 0xE000:
@@ -184,29 +184,29 @@ MMU = {
                     case 0xB00:
                     case 0xC00:
                     case 0xD00:
-                        log.write("MMU", "Writing to working RAM (shadow) @ $0x" + address.toString(16) + "\tValue: 0x" + byte.toString(16));
+                        traceLog.write("MMU", "Writing to working RAM (shadow) @ $0x" + address.toString(16) + "\tValue: 0x" + byte.toString(16));
                         MMU._wram[address & 0x1FFF] = byte;
                         break;
 
                     case 0xE00:
                         if (address <= 0xFE9F) {
+                            traceLog.write("MMU", "**DUMMY** Writing to Sprite Attribute Table (OAM) @ $0x" + address.toString(16) + "\tValue: 0x" + byte.toString(16));
                             throw "Writes to $0x" + address.toString(16) + " not implemented.";
-                            log.write("MMU", "**DUMMY** Writing to Sprite Attribute Table (OAM) @ $0x" + address.toString(16) + "\tValue: 0x" + byte.toString(16));
                         }
                         break;
 
                         // Nothing usable until 0xFF00.
                     case 0xF00:
                         if (address > 0xFF7F) { // Zero-page RAM aka the stack
-                            log.write("MMU", "Writing to stack @ $0x" + address.toString(16) + "\tValue: 0x" + byte.toString(16));
+                            traceLog.write("MMU", "Writing to stack @ $0x" + address.toString(16) + "\tValue: 0x" + byte.toString(16));
                             MMU._zram[address & 0x7F] = byte;
                         } else { // I/O ports
-                            log.write("MMU", "**DUMMY** Writing to I/O ports @ $0x" + address.toString(16) + "\tValue: 0x" + byte.toString(16));
+                            traceLog.write("MMU", "**DUMMY** Writing to I/O ports @ $0x" + address.toString(16) + "\tValue: 0x" + byte.toString(16));
                         }
                         break;
 
                     default:
-                        log.write("MMU", "INVALID ADDRESS SPACE @ $0x" + address.toString(16) + "\tValue: 0x" + byte.toString(16));
+                        traceLog.write("MMU", "INVALID ADDRESS SPACE @ $0x" + address.toString(16) + "\tValue: 0x" + byte.toString(16));
                 }
 
                 break; // TODO: Handle audio writes.

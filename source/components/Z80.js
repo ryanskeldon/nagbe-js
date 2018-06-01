@@ -12,20 +12,20 @@ Z80 = {
 
     _debug: {
         reg_dump: function () {
-            log.write("Z80", "--- DUMP--- ");
-            log.write("Z80", "A: 0x" + Z80._register.a.toString(16));
-            log.write("Z80", "B: 0x" + Z80._register.b.toString(16));
-            log.write("Z80", "C: 0x" + Z80._register.c.toString(16));
-            log.write("Z80", "D: 0x" + Z80._register.d.toString(16));
-            log.write("Z80", "E: 0x" + Z80._register.e.toString(16));
-            log.write("Z80", "H: 0x" + Z80._register.h.toString(16));
-            log.write("Z80", "L: 0x" + Z80._register.l.toString(16));
-            log.write("Z80", "F: 0x" + Z80._register.f.toString(16));
-            log.write("Z80", "PC: 0x" + Z80._register.pc.toString(16));
-            log.write("Z80", "SP: 0x" + Z80._register.sp.toString(16));
-            log.write("Z80", "BC: 0x" + ((Z80._register.b<<8)+Z80._register.c).toString(16));
-            log.write("Z80", "DE: 0x" + ((Z80._register.d<<8)+Z80._register.e).toString(16));
-            log.write("Z80", "HL: 0x" + ((Z80._register.h<<8)+Z80._register.l).toString(16));
+            traceLog.write("Z80", "--- DUMP--- ");
+            traceLog.write("Z80", "A: 0x" + Z80._register.a.toString(16));
+            traceLog.write("Z80", "B: 0x" + Z80._register.b.toString(16));
+            traceLog.write("Z80", "C: 0x" + Z80._register.c.toString(16));
+            traceLog.write("Z80", "D: 0x" + Z80._register.d.toString(16));
+            traceLog.write("Z80", "E: 0x" + Z80._register.e.toString(16));
+            traceLog.write("Z80", "H: 0x" + Z80._register.h.toString(16));
+            traceLog.write("Z80", "L: 0x" + Z80._register.l.toString(16));
+            traceLog.write("Z80", "F: 0x" + Z80._register.f.toString(16));
+            traceLog.write("Z80", "PC: 0x" + Z80._register.pc.toString(16));
+            traceLog.write("Z80", "SP: 0x" + Z80._register.sp.toString(16));
+            traceLog.write("Z80", "BC: 0x" + ((Z80._register.b<<8)+Z80._register.c).toString(16));
+            traceLog.write("Z80", "DE: 0x" + ((Z80._register.d<<8)+Z80._register.e).toString(16));
+            traceLog.write("Z80", "HL: 0x" + ((Z80._register.h<<8)+Z80._register.l).toString(16));
         }
     },
 
@@ -56,18 +56,18 @@ Z80 = {
             var opCode = MMU.readByte(Z80._register.pc++);
             
             try {
-                log.write("Z80", "$0x" + (Z80._register.pc-1).toString(16) + "\tOP: 0x" + opCode.toString(16));
+                traceLog.write("Z80", "$0x" + (Z80._register.pc-1).toString(16) + "\tOP: 0x" + opCode.toString(16));
                 Z80._map[opCode]();
-                Z80._clock.t += Z80._register.t;
+                Z80._clock.t += Z80._register.t;                
             } catch (error) {
                 console.log(error);
-                log.write("Z80", "OpCode error @ $0x" + (Z80._register.pc-1).toString(16) + "\tOpcode 0x" + opCode.toString(16));
+                traceLog.write("Z80", "OpCode error @ $0x" + (Z80._register.pc-1).toString(16) + "\tOpcode 0x" + opCode.toString(16));
                 
                 break;
             }
         }
 
-        if (Z80._register.pc === 0x100) log.write("Z80", "BIOS load complete!");
+        if (Z80._register.pc === 0x100) traceLog.write("Z80", "BIOS load complete!");
     },
 
     reset: function () {
@@ -200,6 +200,31 @@ Z80 = {
         LD_a_a: function () { // 0x7F LD A, A
             Z80._register.a = Z80._register.a; Z80._register.t = 4;
         },
+        LD_a_b: function () { // 0x78 LD A, B
+            Z80._register.a = Z80._register.b; Z80._register.t = 4;
+        },
+        LD_a_c: function () { // 0x79F LD A, C
+            Z80._register.a = Z80._register.c; Z80._register.t = 4;
+        },
+        LD_a_d: function () { // 0x7A LD A, D
+            Z80._register.a = Z80._register.d; Z80._register.t = 4;
+        },
+        LD_a_e: function () { // 0x7B LD A, E
+            Z80._register.a = Z80._register.e; Z80._register.t = 4;
+        },
+        LD_a_h: function () { // 0x7C LD A, H
+            Z80._register.a = Z80._register.h; Z80._register.t = 4;
+        },
+        LD_a_l: function () { // 0x7D LD A, L
+            Z80._register.a = Z80._register.l; Z80._register.t = 4;
+        },
+        LD_a16_a: function () { // 0xEA LD (a16), A
+            let address = MMU.readWord(Z80._register.pc);
+            Z80._register.pc+=2;
+            MMU.writeByte(address, Z80._register.a);
+            Z80._register.t = 16;
+        },
+
         LD_b_a: function () { // 0x47 LD B, A
             Z80._register.b = Z80._register.a; Z80._register.t = 4;
         },
@@ -289,11 +314,39 @@ Z80 = {
 
 
         // Jumps
+        JR_n: function () { // 0x18 JR n
+            let move = MMU.readByte(Z80._register.pc++);
+
+            if (move > 127) { // move is signed byte.
+                // Calculate the 2's compliment and make it a negative.
+                move = -((~move+1)&255);
+            }
+
+            Z80._register.pc = Z80._register.pc + move; // Move PC the number of bytes in the next address.
+            Z80._register.t = 12;                       // Set operation time.
+        },
         JR_nz_n: function () { // 0x20
             let move = MMU.readByte(Z80._register.pc++);
 
             // Check if Zero flag is set.
             if (!(Z80._register.f & Z80._flags.zero)) {                
+
+                if (move > 127) { // move is signed byte.
+                    // Calculate the 2's compliment and make it a negative.
+                    move = -((~move+1)&255);
+                }
+
+                Z80._register.pc = Z80._register.pc + move; // Move PC the number of bytes in the next address.
+                Z80._register.t = 12;                       // Set operation time.
+            } else {
+                Z80._register.t = 8;                        // Set operation time.
+            }
+        },
+        JR_z_n: function () { // 0x28
+            let move = MMU.readByte(Z80._register.pc++);
+
+            // Check if Zero flag is set.
+            if (Z80._register.f & Z80._flags.zero) {
 
                 if (move > 127) { // move is signed byte.
                     // Calculate the 2's compliment and make it a negative.
@@ -333,7 +386,20 @@ Z80 = {
             Z80._register.t = 12;
         },
 
-  
+
+        // Compares
+        CP_n: function () { // 0xFE CP #
+            let value = MMU.readByte(Z80._register.pc++); // Read next byte to use as comparison.
+            let result = Z80._register.a-value;           // Don't mask to 8-bit.
+
+            Z80._register.f = Z80._flags.subtraction;                                                    // Subtraction must be set.
+            Z80._register.f |= result&255 ? 0 : Z80._flags.zero;                                         // Check for zero.
+            Z80._register.f |= result < 0 ? Z80._flags.carry : 0;                                        // Check for no borrow.
+            Z80._register.f |= (Z80._register.a ^ value ^ (result&255))&0x10 ? Z80._flags.halfCarry : 0; // Check for half-borrow.
+            Z80._register.t = 8;
+        },
+
+        
         // XORs
         XOR_a: function () { // 0xAF            
             Z80._register.a ^= Z80._register.a;                         // XOR register A with register A.
@@ -405,7 +471,17 @@ Z80 = {
             Z80._register.t = 8;                                                        // Set operation time.
         },
 
+
         // Decrements
+        DEC_a: function () { // 0x3D DEC A
+            Z80._register.f = Z80._flags.subtraction;                 // Set subtraction flag.
+            let intermediate = Z80._register.a - 1;                   // Calculate carry bit.
+            let carry = (Z80._register.a ^ 1 ^ intermediate);
+            Z80._register.a = (Z80._register.a-1)&255;                // Subtract 1 and mask to 8-bit.
+            Z80._register.f |= carry & Z80._flags.halfCarry ? 0 : 1;  // Check for borrow
+            Z80._register.f |= Z80._register.a ? 0 : Z80._flags.zero; // Check for zero.
+            Z80._register.t = 4;
+        },
         DEC_b: function () { // 0x05 DEC B
             Z80._register.f = Z80._flags.subtraction;                 // Set subtraction flag.
             let intermediate = Z80._register.b - 1;                   // Calculate carry bit.
@@ -413,6 +489,51 @@ Z80 = {
             Z80._register.b = (Z80._register.b-1)&255;                // Subtract 1 and mask to 8-bit.
             Z80._register.f |= carry & Z80._flags.halfCarry ? 0 : 1;  // Check for borrow
             Z80._register.f |= Z80._register.b ? 0 : Z80._flags.zero; // Check for zero.
+            Z80._register.t = 4;
+        },
+        DEC_c: function () { // 0x0D DEC C
+            Z80._register.f = Z80._flags.subtraction;                 // Set subtraction flag.
+            let intermediate = Z80._register.c - 1;                   // Calculate carry bit.
+            let carry = (Z80._register.c ^ 1 ^ intermediate);
+            Z80._register.c = (Z80._register.c-1)&255;                // Subtract 1 and mask to 8-bit.
+            Z80._register.f |= carry & Z80._flags.halfCarry ? 0 : 1;  // Check for borrow
+            Z80._register.f |= Z80._register.c ? 0 : Z80._flags.zero; // Check for zero.
+            Z80._register.t = 4;
+        },
+        DEC_d: function () { // 0x15 DEC D
+            Z80._register.f = Z80._flags.subtraction;                 // Set subtraction flag.
+            let intermediate = Z80._register.d - 1;                   // Calculate carry bit.
+            let carry = (Z80._register.d ^ 1 ^ intermediate);
+            Z80._register.d = (Z80._register.d-1)&255;                // Subtract 1 and mask to 8-bit.
+            Z80._register.f |= carry & Z80._flags.halfCarry ? 0 : 1;  // Check for borrow
+            Z80._register.f |= Z80._register.d ? 0 : Z80._flags.zero; // Check for zero.
+            Z80._register.t = 4;
+        },
+        DEC_e: function () { // 0x1D DEC e
+            Z80._register.f = Z80._flags.subtraction;                 // Set subtraction flag.
+            let intermediate = Z80._register.e - 1;                   // Calculate carry bit.
+            let carry = (Z80._register.e ^ 1 ^ intermediate);
+            Z80._register.e = (Z80._register.e-1)&255;                // Subtract 1 and mask to 8-bit.
+            Z80._register.f |= carry & Z80._flags.halfCarry ? 0 : 1;  // Check for borrow
+            Z80._register.f |= Z80._register.e ? 0 : Z80._flags.zero; // Check for zero.
+            Z80._register.t = 4;
+        },
+        DEC_h: function () { // 0x25 DEC H
+            Z80._register.f = Z80._flags.subtraction;                 // Set subtraction flag.
+            let intermediate = Z80._register.h - 1;                   // Calculate carry bit.
+            let carry = (Z80._register.h ^ 1 ^ intermediate);
+            Z80._register.h = (Z80._register.h-1)&255;                // Subtract 1 and mask to 8-bit.
+            Z80._register.f |= carry & Z80._flags.halfCarry ? 0 : 1;  // Check for borrow
+            Z80._register.f |= Z80._register.h ? 0 : Z80._flags.zero; // Check for zero.
+            Z80._register.t = 4;
+        },
+        DEC_l: function () { // 0x2D DEC L
+            Z80._register.f = Z80._flags.subtraction;                 // Set subtraction flag.
+            let intermediate = Z80._register.l - 1;                   // Calculate carry bit.
+            let carry = (Z80._register.l ^ 1 ^ intermediate);
+            Z80._register.l = (Z80._register.l-1)&255;                // Subtract 1 and mask to 8-bit.
+            Z80._register.f |= carry & Z80._flags.halfCarry ? 0 : 1;  // Check for borrow
+            Z80._register.f |= Z80._register.l ? 0 : Z80._flags.zero; // Check for zero.
             Z80._register.t = 4;
         },
 
@@ -447,7 +568,7 @@ Z80 = {
         // Misc OpCodes
         map_to_CB: function () { // 0xcb            
             let cbAddress = MMU.readByte(Z80._register.pc++);   // Read next byte for the address of the CB code.            
-            log.write("Z80", "\tCB OP: 0x" + cbAddress.toString(16));
+            traceLog.write("Z80", "\tCB OP: 0x" + cbAddress.toString(16));
             Z80._cbMap[cbAddress]();                            // Run the OpCode in the CB map.            
             Z80._register.pc &= 65535;                          // Mask the PC to 16-bit.
             Z80._register.m = 1; Z80._register.t = 4;           // Set operation time.
@@ -467,13 +588,13 @@ Z80 = {
 
 Z80._map = [
     // 00 - 0F
-    Z80._ops.NOP, Z80._ops.LD_bc_nn, Z80._ops.LD_bc_a, null, Z80._ops.INC_b, Z80._ops.DEC_b, Z80._ops.LD_b_n, null, null, null, Z80._ops.LD_a_bc, null, Z80._ops.INC_c, null, Z80._ops.LD_c_n, null, 
+    Z80._ops.NOP, Z80._ops.LD_bc_nn, Z80._ops.LD_bc_a, null, Z80._ops.INC_b, Z80._ops.DEC_b, Z80._ops.LD_b_n, null, null, null, Z80._ops.LD_a_bc, null, Z80._ops.INC_c, Z80._ops.DEC_c, Z80._ops.LD_c_n, null, 
     // 10 - 1F
-    null, Z80._ops.LD_de_nn, Z80._ops.LD_de_a, Z80._ops.INC_de, Z80._ops.INC_d, null, Z80._ops.LD_d_n, Z80._ops.RLA, null, null, Z80._ops.LD_a_de, null, Z80._ops.INC_e, null, Z80._ops.LD_e_n, null, 
+    null, Z80._ops.LD_de_nn, Z80._ops.LD_de_a, Z80._ops.INC_de, Z80._ops.INC_d, Z80._ops.DEC_d, Z80._ops.LD_d_n, Z80._ops.RLA, Z80._ops.JR_n, null, Z80._ops.LD_a_de, null, Z80._ops.INC_e, Z80._ops.DEC_e, Z80._ops.LD_e_n, null, 
     // 20 - 2F
-    Z80._ops.JR_nz_n, Z80._ops.LD_hl_nn, Z80._ops.LD_hli_a, Z80._ops.INC_hl, Z80._ops.INC_h, null, Z80._ops.LD_h_n, null, null, null, null, null, Z80._ops.INC_l, null, Z80._ops.LD_l_n, null, 
+    Z80._ops.JR_nz_n, Z80._ops.LD_hl_nn, Z80._ops.LD_hli_a, Z80._ops.INC_hl, Z80._ops.INC_h, Z80._ops.DEC_h, Z80._ops.LD_h_n, null, Z80._ops.JR_z_n, null, null, null, Z80._ops.INC_l, Z80._ops.DEC_l, Z80._ops.LD_l_n, null, 
     // 30 - 3F
-    null, Z80._ops.LD_sp_nn, Z80._ops.LD_hld_a, null, null, null, null, null, null, null, null, null, Z80._ops.INC_a, null, Z80._ops.LD_a_n, null, 
+    null, Z80._ops.LD_sp_nn, Z80._ops.LD_hld_a, null, null, null, null, null, null, null, null, null, Z80._ops.INC_a, Z80._ops.DEC_a, Z80._ops.LD_a_n, null, 
     // 40 - 4F
     null, null, null, null, null, null, null, Z80._ops.LD_b_a, null, null, null, null, null, null, null, Z80._ops.LD_c_a, 
     // 50 - 5F
@@ -481,7 +602,7 @@ Z80._map = [
     // 60 - 6F
     null, null, null, null, null, null, null, Z80._ops.LD_h_a, null, null, null, null, null, null, null, Z80._ops.LD_l_a, 
     // 70 - 7F
-    null, null, null, null, null, null, null, Z80._ops.LD_hl_a, null, null, null, null, null, null, null, Z80._ops.LD_a_a, 
+    null, null, null, null, null, null, null, Z80._ops.LD_hl_a, Z80._ops.LD_a_b, Z80._ops.LD_a_c, Z80._ops.LD_a_d, Z80._ops.LD_a_e, Z80._ops.LD_a_h, Z80._ops.LD_a_l, null, Z80._ops.LD_a_a, 
     // 80 - 8F
     Z80._ops.ADD_b, Z80._ops.ADD_c, Z80._ops.ADD_d, Z80._ops.ADD_e, Z80._ops.ADD_h, Z80._ops.ADD_l, Z80._ops.ADD_hl, Z80._ops.ADD_a, null, null, null, null, null, null, null, null, 
     // 90 - 9F
@@ -495,9 +616,9 @@ Z80._map = [
     // D0 - DF
     null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 
     // E0 - EF
-    Z80._ops.LDH_n_a, null, Z80._ops.LD_cio_a, null, null, null, null, null, null, null, null, null, null, null, null, null, 
+    Z80._ops.LDH_n_a, null, Z80._ops.LD_cio_a, null, null, null, null, null, null, null, Z80._ops.LD_a16_a, null, null, null, null, null, 
     // F0 - FF
-    null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null
+    null, null, null, null, null, null, null, null, null, null, null, null, null, null, Z80._ops.CP_n, null
 ];
 
 Z80._cbMap = [
