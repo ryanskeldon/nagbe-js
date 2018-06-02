@@ -51,24 +51,24 @@ assert(Z80._flags.halfCarry, Z80._register.f & Z80._flags.halfCarry, "inc a half
 Z80.reset();
 Z80._register.f = 0;
 Z80._register.c = 0x80;
-Z80._ops.RL_c();
+Z80._ops.RL_C();
 assert(Z80._flags.carry, Z80._register.f & Z80._flags.carry, "rl c carry check true failed.");
 
 Z80.reset();
 Z80._register.f = Z80._flags.carry;
 Z80._register.c = 0x00;
-Z80._ops.RL_c();
+Z80._ops.RL_C();
 assert(Z80._flags.carry, Z80._register.f & Z80._flags.carry, "rl c carry check false failed.");
 
 Z80.reset();
 Z80._register.f = Z80._flags.carry;
 Z80._register.c = 0x10;
-Z80._ops.RL_c();
+Z80._ops.RL_C();
 assert(0x21, Z80._register.c, "rl c value check failed.");
 
 Z80.reset();
 Z80._register.b = 1;
-Z80._ops.DEC_b();
+Z80._map[0x05]();
 assert(0, Z80._register.b, "dec b value check failed");
 assert(Z80._flags.subtraction, Z80._register.f & Z80._flags.subtraction, "dec b sub flag failed");
 assert(Z80._flags.zero, Z80._register.f & Z80._flags.zero, "dec b sub flag failed");

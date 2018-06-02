@@ -6,6 +6,7 @@ MMU = {
     _eram: [], // External RAM
     _wram: [], // Working RAM
     _zram: [], // Zero-page RAM
+    _ioram: [], // I/O
 
     _biosEnabled: true,
 
@@ -44,6 +45,7 @@ MMU = {
         for (var i = 0; i < 8192; i++) MMU._wram[i] = 0;  // Reset Working RAM (8kB)       
         for (var i = 0; i < 8192; i++) MMU._vram[i] = 0;  // Reset Video RAM (8kB)       
         for (var i = 0; i < 128; i++) MMU._zram[i] = 0;   // Reset Zero-page RAM (128B)
+        for (var i = 0; i < 128; i++) MMU._ioram[i] = 0;   // Reset I/O RAM (128B)
     },
 
     readByte: function (address) {
@@ -54,12 +56,8 @@ MMU = {
                 if (MMU._biosEnabled) {
                     if (address < 0x0100)
                         return MMU._bios[address];
-                    else if (Z80._register.pc === 0x0100) {
-                        traceLog.write("MMU", "Leaving BIOS");
-                        MMU._biosEnabled = false;
-                    } else {
-                        return MMU._rom[address];
-                    }
+                    else
+                        return MMU._rom[address];                    
                 } else {
                     return MMU._rom[address];
                 }
@@ -112,12 +110,17 @@ MMU = {
                         throw "Error: Reads not implemented at $0x" + address.toString(16);
 
                     case 0xF00:
-                        if (address > 0xFF7F) { // Zero-page RAM aka the stack
+                        if (address > 0xFF7F)
                             return MMU._zram[address & 0x7F];
-                        } else {
-                            // I/O ports
-                            throw "Error: Reads not implemented at $0x" + address.toString(16);
-                        }
+
+                        // I/O ports
+                        if (address >= 0xFF40 && address <= 0xFF4B)
+                            return GPU.readByte(address);
+
+                        throw "Error: Reads not implemented at $0x" + address.toString(16);
+
+                        return MMU._ioram[address & 0x7F];
+
                         break;
 
                     default:
@@ -200,8 +203,18 @@ MMU = {
                         if (address > 0xFF7F) { // Zero-page RAM aka the stack
                             traceLog.write("MMU", "Writing to stack @ $0x" + address.toString(16) + "\tValue: 0x" + byte.toString(16));
                             MMU._zram[address & 0x7F] = byte;
-                        } else { // I/O ports
-                            traceLog.write("MMU", "**DUMMY** Writing to I/O ports @ $0x" + address.toString(16) + "\tValue: 0x" + byte.toString(16));
+                        } 
+                        else if (address >= 0xFF40 && address <= 0xFF4B) {
+                            // GPU registers
+                            GPU.writeByte(address, byte);
+                        }
+                        else { // I/O ports                            
+                            traceLog.write("MMU", "Writing to I/O ports @ $0x" + address.toString(16) + "\tValue: 0x" + byte.toString(16));
+                            MMU._ioram[address & 0x7F] = byte;
+
+                            if (address === 0xFF50 && byte === 1) {
+                                MMU._biosEnabled = false;
+                            }
                         }
                         break;
 

@@ -53,21 +53,28 @@ Z80 = {
 
     start: function () {
         while (true) {
+            if (Z80._register.pc === 0x100) {
+                console.log("BIOS load complete!");
+                traceLog.write("Z80", "BIOS load complete!");
+                break;
+            }
+
             var opCode = MMU.readByte(Z80._register.pc++);
-            
+            Z80._register.pc &= 0xFFFF;
+
             try {
                 traceLog.write("Z80", "$0x" + (Z80._register.pc-1).toString(16) + "\tOP: 0x" + opCode.toString(16));
                 Z80._map[opCode]();
-                Z80._clock.t += Z80._register.t;                
-            } catch (error) {
-                console.log(error);
-                traceLog.write("Z80", "OpCode error @ $0x" + (Z80._register.pc-1).toString(16) + "\tOpcode 0x" + opCode.toString(16));
+                Z80._clock.t += Z80._register.t; 
                 
+                GPU.step();                
+            } catch (error) {
+                console.log("OpCode error @ $0x" + (Z80._register.pc-1).toString(16) + "\tOpcode 0x" + opCode.toString(16));
+                console.log(error);
+                traceLog.write("Z80", "OpCode error @ $0x" + (Z80._register.pc-1).toString(16) + "\tOpcode 0x" + opCode.toString(16));                
                 break;
             }
         }
-
-        if (Z80._register.pc === 0x100) traceLog.write("Z80", "BIOS load complete!");
     },
 
     reset: function () {
@@ -90,94 +97,140 @@ Z80 = {
     },
 
     _ops: {
-        // Adders
-        ADD_a: function () { // 0x87
-            let a = Z80._register.a;                                                        // Store original value for reference.        
-            Z80._register.f = 0;                                                            // Clear flags.
-            Z80._register.a += Z80._register.a;                                             // Add B to A.                              
-            if (Z80._register.a > 255) Z80._register.f |= Z80._flags.carry;                 // Check for carry.        
-            Z80._register.a &= 255;                                                         // Mask to 8-bit.       
-            if (!(Z80._register.a & 255)) Z80._register.f |= Z80._flags.zero;               // Check for zero.        
-            if (((a & 0xf) + (a & 0xf)) & 0x10) Z80._register.f |= Z80._flags.halfCarry;    // Check for half-carry.        
-            Z80._register.t = 4;                                                            // Set operation time.
+        // ADD A, n
+        ADD_A_A: function () { // 0x87
+            let a = Z80._register.a;                                                        
+            Z80._register.f = 0;                                                            
+            Z80._register.a += Z80._register.a;                                                                          
+            if (Z80._register.a > 255) Z80._register.f |= Z80._flags.carry;                 
+            Z80._register.a &= 255;                                                         
+            if (!(Z80._register.a)) Z80._register.f |= Z80._flags.zero;               
+            if (((a & 0xf) + (a & 0xf)) > 0xf) Z80._register.f |= Z80._flags.halfCarry;    
+            Z80._register.t = 4;                                                            
         },
-        ADD_b: function () { // 0x80
-            let a = Z80._register.a;                                                                    // Store original value for reference.        
-            Z80._register.f = 0;                                                                        // Clear flags.
-            Z80._register.a += Z80._register.b;                                                         // Add B to A.                              
-            if (Z80._register.a > 255) Z80._register.f |= Z80._flags.carry;                             // Check for carry.        
-            Z80._register.a &= 255;                                                                     // Mask to 8-bit.       
-            if (!(Z80._register.a & 255)) Z80._register.f |= Z80._flags.zero;                           // Check for zero.        
-            if (((a & 0xf) + (Z80._register.b & 0xf)) & 0x10) Z80._register.f |= Z80._flags.halfCarry;  // Check for half-carry.        
-            Z80._register.t = 4;                                                                        // Set operation time.
+        ADD_A_B: function () { // 0x80
+            let a = Z80._register.a;                                                        
+            Z80._register.f = 0;                                                            
+            Z80._register.a += Z80._register.b;
+            if (Z80._register.a > 255) Z80._register.f |= Z80._flags.carry;                 
+            Z80._register.a &= 255;                                                         
+            if (!(Z80._register.a)) Z80._register.f |= Z80._flags.zero;               
+            if (((a & 0xf) + (Z80._register.b & 0xf)) > 0xf) Z80._register.f |= Z80._flags.halfCarry;    
+            Z80._register.t = 4;
         },
-        ADD_c: function () { // 0x81
-            let a = Z80._register.a;                                                                    // Store original value for reference.        
-            Z80._register.f = 0;                                                                        // Clear flags.
-            Z80._register.a += Z80._register.c;                                                         // Add B to A.                              
-            if (Z80._register.a > 255) Z80._register.f |= Z80._flags.carry;                             // Check for carry.        
-            Z80._register.a &= 255;                                                                     // Mask to 8-bit.       
-            if (!(Z80._register.a & 255)) Z80._register.f |= Z80._flags.zero;                           // Check for zero.        
-            if (((a & 0xf) + (Z80._register.c & 0xf)) & 0x10) Z80._register.f |= Z80._flags.halfCarry;  // Check for half-carry.        
-            Z80._register.t = 4;                                                                        // Set operation time.
+        ADD_A_C: function () { // 0x81
+            let a = Z80._register.a;                                                        
+            Z80._register.f = 0;                                                            
+            Z80._register.a += Z80._register.c;
+            if (Z80._register.a > 255) Z80._register.f |= Z80._flags.carry;                 
+            Z80._register.a &= 255;                                                         
+            if (!(Z80._register.a)) Z80._register.f |= Z80._flags.zero;               
+            if (((a & 0xf) + (Z80._register.c & 0xf)) > 0xf) Z80._register.f |= Z80._flags.halfCarry;    
+            Z80._register.t = 4;
         },
-        ADD_d: function () { // 0x82
-            let a = Z80._register.a;                                                                    // Store original value for reference.        
-            Z80._register.f = 0;                                                                        // Clear flags.
-            Z80._register.a += Z80._register.d;                                                         // Add B to A.                              
-            if (Z80._register.a > 255) Z80._register.f |= Z80._flags.carry;                             // Check for carry.        
-            Z80._register.a &= 255;                                                                     // Mask to 8-bit.       
-            if (!(Z80._register.a & 255)) Z80._register.f |= Z80._flags.zero;                           // Check for zero.        
-            if (((a & 0xf) + (Z80._register.d & 0xf)) & 0x10) Z80._register.f |= Z80._flags.halfCarry;  // Check for half-carry.        
-            Z80._register.t = 4;                                                                        // Set operation time.
+        ADD_A_D: function () { // 0x82
+            let a = Z80._register.a;                                                        
+            Z80._register.f = 0;                                                            
+            Z80._register.a += Z80._register.d;
+            if (Z80._register.a > 255) Z80._register.f |= Z80._flags.carry;                 
+            Z80._register.a &= 255;                                                         
+            if (!(Z80._register.a)) Z80._register.f |= Z80._flags.zero;               
+            if (((a & 0xf) + (Z80._register.d & 0xf)) > 0xf) Z80._register.f |= Z80._flags.halfCarry;    
+            Z80._register.t = 4;
         },
-        ADD_e: function () { // 0x83
-            let a = Z80._register.a;                                                                    // Store original value for reference.        
-            Z80._register.f = 0;                                                                        // Clear flags.
-            Z80._register.a += Z80._register.e;                                                         // Add B to A.                              
-            if (Z80._register.a > 255) Z80._register.f |= Z80._flags.carry;                             // Check for carry.        
-            Z80._register.a &= 255;                                                                     // Mask to 8-bit.       
-            if (!(Z80._register.a & 255)) Z80._register.f |= Z80._flags.zero;                           // Check for zero.        
-            if (((a & 0xf) + (Z80._register.e & 0xf)) & 0x10) Z80._register.f |= Z80._flags.halfCarry;  // Check for half-carry.        
-            Z80._register.t = 4;                                                                        // Set operation time.
+        ADD_A_E: function () { // 0x83
+            let a = Z80._register.a;                                                        
+            Z80._register.f = 0;                                                            
+            Z80._register.a += Z80._register.e;
+            if (Z80._register.a > 255) Z80._register.f |= Z80._flags.carry;                 
+            Z80._register.a &= 255;                                                         
+            if (!(Z80._register.a)) Z80._register.f |= Z80._flags.zero;               
+            if (((a & 0xf) + (Z80._register.e & 0xf)) > 0xf) Z80._register.f |= Z80._flags.halfCarry;    
+            Z80._register.t = 4;
         },
-        ADD_h: function () { // 0x84
-            let a = Z80._register.a;                                                                    // Store original value for reference.        
-            Z80._register.f = 0;                                                                        // Clear flags.
-            Z80._register.a += Z80._register.h;                                                         // Add B to A.                              
-            if (Z80._register.a > 255) Z80._register.f |= Z80._flags.carry;                             // Check for carry.        
-            Z80._register.a &= 255;                                                                     // Mask to 8-bit.       
-            if (!(Z80._register.a & 255)) Z80._register.f |= Z80._flags.zero;                           // Check for zero.        
-            if (((a & 0xf) + (Z80._register.h & 0xf)) & 0x10) Z80._register.f |= Z80._flags.halfCarry;  // Check for half-carry.        
-            Z80._register.t = 4;                                                                        // Set operation time.
+        ADD_A_H: function () { // 0x84
+            let a = Z80._register.a;                                                        
+            Z80._register.f = 0;                                                            
+            Z80._register.a += Z80._register.h;
+            if (Z80._register.a > 255) Z80._register.f |= Z80._flags.carry;                 
+            Z80._register.a &= 255;                                                         
+            if (!(Z80._register.a)) Z80._register.f |= Z80._flags.zero;               
+            if (((a & 0xf) + (Z80._register.h & 0xf)) > 0xf) Z80._register.f |= Z80._flags.halfCarry;    
+            Z80._register.t = 4;
         },
-        ADD_l: function () { // 0x85
-            let a = Z80._register.a;                                                                    // Store original value for reference.        
-            Z80._register.f = 0;                                                                        // Clear flags.
-            Z80._register.a += Z80._register.l;                                                         // Add B to A.                              
-            if (Z80._register.a > 255) Z80._register.f |= Z80._flags.carry;                             // Check for carry.        
-            Z80._register.a &= 255;                                                                     // Mask to 8-bit.       
-            if (!(Z80._register.a & 255)) Z80._register.f |= Z80._flags.zero;                           // Check for zero.        
-            if (((a & 0xf) + (Z80._register.l & 0xf)) & 0x10) Z80._register.f |= Z80._flags.halfCarry;  // Check for half-carry.        
-            Z80._register.t = 4;                                                                        // Set operation time.
+        ADD_A_L: function () { // 0x85
+            let a = Z80._register.a;                                                        
+            Z80._register.f = 0;                                                            
+            Z80._register.a += Z80._register.l;
+            if (Z80._register.a > 255) Z80._register.f |= Z80._flags.carry;                 
+            Z80._register.a &= 255;                                                         
+            if (!(Z80._register.a)) Z80._register.f |= Z80._flags.zero;               
+            if (((a & 0xf) + (Z80._register.l & 0xf)) > 0xf) Z80._register.f |= Z80._flags.halfCarry;    
+            Z80._register.t = 4;
         },
-        ADD_hl: function () { // 0x86
-            let a = Z80._register.a;                                                        // Store original value for reference.        
-            let hl = MMU.readByte((Z80._register.h<<8)+Z80._register.l); 
-            Z80._register.f = 0;                                                            // Clear flags.
-            Z80._register.a += hl;                                                          // Add B to A.                              
-            if (Z80._register.a > 255) Z80._register.f |= Z80._flags.carry;                 // Check for carry.        
-            Z80._register.a &= 255;                                                         // Mask to 8-bit.       
-            if (!(Z80._register.a & 255)) Z80._register.f |= Z80._flags.zero;               // Check for zero.        
-            if (((a & 0xf) + (hl & 0xf)) & 0x10) Z80._register.f |= Z80._flags.halfCarry;   // Check for half-carry.        
-            Z80._register.t = 8;                                                            // Set operation time.
+        ADD_A_HLmem: function () { // 0x86
+            let a = Z80._register.a;
+            let hl = MMU.readByte((Z80._register.h<<8)+Z80._register.l);
+            Z80._register.f = 0;                                                            
+            Z80._register.a += hl;
+            if (Z80._register.a > 255) Z80._register.f |= Z80._flags.carry;                 
+            Z80._register.a &= 255;                                                         
+            if (!(Z80._register.a)) Z80._register.f |= Z80._flags.zero;               
+            if (((a & 0xf) + (hl & 0xf)) > 0xf) Z80._register.f |= Z80._flags.halfCarry;
+            Z80._register.t = 8;
+        },
+        ADD_A_d8: function () { // 0xC6
+            let a = Z80._register.a;
+            let d8 = MMU.readByte(Z80._register.pc++);
+            Z80._register.f = 0;                                                            
+            Z80._register.a += d8;
+            if (Z80._register.a > 255) Z80._register.f |= Z80._flags.carry;                 
+            Z80._register.a &= 255;                                                         
+            if (!(Z80._register.a)) Z80._register.f |= Z80._flags.zero;               
+            if (((a & 0xf) + (d8 & 0xf)) > 0xf) Z80._register.f |= Z80._flags.halfCarry;
+            Z80._register.t = 8;
         },
 
 
-        // 8-bit Loads
-        LD_a_n: function () { // 0x3E LD a, n
+        // SUB n
+        SUB_B: function () { // 0x90
+            let a = Z80._register.a;
+            Z80._register.f = Z80._flags.subtraction;
+            Z80._register.a -= Z80._register.b;
+            if (Z80._register.a >= 0) Z80._register.f |= Z80._flags.carry;
+            Z80._register.a &= 255; // Mask to 8-bit.
+            if (Z80._register.a === 0) Z80._register.f |= Z80._flags.zero;
+            if (((a&0xf) - (Z80._register.b&0xf)) <= 0xf) Z80._register.f |= Z80._flags.halfCarry;
+            Z80._register.t = 4;
+        },
+
+        // LD A, n
+        LD_A_D8: function () { // 0x3E LD a, n
             Z80._register.a = MMU.readByte(Z80._register.pc++); Z80._register.t = 8;
         },
+        LD_A_A: function () { // 0x7F LD A, A
+            Z80._register.a = Z80._register.a; Z80._register.t = 4;
+        },
+        LD_A_B: function () { // 0x78 LD A, B
+            Z80._register.a = Z80._register.b; Z80._register.t = 4;
+        },
+        LD_A_C: function () { // 0x79F LD A, C
+            Z80._register.a = Z80._register.c; Z80._register.t = 4;
+        },
+        LD_A_D: function () { // 0x7A LD A, D
+            Z80._register.a = Z80._register.d; Z80._register.t = 4;
+        },
+        LD_A_E: function () { // 0x7B LD A, E
+            Z80._register.a = Z80._register.e; Z80._register.t = 4;
+        },
+        LD_A_H: function () { // 0x7C LD A, H
+            Z80._register.a = Z80._register.h; Z80._register.t = 4;
+        },
+        LD_A_L: function () { // 0x7D LD A, L
+            Z80._register.a = Z80._register.l; Z80._register.t = 4;
+        },
+
+
         LD_b_n: function () { // 0x06 LD b, n
             Z80._register.b = MMU.readByte(Z80._register.pc++); Z80._register.t = 8;
         },
@@ -197,27 +250,7 @@ Z80 = {
             Z80._register.l = MMU.readByte(Z80._register.pc++); Z80._register.t = 8;
         },
         
-        LD_a_a: function () { // 0x7F LD A, A
-            Z80._register.a = Z80._register.a; Z80._register.t = 4;
-        },
-        LD_a_b: function () { // 0x78 LD A, B
-            Z80._register.a = Z80._register.b; Z80._register.t = 4;
-        },
-        LD_a_c: function () { // 0x79F LD A, C
-            Z80._register.a = Z80._register.c; Z80._register.t = 4;
-        },
-        LD_a_d: function () { // 0x7A LD A, D
-            Z80._register.a = Z80._register.d; Z80._register.t = 4;
-        },
-        LD_a_e: function () { // 0x7B LD A, E
-            Z80._register.a = Z80._register.e; Z80._register.t = 4;
-        },
-        LD_a_h: function () { // 0x7C LD A, H
-            Z80._register.a = Z80._register.h; Z80._register.t = 4;
-        },
-        LD_a_l: function () { // 0x7D LD A, L
-            Z80._register.a = Z80._register.l; Z80._register.t = 4;
-        },
+
         LD_a16_a: function () { // 0xEA LD (a16), A
             let address = MMU.readWord(Z80._register.pc);
             Z80._register.pc+=2;
@@ -253,11 +286,11 @@ Z80 = {
             MMU.writeWord((Z80._register.h<<8)+Z80._register.l, Z80._register.a); Z80._register.t = 8;
         },
 
-        LD_a_bc: function () { // 0x0A LD A, (BC)
-            Z80._register.a = MMU.readByte((Z80._register.b<<8)+Z80._register.e);
+        LD_A_Bc: function () { // 0x0A LD A, (BC)
+            Z80._register.a = MMU.readByte((Z80._register.b<<8)+Z80._register.c);
             Z80._register.t = 8;
         },
-        LD_a_de: function () { // 0x1A LD A, (DE)
+        LD_A_De: function () { // 0x1A LD A, (DE)
             Z80._register.a = MMU.readByte((Z80._register.d<<8)+Z80._register.e);
             Z80._register.t = 8;
         },
@@ -284,6 +317,11 @@ Z80 = {
         LD_cio_a: function () { // 0xE2 LD (0xFF00 + c), a
             MMU.writeByte(0xFF00 + Z80._register.c, Z80._register.a);
             Z80._register.t = 8;            
+        },
+
+        LDH_A_mem: function () { // 0xF0 LD A, ($FF00+n)
+            Z80._register.a = MMU.readByte(0xFF00 + MMU.readByte(Z80._register.pc++));
+            Z80._register.t = 12;
         },
 
 
@@ -330,7 +368,6 @@ Z80 = {
 
             // Check if Zero flag is set.
             if (!(Z80._register.f & Z80._flags.zero)) {                
-
                 if (move > 127) { // move is signed byte.
                     // Calculate the 2's compliment and make it a negative.
                     move = -((~move+1)&255);
@@ -347,7 +384,6 @@ Z80 = {
 
             // Check if Zero flag is set.
             if (Z80._register.f & Z80._flags.zero) {
-
                 if (move > 127) { // move is signed byte.
                     // Calculate the 2's compliment and make it a negative.
                     move = -((~move+1)&255);
@@ -387,15 +423,23 @@ Z80 = {
         },
 
 
-        // Compares
-        CP_n: function () { // 0xFE CP #
+        // CP n
+        CP_HLmem: function () { // 0xBE CP (HL)
+            let value = MMU.readByte((Z80._register.h<<8)+Z80._register.l);
+            let result = Z80._register.a-value;
+            Z80._register.f = Z80._flags.subtraction;
+            Z80._register.f |= result&255 ? 0 : Z80._flags.zero;
+            Z80._register.f |= Z80._register.a < value ? Z80._flags.carry : 0;
+            Z80._register.f |= ((Z80._register.a&0xf) - (value&0xf)) < 0 ? 0 : Z80._flags.halfCarry;
+            Z80._register.t = 8;
+        },
+        CP_d8: function () { // 0xFE CP #
             let value = MMU.readByte(Z80._register.pc++); // Read next byte to use as comparison.
             let result = Z80._register.a-value;           // Don't mask to 8-bit.
-
-            Z80._register.f = Z80._flags.subtraction;                                                    // Subtraction must be set.
-            Z80._register.f |= result&255 ? 0 : Z80._flags.zero;                                         // Check for zero.
-            Z80._register.f |= result < 0 ? Z80._flags.carry : 0;                                        // Check for no borrow.
-            Z80._register.f |= (Z80._register.a ^ value ^ (result&255))&0x10 ? Z80._flags.halfCarry : 0; // Check for half-borrow.
+            Z80._register.f = Z80._flags.subtraction;
+            Z80._register.f |= result&255 ? 0 : Z80._flags.zero;
+            Z80._register.f |= Z80._register.a < value ? Z80._flags.carry : 0;
+            Z80._register.f |= ((Z80._register.a&0xf) - (value&0xf)) < 0 ? 0 : Z80._flags.halfCarry;
             Z80._register.t = 8;
         },
 
@@ -409,131 +453,117 @@ Z80 = {
         },
 
 
-        // Increments
-        INC_a: function () { // 0x3C                        
-            Z80._register.f &= Z80._flags.subtraction;
-            if (((Z80._register.a & 0xf) + 1) & 0x10) Z80._register.f |= Z80._flags.halfCarry;
-            Z80._register.a = (Z80._register.a + 1) & 255;
+        // INC n
+        INC_A: function () { // 0x3C                        
+            Z80._register.f = 0;
+            Z80._register.f |= (Z80._register.a&0xf)+1 > 0xf ? Z80._flags.halfCarry : 0;
+            Z80._register.a = (Z80._register.a+1)&255;
             Z80._register.f |= Z80._register.a ? 0 : Z80._flags.zero;
             Z80._register.t = 4;
         },
-        INC_b: function () { // 0x04            
-            Z80._register.f &= Z80._flags.subtraction;
-            if (((Z80._register.b & 0xf) + 1) & 0x10) Z80._register.f |= Z80._flags.halfCarry;
-            Z80._register.b = (Z80._register.b + 1) & 255;
+        INC_B: function () { // 0x04            
+            Z80._register.f = 0;
+            Z80._register.f |= (Z80._register.b&0xf)+1 > 0xf ? Z80._flags.halfCarry : 0;
+            Z80._register.b = (Z80._register.b+1)&255;
             Z80._register.f |= Z80._register.b ? 0 : Z80._flags.zero;
             Z80._register.t = 4;
         },
-        INC_c: function () { // 0x0C            
-            Z80._register.f &= Z80._flags.subtraction;
-            if (((Z80._register.c & 0xf) + 1) & 0x10) Z80._register.f |= Z80._flags.halfCarry;
-            Z80._register.c = (Z80._register.c + 1) & 255;
+        INC_C: function () { // 0x0C            
+            Z80._register.f = 0;
+            Z80._register.f |= (Z80._register.c&0xf)+1 > 0xf ? Z80._flags.halfCarry : 0;
+            Z80._register.c = (Z80._register.c+1)&255;
             Z80._register.f |= Z80._register.c ? 0 : Z80._flags.zero;
             Z80._register.t = 4;
         },
-        INC_d: function () { // 0x14            
-            Z80._register.f &= Z80._flags.subtraction;
-            if (((Z80._register.d & 0xf) + 1) & 0x10) Z80._register.f |= Z80._flags.halfCarry;
-            Z80._register.d = (Z80._register.d + 1) & 255;
+        INC_D: function () { // 0x14            
+            Z80._register.f = 0;
+            Z80._register.f |= (Z80._register.d&0xf)+1 > 0xf ? Z80._flags.halfCarry : 0;
+            Z80._register.d = (Z80._register.d+1)&255;
             Z80._register.f |= Z80._register.d ? 0 : Z80._flags.zero;
             Z80._register.t = 4;
         },
-        INC_e: function () { // 0x1C            
-            Z80._register.f &= Z80._flags.subtraction;
-            if (((Z80._register.e & 0xf) + 1) & 0x10) Z80._register.f |= Z80._flags.halfCarry;
-            Z80._register.e = (Z80._register.e + 1) & 255;
+        INC_E: function () { // 0x1C            
+            Z80._register.f = 0;
+            Z80._register.f |= (Z80._register.e&0xf)+1 > 0xf ? Z80._flags.halfCarry : 0;
+            Z80._register.e = (Z80._register.e+1)&255;
             Z80._register.f |= Z80._register.e ? 0 : Z80._flags.zero;
             Z80._register.t = 4;
         },
-        INC_h: function () { // 0x24
-            Z80._register.f &= Z80._flags.subtraction;
-            if (((Z80._register.h & 0xf) + 1) & 0x10) Z80._register.f |= Z80._flags.halfCarry;
-            Z80._register.h = (Z80._register.h + 1) & 255;
+        INC_H: function () { // 0x24
+            Z80._register.f = 0;
+            Z80._register.f |= (Z80._register.h&0xf)+1 > 0xf ? Z80._flags.halfCarry : 0;
+            Z80._register.h = (Z80._register.h+1)&255;
             Z80._register.f |= Z80._register.h ? 0 : Z80._flags.zero;
             Z80._register.t = 4;
         },
-        INC_l: function () { // 0x2C            
-            Z80._register.f &= Z80._flags.subtraction;
-            if (((Z80._register.l & 0xf) + 1) & 0x10) Z80._register.f |= Z80._flags.halfCarry;
-            Z80._register.l = (Z80._register.l + 1) & 255;
+        INC_L: function () { // 0x2C            
+            Z80._register.f = 0;
+            Z80._register.f |= (Z80._register.l&0xf)+1 > 0xf ? Z80._flags.halfCarry : 0;
+            Z80._register.l = (Z80._register.l+1)&255;
             Z80._register.f |= Z80._register.l ? 0 : Z80._flags.zero;
             Z80._register.t = 4;
         },        
 
-        INC_de: function () { // 0x23 INC DE
+        INC_De: function () { // 0x23 INC DE
             Z80._register.e = (Z80._register.e + 1) & 255;                              // Add 1 then mask to 8-bit;
             if (Z80._register.e == 0) Z80._register.d = (Z80._register.d + 1) & 255;    // Check for overflow of L, increase H by 1.
             Z80._register.t = 8;                                                        // Set operation time.
         },
-        INC_hl: function () { // 0x23 INC HL
+        INC_Hl: function () { // 0x23 INC HL
             Z80._register.l = (Z80._register.l + 1) & 255;                              // Add 1 then mask to 8-bit;
             if (Z80._register.l == 0) Z80._register.h = (Z80._register.h + 1) & 255;    // Check for overflow of L, increase H by 1.
             Z80._register.t = 8;                                                        // Set operation time.
         },
 
 
-        // Decrements
-        DEC_a: function () { // 0x3D DEC A
-            Z80._register.f = Z80._flags.subtraction;                 // Set subtraction flag.
-            let intermediate = Z80._register.a - 1;                   // Calculate carry bit.
-            let carry = (Z80._register.a ^ 1 ^ intermediate);
-            Z80._register.a = (Z80._register.a-1)&255;                // Subtract 1 and mask to 8-bit.
-            Z80._register.f |= carry & Z80._flags.halfCarry ? 0 : 1;  // Check for borrow
-            Z80._register.f |= Z80._register.a ? 0 : Z80._flags.zero; // Check for zero.
+        // DEC n
+        DEC_A: function () { // 0x3D DEC A
+            Z80._register.f = Z80._flags.subtraction;
+            Z80._register.f |= (Z80._register.a&0xf)-1 < 0 ? 0 : Z80._flags.halfCarry;
+            Z80._register.a = (Z80._register.a-1)&255;
+            Z80._register.f |= Z80._register.a ? 0 : Z80._flags.zero;
             Z80._register.t = 4;
         },
-        DEC_b: function () { // 0x05 DEC B
-            Z80._register.f = Z80._flags.subtraction;                 // Set subtraction flag.
-            let intermediate = Z80._register.b - 1;                   // Calculate carry bit.
-            let carry = (Z80._register.b ^ 1 ^ intermediate);
-            Z80._register.b = (Z80._register.b-1)&255;                // Subtract 1 and mask to 8-bit.
-            Z80._register.f |= carry & Z80._flags.halfCarry ? 0 : 1;  // Check for borrow
-            Z80._register.f |= Z80._register.b ? 0 : Z80._flags.zero; // Check for zero.
+        DEC_B: function () { // 0x05 DEC B
+            Z80._register.f = Z80._flags.subtraction;
+            Z80._register.f |= (Z80._register.b&0xf)-1 < 0 ? 0 : Z80._flags.halfCarry;
+            Z80._register.b = (Z80._register.b-1)&255;
+            Z80._register.f |= Z80._register.b ? 0 : Z80._flags.zero;
             Z80._register.t = 4;
         },
-        DEC_c: function () { // 0x0D DEC C
-            Z80._register.f = Z80._flags.subtraction;                 // Set subtraction flag.
-            let intermediate = Z80._register.c - 1;                   // Calculate carry bit.
-            let carry = (Z80._register.c ^ 1 ^ intermediate);
-            Z80._register.c = (Z80._register.c-1)&255;                // Subtract 1 and mask to 8-bit.
-            Z80._register.f |= carry & Z80._flags.halfCarry ? 0 : 1;  // Check for borrow
-            Z80._register.f |= Z80._register.c ? 0 : Z80._flags.zero; // Check for zero.
+        DEC_C: function () { // 0x0D DEC C
+            Z80._register.f = Z80._flags.subtraction;
+            Z80._register.f |= (Z80._register.c&0xf)-1 < 0 ? 0 : Z80._flags.halfCarry;
+            Z80._register.c = (Z80._register.c-1)&255;
+            Z80._register.f |= Z80._register.c ? 0 : Z80._flags.zero;
             Z80._register.t = 4;
         },
-        DEC_d: function () { // 0x15 DEC D
-            Z80._register.f = Z80._flags.subtraction;                 // Set subtraction flag.
-            let intermediate = Z80._register.d - 1;                   // Calculate carry bit.
-            let carry = (Z80._register.d ^ 1 ^ intermediate);
-            Z80._register.d = (Z80._register.d-1)&255;                // Subtract 1 and mask to 8-bit.
-            Z80._register.f |= carry & Z80._flags.halfCarry ? 0 : 1;  // Check for borrow
-            Z80._register.f |= Z80._register.d ? 0 : Z80._flags.zero; // Check for zero.
+        DEC_D: function () { // 0x15 DEC D
+            Z80._register.f = Z80._flags.subtraction;
+            Z80._register.f |= (Z80._register.d&0xf)-1 < 0 ? 0 : Z80._flags.halfCarry;
+            Z80._register.d = (Z80._register.d-1)&255;
+            Z80._register.f |= Z80._register.d ? 0 : Z80._flags.zero;
             Z80._register.t = 4;
         },
-        DEC_e: function () { // 0x1D DEC e
-            Z80._register.f = Z80._flags.subtraction;                 // Set subtraction flag.
-            let intermediate = Z80._register.e - 1;                   // Calculate carry bit.
-            let carry = (Z80._register.e ^ 1 ^ intermediate);
-            Z80._register.e = (Z80._register.e-1)&255;                // Subtract 1 and mask to 8-bit.
-            Z80._register.f |= carry & Z80._flags.halfCarry ? 0 : 1;  // Check for borrow
-            Z80._register.f |= Z80._register.e ? 0 : Z80._flags.zero; // Check for zero.
+        DEC_E: function () { // 0x1D DEC e
+            Z80._register.f = Z80._flags.subtraction;
+            Z80._register.f |= (Z80._register.e&0xf)-1 < 0 ? 0 : Z80._flags.halfCarry;
+            Z80._register.e = (Z80._register.e-1)&255;
+            Z80._register.f |= Z80._register.e ? 0 : Z80._flags.zero;
             Z80._register.t = 4;
         },
-        DEC_h: function () { // 0x25 DEC H
-            Z80._register.f = Z80._flags.subtraction;                 // Set subtraction flag.
-            let intermediate = Z80._register.h - 1;                   // Calculate carry bit.
-            let carry = (Z80._register.h ^ 1 ^ intermediate);
-            Z80._register.h = (Z80._register.h-1)&255;                // Subtract 1 and mask to 8-bit.
-            Z80._register.f |= carry & Z80._flags.halfCarry ? 0 : 1;  // Check for borrow
-            Z80._register.f |= Z80._register.h ? 0 : Z80._flags.zero; // Check for zero.
+        DEC_H: function () { // 0x25 DEC H
+            Z80._register.f = Z80._flags.subtraction;
+            Z80._register.f |= (Z80._register.h&0xf)-1 < 0 ? 0 : Z80._flags.halfCarry;
+            Z80._register.h = (Z80._register.h-1)&255;
+            Z80._register.f |= Z80._register.h ? 0 : Z80._flags.zero;
             Z80._register.t = 4;
         },
-        DEC_l: function () { // 0x2D DEC L
-            Z80._register.f = Z80._flags.subtraction;                 // Set subtraction flag.
-            let intermediate = Z80._register.l - 1;                   // Calculate carry bit.
-            let carry = (Z80._register.l ^ 1 ^ intermediate);
-            Z80._register.l = (Z80._register.l-1)&255;                // Subtract 1 and mask to 8-bit.
-            Z80._register.f |= carry & Z80._flags.halfCarry ? 0 : 1;  // Check for borrow
-            Z80._register.f |= Z80._register.l ? 0 : Z80._flags.zero; // Check for zero.
+        DEC_L: function () { // 0x2D DEC L
+            Z80._register.f = Z80._flags.subtraction;
+            Z80._register.f |= (Z80._register.l&0xf)-1 < 0 ? 0 : Z80._flags.halfCarry;
+            Z80._register.l = (Z80._register.l-1)&255;
+            Z80._register.f |= Z80._register.l ? 0 : Z80._flags.zero;
             Z80._register.t = 4;
         },
 
@@ -547,10 +577,13 @@ Z80 = {
             Z80._register.f |= Z80._register.a ? 0 : Z80._flags.zero;
             Z80._register.t = 4;
         },
-        RL_c: function () { // CB 0x11            
+
+
+        // RL n
+        RL_C: function () { // CB 0x11            
             let carry = Z80._register.f & Z80._flags.carry ? 1 : 0;
             let seventh = Z80._register.c & 0x80;
-            Z80._register.c = ((Z80._register.c<<1) + carry)&255;
+            Z80._register.c = ((Z80._register.c<<1)+carry)&255;
             Z80._register.f |= seventh ? Z80._flags.carry : 0;
             Z80._register.f |= Z80._register.c ? 0 : Z80._flags.zero;
             Z80._register.t = 8;
@@ -568,7 +601,7 @@ Z80 = {
         // Misc OpCodes
         map_to_CB: function () { // 0xcb            
             let cbAddress = MMU.readByte(Z80._register.pc++);   // Read next byte for the address of the CB code.            
-            traceLog.write("Z80", "\tCB OP: 0x" + cbAddress.toString(16));
+            //traceLog.write("Z80", "\tCB OP: 0x" + cbAddress.toString(16));
             Z80._cbMap[cbAddress]();                            // Run the OpCode in the CB map.            
             Z80._register.pc &= 65535;                          // Mask the PC to 16-bit.
             Z80._register.m = 1; Z80._register.t = 4;           // Set operation time.
@@ -583,18 +616,19 @@ Z80 = {
         }
     },
 
-    _map: []
+    _map: [],
+    _cbMap: []
 };
 
 Z80._map = [
     // 00 - 0F
-    Z80._ops.NOP, Z80._ops.LD_bc_nn, Z80._ops.LD_bc_a, null, Z80._ops.INC_b, Z80._ops.DEC_b, Z80._ops.LD_b_n, null, null, null, Z80._ops.LD_a_bc, null, Z80._ops.INC_c, Z80._ops.DEC_c, Z80._ops.LD_c_n, null, 
+    Z80._ops.NOP, Z80._ops.LD_bc_nn, Z80._ops.LD_bc_a, null, Z80._ops.INC_B, Z80._ops.DEC_B, Z80._ops.LD_b_n, null, null, null, Z80._ops.LD_A_Bc, null, Z80._ops.INC_C, Z80._ops.DEC_C, Z80._ops.LD_c_n, null, 
     // 10 - 1F
-    null, Z80._ops.LD_de_nn, Z80._ops.LD_de_a, Z80._ops.INC_de, Z80._ops.INC_d, Z80._ops.DEC_d, Z80._ops.LD_d_n, Z80._ops.RLA, Z80._ops.JR_n, null, Z80._ops.LD_a_de, null, Z80._ops.INC_e, Z80._ops.DEC_e, Z80._ops.LD_e_n, null, 
+    null, Z80._ops.LD_de_nn, Z80._ops.LD_de_a, Z80._ops.INC_De, Z80._ops.INC_D, Z80._ops.DEC_D, Z80._ops.LD_d_n, Z80._ops.RLA, Z80._ops.JR_n, null, Z80._ops.LD_A_De, null, Z80._ops.INC_E, Z80._ops.DEC_E, Z80._ops.LD_e_n, null, 
     // 20 - 2F
-    Z80._ops.JR_nz_n, Z80._ops.LD_hl_nn, Z80._ops.LD_hli_a, Z80._ops.INC_hl, Z80._ops.INC_h, Z80._ops.DEC_h, Z80._ops.LD_h_n, null, Z80._ops.JR_z_n, null, null, null, Z80._ops.INC_l, Z80._ops.DEC_l, Z80._ops.LD_l_n, null, 
+    Z80._ops.JR_nz_n, Z80._ops.LD_hl_nn, Z80._ops.LD_hli_a, Z80._ops.INC_Hl, Z80._ops.INC_H, Z80._ops.DEC_H, Z80._ops.LD_h_n, null, Z80._ops.JR_z_n, null, null, null, Z80._ops.INC_L, Z80._ops.DEC_L, Z80._ops.LD_l_n, null, 
     // 30 - 3F
-    null, Z80._ops.LD_sp_nn, Z80._ops.LD_hld_a, null, null, null, null, null, null, null, null, null, Z80._ops.INC_a, Z80._ops.DEC_a, Z80._ops.LD_a_n, null, 
+    null, Z80._ops.LD_sp_nn, Z80._ops.LD_hld_a, null, null, null, null, null, null, null, null, null, Z80._ops.INC_A, Z80._ops.DEC_A, Z80._ops.LD_A_D8, null, 
     // 40 - 4F
     null, null, null, null, null, null, null, Z80._ops.LD_b_a, null, null, null, null, null, null, null, Z80._ops.LD_c_a, 
     // 50 - 5F
@@ -602,30 +636,30 @@ Z80._map = [
     // 60 - 6F
     null, null, null, null, null, null, null, Z80._ops.LD_h_a, null, null, null, null, null, null, null, Z80._ops.LD_l_a, 
     // 70 - 7F
-    null, null, null, null, null, null, null, Z80._ops.LD_hl_a, Z80._ops.LD_a_b, Z80._ops.LD_a_c, Z80._ops.LD_a_d, Z80._ops.LD_a_e, Z80._ops.LD_a_h, Z80._ops.LD_a_l, null, Z80._ops.LD_a_a, 
+    null, null, null, null, null, null, null, Z80._ops.LD_hl_a, Z80._ops.LD_A_B, Z80._ops.LD_A_C, Z80._ops.LD_A_D, Z80._ops.LD_A_E, Z80._ops.LD_A_H, Z80._ops.LD_A_L, null, Z80._ops.LD_A_A, 
     // 80 - 8F
-    Z80._ops.ADD_b, Z80._ops.ADD_c, Z80._ops.ADD_d, Z80._ops.ADD_e, Z80._ops.ADD_h, Z80._ops.ADD_l, Z80._ops.ADD_hl, Z80._ops.ADD_a, null, null, null, null, null, null, null, null, 
+    Z80._ops.ADD_A_B, Z80._ops.ADD_A_C, Z80._ops.ADD_A_D, Z80._ops.ADD_A_E, Z80._ops.ADD_h, Z80._ops.ADD_A_L, Z80._ops.ADD_A_HLmem, Z80._ops.ADD_A_A, null, null, null, null, null, null, null, null, 
     // 90 - 9F
-    null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 
+    Z80._ops.SUB_B, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 
     // A0 - AF
     null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, Z80._ops.XOR_a, 
     // B0 - BF
-    null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 
+    null, null, null, null, null, null, null, null, null, null, null, null, null, null, Z80._ops.CP_HLmem, null, 
     // C0 - CF
-    null, Z80._ops.POP_bc, null, null, null, Z80._ops.PUSH_bc, null, null, null, Z80._ops.RET, null, Z80._ops.map_to_CB, null, Z80._ops.CALL_nn, null, null, 
+    null, Z80._ops.POP_bc, null, null, null, Z80._ops.PUSH_bc, Z80._ops.ADD_A_d8, null, null, Z80._ops.RET, null, Z80._ops.map_to_CB, null, Z80._ops.CALL_nn, null, null, 
     // D0 - DF
     null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 
     // E0 - EF
     Z80._ops.LDH_n_a, null, Z80._ops.LD_cio_a, null, null, null, null, null, null, null, Z80._ops.LD_a16_a, null, null, null, null, null, 
     // F0 - FF
-    null, null, null, null, null, null, null, null, null, null, null, null, null, null, Z80._ops.CP_n, null
+    Z80._ops.LDH_A_mem, null, null, null, null, null, null, null, null, null, null, null, null, null, Z80._ops.CP_d8, null
 ];
 
 Z80._cbMap = [
     // 00 - 0F
     null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 
     // 10 - 1F
-    null, Z80._ops.RL_c, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 
+    null, Z80._ops.RL_C, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 
     // 20 - 2F
     null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 
     // 30 - 3F
