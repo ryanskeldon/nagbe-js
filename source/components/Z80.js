@@ -571,22 +571,21 @@ Z80 = {
 
         // Rotations 
         RLA: function () { // 0x17
-            let carry = Z80._register.f & Z80._flags.carry ? 1 : 0;
-            let seventh = Z80._register.a & 0x80;
-            Z80._register.a = ((Z80._register.a<<1) + carry)&255;
-            Z80._register.f |= seventh ? Z80._flags.carry : 0;
-            Z80._register.f |= Z80._register.a ? 0 : Z80._flags.zero;
+            let carryIn = Z80._register.f & Z80._flags.carry ? 1 : 0;
+            let carryOut = Z80._register.a & 0x80 ? Z80._flags.carry : 0;
+            Z80._register.a = (Z80._register.a<<1) + carryIn;
+            Z80._register.a &= 255;
+            Z80._register.f = carryOut;
             Z80._register.t = 4;
         },
 
-
         // RL n
         RL_C: function () { // CB 0x11            
-            let carry = Z80._register.f & Z80._flags.carry ? 1 : 0;
-            let seventh = Z80._register.c & 0x80;
-            Z80._register.c = ((Z80._register.c<<1)+carry)&255;
-            Z80._register.f |= seventh ? Z80._flags.carry : 0;
-            Z80._register.f |= Z80._register.c ? 0 : Z80._flags.zero;
+            let carryIn = Z80._register.f & Z80._flags.carry ? 1 : 0;
+            let carryOut = Z80._register.c & 0x80 ? Z80._flags.carry : 0;
+            Z80._register.c = (Z80._register.c<<1) + carryIn;
+            Z80._register.c &= 255;
+            Z80._register.f = carryOut;
             Z80._register.t = 8;
         },
 
