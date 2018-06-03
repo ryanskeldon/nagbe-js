@@ -56,6 +56,7 @@ Z80 = {
             if (Z80._register.pc === 0x100) {
                 console.log("BIOS load complete!");
                 traceLog.write("Z80", "BIOS load complete!");
+                GPU.renderBackgroundTileMap();
                 break;
             }
 
