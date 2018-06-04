@@ -2,7 +2,6 @@ MMU = {
     // Memory regions.
     _bios: [], // Boot instructions
     _rom: [], // Cartridge ROM
-    _vram: [], // TODO: Move to GPU
     _eram: [], // External RAM
     _wram: [], // Working RAM
     _zram: [], // Zero-page RAM
@@ -10,6 +9,7 @@ MMU = {
 
     // Registers
     _ime: 0, // Interrupt Master Enable
+    _if: 0, // Interrupt Flag (R/W)
 
     _biosEnabled: true,
 
@@ -46,7 +46,6 @@ MMU = {
         
         for (var i = 0; i < 32768; i++) MMU._rom[i] = 0; // Reset cartridge ROM (32kB) 
         for (var i = 0; i < 8192; i++) MMU._wram[i] = 0;  // Reset Working RAM (8kB)       
-        for (var i = 0; i < 8192; i++) MMU._vram[i] = 0;  // Reset Video RAM (8kB)       
         for (var i = 0; i < 128; i++) MMU._zram[i] = 0;   // Reset Zero-page RAM (128B)
         for (var i = 0; i < 128; i++) MMU._ioram[i] = 0;   // Reset I/O RAM (128B)
     },
@@ -72,7 +71,7 @@ MMU = {
 
         // VRAM
         if (address >= 0x8000 && address <= 0x9FFF) {
-            return MMU._vram[address & 0x1FFF];            
+            return GPU.readByte(address);
         }
 
         // External RAM
@@ -95,6 +94,11 @@ MMU = {
 
         // I/O Ports
         if (address >= 0xFF00 && address <= 0xFF7F) {
+            // Interrupt Flag
+            if (address === 0xFF0F) {
+                return MMU._if;
+            }
+            
             if (address >= 0xFF40 && address <= 0xFF4B)
                 return GPU.readByte(address);
         }
@@ -130,7 +134,7 @@ MMU = {
 
         // VRAM
         if (address >= 0x8000 && address <= 0x9FFF) {
-            MMU._vram[address & 0x1FFF] = byte;
+            GPU.writeByte(address, byte);
             return;
         }
 
@@ -156,6 +160,12 @@ MMU = {
 
         // I/O Ports
         if (address >= 0xFF00 && address <= 0xFF7F) {
+            // Interrupt Flag
+            if (address === 0xFF0F) {
+                MMU._if = byte;
+                return;
+            }
+
             // Audio
             if (address >= 0xFF10 && address <= 0xFF3F) {
                 // TODO: Implement sound.

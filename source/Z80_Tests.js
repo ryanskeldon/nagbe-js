@@ -56,7 +56,7 @@ assert(Z80._flags.carry, Z80._register.f & Z80._flags.carry, "rl c carry check t
 
 Z80.reset();
 Z80._register.f = Z80._flags.carry;
-Z80._register.c = 0x00;
+Z80._register.c = 0x80;
 Z80._ops.RL_C();
 assert(Z80._flags.carry, Z80._register.f & Z80._flags.carry, "rl c carry check false failed.");
 

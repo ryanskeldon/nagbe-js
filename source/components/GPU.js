@@ -1,5 +1,6 @@
 GPU = {
     // Memory
+    _vram: [],
     _oam: [],
 
     _colors: [
@@ -9,22 +10,31 @@ GPU = {
         "#0f380f"
     ],
 
+    _mode: 0,
     _clock: 0,
 
     // Background Map
     _bgMapCanvas: {},
     _bgMapScreen: {},
 
+    // Screen
+    _screenCanvas: {},
+    _screenData: {},
+
+    _linePixelData: [],
+
     // Registers
     _register: {
         _lcdc: 0, // 0xFF40 (r/w) LCD control
+        _stat: 0, // 0xFF41 LCDC Status
         _scy: 0, // 0xFF42 (r/w) Scroll Y
         _ly: 0, // 0xFF44 (r) LCDC Y-coordinate
         _bgp: 0 // 0xFF47 (r/w) BG & Window palette
     },
 
     init: function () {
-        for (var i = 0; i < 128; i++) GPU._oam[i] = 0;   // Sprite Attribute Memory (OAM)
+        for (var i = 0; i < 8192; i++) GPU._vram[i] = 0; // Reset Video RAM (8kB)       
+        for (var i = 0; i < 128; i++) GPU._oam[i] = 0;   // Sprite Attribute Memory (OAM) (128B)
 
         // Initialize background map.
         let backgroundMapElement = document.getElementById("map");
@@ -40,10 +50,29 @@ GPU = {
         }
 
         GPU._bgMapCanvas.putImageData(GPU._bgMapScreen, 0, 0);
+
+        // Initialize screen.
+        backgroundMapElement = document.getElementById("screen");
+        GPU._screenCanvas = backgroundMapElement.getContext("2d");
+        GPU._screenData = GPU._screenCanvas.createImageData(160, 144);
+
+        for (var i = 0; i < 160*144*4;) {
+            GPU._screenData.data[i] = 0xEF;
+            GPU._screenData.data[i+1] = 0xEF;
+            GPU._screenData.data[i+2] = 0xEF;
+            GPU._screenData.data[i+3] = 0xFF;
+            i+=4;
+        }
+
+        GPU._screenCanvas.putImageData(GPU._screenData, 0, 0);
     },
 
     readByte: function (address) {
         traceLog.write("GPU", "Reading from $ 0x" + address.toString(16));
+
+        if (address >= 0x8000 && address <= 0x9FFF) {
+            return GPU._vram[address & 0x1FFF];
+        }
 
         switch (address) {
             case 0xFF40:
@@ -61,6 +90,13 @@ GPU = {
 
     writeByte: function (address, byte) {
         traceLog.write("GPU", "Writing to $ 0x" + address.toString(16) + " / Value: 0x" + byte.toString(16));
+
+        // Video RAM
+        if (address >= 0x8000 && address <= 0x9FFF) {
+            // TODO: Check if tile or map data modified.
+            GPU._vram[address & 0x1FFF] = byte;
+            return;
+        }
 
         // Sprite Attribute Memory
         if (address >= 0xFE00 && address <= 0xFE9F) {
@@ -88,15 +124,103 @@ GPU = {
     },
 
     step: function () {
-        // Step V Blank flag.
-        // let interruptFlags = MMU.readByte(0xFF0F);
-        // interruptFlags |= 0x01;
-        // MMU.writeByte(0xFF0F, interruptFlags);
+        // Skip execution if LCD is not enabled.
+        if (!(MMU.readByte(0xFF40)&0x80)) return;
+
+        GPU._clock += Z80._register.t; // Add last instruction's clock length.
+
         GPU._register._ly++;
-        
-        if (GPU._register._ly > 153) {
-            GPU._register._ly = 0;        
+
+        if (GPU._register._ly > 153) 
+            GPU._register._ly = 0;
+
+        switch (GPU._mode) {
+            case 0:
+                break;
+            case 1:
+                break;
+            case 2: // Read memory
+                break;
+            case 3: // Draw scanline
+                break;
         }
+    },
+
+    readLine: function () {
+        for (var x = 0; x < 160; x++) {
+            GPU._linePixelData[x] = Math.floor(Math.random() * 4);
+        }
+    },
+
+    drawLine: function () {
+        // Load color palette for background.
+        let palette = 0xFC //MMU.readByte(0xFF47);
+
+        let color0 = GPU._colors[palette&0x3];
+        let color1 = GPU._colors[(palette>>2)&0x3];
+        let color2 = GPU._colors[(palette>>4)&0x3];
+        let color3 = GPU._colors[(palette>>6)&0x3];
+
+        for (var x = 0; x < 160; x++) {
+            let color = GPU._linePixelData[x];
+
+            switch (color) {
+                case 0:
+                    GPU._screenCanvas.fillStyle = color0;
+                    break;
+                case 1:
+                    GPU._screenCanvas.fillStyle = color1;
+                    break;
+                case 2:
+                    GPU._screenCanvas.fillStyle = color2;
+                    break;
+                case 3:
+                    GPU._screenCanvas.fillStyle = color3;
+                    break;
+            }
+            
+            GPU._screenCanvas.fillRect(x, GPU._register._ly, 1, 1);
+        }
+    },
+
+    drawScreen: function() {
+        // Load color palette for background.
+        let palette = 0xFC //MMU.readByte(0xFF47);
+
+        let color0 = GPU._colors[palette&0x3];
+        let color1 = GPU._colors[(palette>>2)&0x3];
+        let color2 = GPU._colors[(palette>>4)&0x3];
+        let color3 = GPU._colors[(palette>>6)&0x3];
+
+        // Get screen data.
+        let screenData = GPU._screenCanvas.getImageData(0, 0, 160, 144);
+
+        for (var x = 0; x < 160*144*4; x++) {
+            let color = GPU._linePixelData[x];
+
+            switch (color) {
+                case 0:
+                    GPU._screenCanvas.fillStyle = color0;
+                    break;
+                case 1:
+                    GPU._screenCanvas.fillStyle = color1;
+                    break;
+                case 2:
+                    GPU._screenCanvas.fillStyle = color2;
+                    break;
+                case 3:
+                    GPU._screenCanvas.fillStyle = color3;
+                    break;
+            }
+
+            let pixelIndex = 4 * x + GPU._register._ly;
+            screenData.data[pixelIndex] = Math.floor(Math.random() * 255);
+            screenData.data[pixelIndex+1] = Math.floor(Math.random() * 255);
+            screenData.data[pixelIndex+2] = Math.floor(Math.random() * 255);
+            screenData.data[pixelIndex+3] = 255;
+        }
+
+      GPU._screenCanvas.putImageData(screenData, 0, 0);
     },
 
     renderBackgroundTileMap: function () {
@@ -104,9 +228,9 @@ GPU = {
         let tileMap = [];
         let tileMapOffset = 0;
 
-        if (GPU._register._lcdc & 0x8) start = 0x9C00; // 0x9C00 - 0x9FFF
-        else                           start = 0x9800; // 0x9800 - 0x9BFF
-        for (var i = 0; i < 1024; i++) tileMap[i] = MMU.readByte(start+i);        
+        if (GPU._register._lcdc & 0x8) tileMapOffset = 0x9C00; // 0x9C00 - 0x9FFF
+        else                           tileMapOffset = 0x9800; // 0x9800 - 0x9BFF
+        for (var i = 0; i < 1024; i++) tileMap[i] = MMU.readByte(tileMapOffset+i);        
 
         // Load tiles for background map.
         let tiles = [];
@@ -123,8 +247,8 @@ GPU = {
             };
 
             for (var y = 0; y < 8; y++) {
-                let lb = MMU.readByte(tileOffset + address++);
-                let hb = MMU.readByte(tileOffset + address++);
+                let lb = GPU.readByte(tileOffset + address++);
+                let hb = GPU.readByte(tileOffset + address++);
 
                 for (var x = 0; x < 8; x++) {
                     let color = ((hb>>(6-x))&2) + ((lb>>(7-x))&1);

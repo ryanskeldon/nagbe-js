@@ -56,7 +56,6 @@ Z80 = {
             if (Z80._register.pc === 0x100) {
                 console.log("BIOS load complete!");
                 traceLog.write("Z80", "BIOS load complete!");
-                GPU.renderBackgroundTileMap();
                 break;
             }
 
@@ -66,15 +65,33 @@ Z80 = {
             try {
                 traceLog.write("Z80", "$0x" + (Z80._register.pc-1).toString(16) + "\tOP: 0x" + opCode.toString(16));
                 Z80._map[opCode]();
-                Z80._clock.t += Z80._register.t; 
-                
-                GPU.step();                
+                Z80._clock.t += Z80._register.t;
+
+                GPU.step();
+
+                // Interrupts
+                if (MMU.readByte(0xFFFF)) { // Check if interrupts are enabled.
+                    let interrupts = MMU.readByte(0xFF0F); // Get active interrupt flags.
+
+                    if (interrupts & 0x01) {
+                        // V Blank interrupt.
+                        MMU.writeByte(0xFFFF, 0); // Reset master interrupt flag.
+
+                        Z80._register.sp -= 2; // Move stack pointer back a word to store program counter.
+                        MMU.writeWord(Z80._register.sp, Z80._register.pc); // Push program counter to stack.    
+
+                        Z80._register.pc = 0x40; // Move to start of vblank routine.
+                        
+                        interrupts &= ~0x01; // Reset vblank flag
+                        MMU.writeByte(0xFF0F, interrupts);
+                    }
+                }
             } catch (error) {
                 console.log("OpCode error @ $0x" + (Z80._register.pc-1).toString(16) + "\tOpcode 0x" + opCode.toString(16));
                 console.log(error);
                 traceLog.write("Z80", "OpCode error @ $0x" + (Z80._register.pc-1).toString(16) + "\tOpcode 0x" + opCode.toString(16));                
                 break;
-            }
+            }            
         }
     },
 
@@ -689,3 +706,7 @@ Z80._cbMap = [
     // F0 - FF
     null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null
 ];
+
+// function sleep(ms) {
+//     return new Promise(resolve => setTimeout(resolve, ms));
+// }
