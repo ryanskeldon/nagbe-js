@@ -8,7 +8,7 @@ MMU = {
     _ioram: [], // I/O
 
     // Registers
-    _ime: 0, // Interrupt Master Enable
+    _ie: 0, // Interrupt Enable (R/W)
     _if: 0, // Interrupt Flag (R/W)
 
     _biosEnabled: true,
@@ -29,7 +29,7 @@ MMU = {
         loadBios.send();
     
         var loadRom = new XMLHttpRequest();
-        loadRom.open('GET', '/roms/tetris.gb', true);
+        loadRom.open('GET', '/roms/cpu_instrs.gb', true);
         loadRom.responseType = 'arraybuffer';         
         loadRom.onload = function(e) {
             var responseArray = new Uint8Array(this.response); 
@@ -98,7 +98,7 @@ MMU = {
             if (address === 0xFF0F) {
                 return MMU._if;
             }
-            
+
             if (address >= 0xFF40 && address <= 0xFF4B)
                 return GPU.readByte(address);
         }
@@ -110,7 +110,7 @@ MMU = {
 
         // Interrupt Enable Register
         if (address === 0xFFFF) { 
-            return MMU._ime;
+            return MMU._ie;
         }
 
         // Unhandled addresses should throw an exception.
@@ -193,7 +193,7 @@ MMU = {
 
         // Interrupt Enable Register
         if (address === 0xFFFF) { 
-            MMU._ime = byte;
+            MMU._ie = byte;
             return;
         }
 

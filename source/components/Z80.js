@@ -32,7 +32,9 @@ Z80 = {
     _register: {
         // Basic registers
         a: 0, b: 0, c: 0, d: 0, e: 0, h: 0, l: 0,
-        
+
+        _ime: false, // Interrupt Master Enable
+
         // Carry flags
         // Flag types:
         // 0x80 - Zero
@@ -51,13 +53,55 @@ Z80 = {
         t: 0
     },
 
+    frame: function () {
+        var frameClock = Z80._clock.t + 70224;
+        
+        do {
+            // if (!MMU._biosEnabled) { // Stop the CPU while still in dev.
+            //     console.log("BIOS load complete!");
+            //     traceLog.write("Z80", "BIOS load complete!");
+            //     clearInterval(Z80._interval);
+            //     Z80._interval = null;
+            //     break;
+            // }
+
+            try {                
+                var opCode = MMU.readByte(Z80._register.pc++);
+                Z80._register.pc &= 0xFFFF;
+                Z80._map[opCode]();
+                Z80._clock.t += Z80._register.t;
+                GPU.step();
+            } catch (error) {
+                console.log("OpCode error @ $0x" + (Z80._register.pc-1).toString(16) + "\tOpcode 0x" + opCode.toString(16));
+                console.log(error);
+                traceLog.write("Z80", "OpCode error @ $0x" + (Z80._register.pc-1).toString(16) + "\tOpcode 0x" + opCode.toString(16));                
+                clearInterval(Z80._interval);
+                Z80._interval = null;
+                break;
+            }
+        } while (Z80._clock.t < frameClock);
+    },
+
+    _interval: null,
+
+    run: function () {
+        if (!Z80._interval) {
+            Z80._interval = setInterval(Z80.frame, 1);
+        } else {
+            clearInterval(Z80._interval);
+            Z80._interval = null;
+        }
+    },
+
     start: function () {
         while (true) {
-            if (Z80._register.pc === 0x100) {
+            if (Z80._register.pc === 0x100) { // Stop the CPU while still in dev.
                 console.log("BIOS load complete!");
                 traceLog.write("Z80", "BIOS load complete!");
                 break;
             }
+
+            Z80.checkInterrupts();
 
             var opCode = MMU.readByte(Z80._register.pc++);
             Z80._register.pc &= 0xFFFF;
@@ -66,26 +110,12 @@ Z80 = {
                 traceLog.write("Z80", "$0x" + (Z80._register.pc-1).toString(16) + "\tOP: 0x" + opCode.toString(16));
                 Z80._map[opCode]();
                 Z80._clock.t += Z80._register.t;
-
                 GPU.step();
-
-                // Interrupts
-                if (MMU.readByte(0xFFFF)) { // Check if interrupts are enabled.
-                    let interrupts = MMU.readByte(0xFF0F); // Get active interrupt flags.
-
-                    if (interrupts & 0x01) {
-                        // V Blank interrupt.
-                        MMU.writeByte(0xFFFF, 0); // Reset master interrupt flag.
-
-                        Z80._register.sp -= 2; // Move stack pointer back a word to store program counter.
-                        MMU.writeWord(Z80._register.sp, Z80._register.pc); // Push program counter to stack.    
-
-                        Z80._register.pc = 0x40; // Move to start of vblank routine.
-                        
-                        interrupts &= ~0x01; // Reset vblank flag
-                        MMU.writeByte(0xFF0F, interrupts);
-                    }
-                }
+                
+                if (Z80._clock.t >= 70224) {
+                    Z80._clock.t = 0;
+                    break;
+                }                    
             } catch (error) {
                 console.log("OpCode error @ $0x" + (Z80._register.pc-1).toString(16) + "\tOpcode 0x" + opCode.toString(16));
                 console.log(error);
@@ -93,6 +123,50 @@ Z80 = {
                 break;
             }            
         }
+    },
+    
+    checkInterrupts: function () {
+        // Check if interrupts are enabled.
+        if (!Z80._register._ime) return;
+
+        // Check if anything is allowed to interrupt.
+        if (!MMU.readByte(0xFFFF)) return; 
+
+        let interrupts = MMU.readByte(0xFF0F); // Get active interrupt flags.
+
+        if (!interupts) return; // Leave if nothing to handle.
+
+        for (var i = 0; i < 5; i++) {
+            // Check if the IE flag is set for the given interrupt.
+            if (interrupts&1<<i && MMU.readByte(0xFFFF)&1<<i) {                
+                Z80.handleInterrupt(i);
+            }
+        }
+    },
+
+    handleInterrupt: function (interrupt) {
+        // TODO: Implement clock timings for interrupt handling.
+        Z80.readByte._ime = false; // Disable interrupt handling.
+
+        Z80._register.sp -= 2; // Push program counter to stack.
+        MMU.writeWord(Z80._register.sp, Z80._register.pc); 
+
+        interrupts &= ~(1<<interrupt); // Reset interrupt flag.
+        MMU.writeByte(0xFF0F, interrupts);
+
+        switch (interrupt) {
+            case 0: Z80._register.pc = 0x40; break; // V-blank
+            case 1: Z80._register.pc = 0x48; break; // LCD
+            case 2: Z80._register.pc = 0x50; break; // Timer
+            case 3:                          break; // Serial (not implemented)
+            case 4: Z80._register.pc = 0x60; break; // Joypad
+        }
+    },
+
+    requestInterrupt: function (id) {
+        let interrupts = MMU.readByte(0xFF0F);
+        interrupts |= id;
+        MMU.writeByte(0xFF0F, interrupts);
     },
 
     reset: function () {
@@ -522,12 +596,17 @@ Z80 = {
             Z80._register.t = 4;
         },        
 
-        INC_De: function () { // 0x23 INC DE
+        INC_BC: function () { // 0x03 INC BC
+            Z80._register.c = (Z80._register.c + 1) & 255;                              // Add 1 then mask to 8-bit;
+            if (Z80._register.c == 0) Z80._register.b = (Z80._register.b + 1) & 255;    // Check for overflow of L, increase H by 1.
+            Z80._register.t = 8;                                                        // Set operation time.
+        },
+        INC_DE: function () { // 0x13 INC DE
             Z80._register.e = (Z80._register.e + 1) & 255;                              // Add 1 then mask to 8-bit;
             if (Z80._register.e == 0) Z80._register.d = (Z80._register.d + 1) & 255;    // Check for overflow of L, increase H by 1.
             Z80._register.t = 8;                                                        // Set operation time.
         },
-        INC_Hl: function () { // 0x23 INC HL
+        INC_HL: function () { // 0x23 INC HL
             Z80._register.l = (Z80._register.l + 1) & 255;                              // Add 1 then mask to 8-bit;
             if (Z80._register.l == 0) Z80._register.h = (Z80._register.h + 1) & 255;    // Check for overflow of L, increase H by 1.
             Z80._register.t = 8;                                                        // Set operation time.
@@ -639,11 +718,11 @@ Z80 = {
 
 Z80._map = [
     // 00 - 0F
-    Z80._ops.NOP, Z80._ops.LD_bc_nn, Z80._ops.LD_bc_a, null, Z80._ops.INC_B, Z80._ops.DEC_B, Z80._ops.LD_b_n, null, null, null, Z80._ops.LD_A_Bc, null, Z80._ops.INC_C, Z80._ops.DEC_C, Z80._ops.LD_c_n, null, 
+    Z80._ops.NOP, Z80._ops.LD_bc_nn, Z80._ops.LD_bc_a, Z80._ops.INC_BC, Z80._ops.INC_B, Z80._ops.DEC_B, Z80._ops.LD_b_n, null, null, null, Z80._ops.LD_A_Bc, null, Z80._ops.INC_C, Z80._ops.DEC_C, Z80._ops.LD_c_n, null, 
     // 10 - 1F
-    null, Z80._ops.LD_de_nn, Z80._ops.LD_de_a, Z80._ops.INC_De, Z80._ops.INC_D, Z80._ops.DEC_D, Z80._ops.LD_d_n, Z80._ops.RLA, Z80._ops.JR_n, null, Z80._ops.LD_A_De, null, Z80._ops.INC_E, Z80._ops.DEC_E, Z80._ops.LD_e_n, null, 
+    null, Z80._ops.LD_de_nn, Z80._ops.LD_de_a, Z80._ops.INC_DE, Z80._ops.INC_D, Z80._ops.DEC_D, Z80._ops.LD_d_n, Z80._ops.RLA, Z80._ops.JR_n, null, Z80._ops.LD_A_De, null, Z80._ops.INC_E, Z80._ops.DEC_E, Z80._ops.LD_e_n, null, 
     // 20 - 2F
-    Z80._ops.JR_nz_n, Z80._ops.LD_hl_nn, Z80._ops.LD_hli_a, Z80._ops.INC_Hl, Z80._ops.INC_H, Z80._ops.DEC_H, Z80._ops.LD_h_n, null, Z80._ops.JR_z_n, null, null, null, Z80._ops.INC_L, Z80._ops.DEC_L, Z80._ops.LD_l_n, null, 
+    Z80._ops.JR_nz_n, Z80._ops.LD_hl_nn, Z80._ops.LD_hli_a, Z80._ops.INC_HL, Z80._ops.INC_H, Z80._ops.DEC_H, Z80._ops.LD_h_n, null, Z80._ops.JR_z_n, null, null, null, Z80._ops.INC_L, Z80._ops.DEC_L, Z80._ops.LD_l_n, null, 
     // 30 - 3F
     null, Z80._ops.LD_sp_nn, Z80._ops.LD_hld_a, null, null, null, null, null, null, null, null, null, Z80._ops.INC_A, Z80._ops.DEC_A, Z80._ops.LD_A_D8, null, 
     // 40 - 4F

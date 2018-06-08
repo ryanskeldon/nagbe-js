@@ -4,10 +4,10 @@ GPU = {
     _oam: [],
 
     _colors: [
-        "#9bbc0f",
-        "#8bac0f",
-        "#306230",
-        "#0f380f"
+        0x9bbc0f,
+        0x8bac0f,
+        0x306230,
+        0x0f380f
     ],
 
     _mode: 0,
@@ -16,10 +16,15 @@ GPU = {
     // Background Map
     _bgMapCanvas: {},
     _bgMapScreen: {},
+    _colorMap: [],
 
     // Screen
     _screenCanvas: {},
     _screenData: {},
+
+    // Screen 
+    _screenBuffer: {},
+    _screenBufferCanvas: {},
 
     _linePixelData: [],
 
@@ -28,6 +33,7 @@ GPU = {
         _lcdc: 0, // 0xFF40 (r/w) LCD control
         _stat: 0, // 0xFF41 LCDC Status
         _scy: 0, // 0xFF42 (r/w) Scroll Y
+        _scx: 0, // 0xFF43 (r/w) Scroll X TODO: Fill in full memory address
         _ly: 0, // 0xFF44 (r) LCDC Y-coordinate
         _bgp: 0 // 0xFF47 (r/w) BG & Window palette
     },
@@ -65,6 +71,11 @@ GPU = {
         }
 
         GPU._screenCanvas.putImageData(GPU._screenData, 0, 0);
+
+        // Initialize screen buffer
+        GPU._screenBuffer = document.createElement("canvas");
+        GPU._screenBuffer.width = 160; GPU._screenBuffer.height = 144;
+        GPU._screenBufferCanvas = GPU._screenBuffer.getContext("2d");
     },
 
     readByte: function (address) {
@@ -79,6 +90,8 @@ GPU = {
                 return GPU._register._lcdc;
             case 0xFF42:
                 return GPU._register._scy;
+            case 0xFF43:
+                return GPU._register._scx;
             case 0xFF44:
                 return GPU._register._ly;
             case 0xFF47:
@@ -93,7 +106,7 @@ GPU = {
 
         // Video RAM
         if (address >= 0x8000 && address <= 0x9FFF) {
-            // TODO: Check if tile or map data modified.
+            // TODO: Check if tile or map data modified.            
             GPU._vram[address & 0x1FFF] = byte;
             return;
         }
@@ -109,15 +122,15 @@ GPU = {
             case 0xFF40:
                 GPU._register._lcdc = byte;
                 return;
-                break;
             case 0xFF42:
                 GPU._register._scy = byte;
                 return;
-                break;
+            case 0xFF43:
+                GPU._register._scx = byte;
+                return;                
             case 0xFF47:
                 GPU._register._bgp = byte;
                 return;
-                break;
         }
 
         throw "GPU: Unable to write to @ 0x" + address.toString(16) + " / Value: 0x" + byte.toString(16);
@@ -129,21 +142,29 @@ GPU = {
 
         GPU._clock += Z80._register.t; // Add last instruction's clock length.
 
-        GPU._register._ly++;
+        if (GPU._clock >= 456) {
+            GPU._register._ly++;
+        }
 
-        if (GPU._register._ly > 153) 
+        if (GPU._register._ly === 144) {
+            GPU.drawScreen();            
+            Z80.requestInterrupt(0x01);
+        }
+
+        if (GPU._register._ly > 153) {            
             GPU._register._ly = 0;
+        }            
 
         switch (GPU._mode) {
             case 0:
                 break;
             case 1:
                 break;
-            case 2: // Read memory
+            case 2:
                 break;
-            case 3: // Draw scanline
+            case 3:
                 break;
-        }
+        }        
     },
 
     readLine: function () {
@@ -154,38 +175,7 @@ GPU = {
 
     drawLine: function () {
         // Load color palette for background.
-        let palette = 0xFC //MMU.readByte(0xFF47);
-
-        let color0 = GPU._colors[palette&0x3];
-        let color1 = GPU._colors[(palette>>2)&0x3];
-        let color2 = GPU._colors[(palette>>4)&0x3];
-        let color3 = GPU._colors[(palette>>6)&0x3];
-
-        for (var x = 0; x < 160; x++) {
-            let color = GPU._linePixelData[x];
-
-            switch (color) {
-                case 0:
-                    GPU._screenCanvas.fillStyle = color0;
-                    break;
-                case 1:
-                    GPU._screenCanvas.fillStyle = color1;
-                    break;
-                case 2:
-                    GPU._screenCanvas.fillStyle = color2;
-                    break;
-                case 3:
-                    GPU._screenCanvas.fillStyle = color3;
-                    break;
-            }
-            
-            GPU._screenCanvas.fillRect(x, GPU._register._ly, 1, 1);
-        }
-    },
-
-    drawScreen: function() {
-        // Load color palette for background.
-        let palette = 0xFC //MMU.readByte(0xFF47);
+        let palette = MMU.readByte(0xFF47);
 
         let color0 = GPU._colors[palette&0x3];
         let color1 = GPU._colors[(palette>>2)&0x3];
@@ -195,32 +185,48 @@ GPU = {
         // Get screen data.
         let screenData = GPU._screenCanvas.getImageData(0, 0, 160, 144);
 
-        for (var x = 0; x < 160*144*4; x++) {
+        for (var x = 0; x < 160; x++) {
             let color = GPU._linePixelData[x];
 
-            switch (color) {
-                case 0:
-                    GPU._screenCanvas.fillStyle = color0;
-                    break;
-                case 1:
-                    GPU._screenCanvas.fillStyle = color1;
-                    break;
-                case 2:
-                    GPU._screenCanvas.fillStyle = color2;
-                    break;
-                case 3:
-                    GPU._screenCanvas.fillStyle = color3;
-                    break;
-            }
-
             let pixelIndex = 4 * x + GPU._register._ly;
-            screenData.data[pixelIndex] = Math.floor(Math.random() * 255);
-            screenData.data[pixelIndex+1] = Math.floor(Math.random() * 255);
-            screenData.data[pixelIndex+2] = Math.floor(Math.random() * 255);
+            screenData.data[pixelIndex] = Math.floor(Math.random() * 256);
+            screenData.data[pixelIndex+1] = Math.floor(Math.random() * 256);
+            screenData.data[pixelIndex+2] = Math.floor(Math.random() * 256);
             screenData.data[pixelIndex+3] = 255;
         }
+ 
+        GPU._screenCanvas.putImageData(screenData, 0, 0);
+    },
 
-      GPU._screenCanvas.putImageData(screenData, 0, 0);
+    drawScreen: function() {
+        GPU.renderBackgroundTileMap();
+        // Load color palette for background.
+        // let palette = MMU.readByte(0xFF47);
+
+        // let color0 = GPU._colors[palette&0x3];
+        // let color1 = GPU._colors[(palette>>2)&0x3];
+        // let color2 = GPU._colors[(palette>>4)&0x3];
+        // let color3 = GPU._colors[(palette>>6)&0x3];
+
+        // Get screen data.
+        let bgData = GPU._bgMapScreen;
+        let screenData = GPU._screenCanvas.getImageData(0, 0, 160, 144);
+
+        let sx = GPU._register._scx; let sy = GPU._register._scy;
+
+        for (let y = 0; y < 144; y++){
+            for (let x = 0; x < 160*4; x++){
+                bgIndex = 256 * ((sy+y)%256) + ((sx+x)%256);
+                screenIndex = 160*4 * y + x*4;
+
+                screenData.data[screenIndex] = (GPU._colorMap[bgIndex]>>16)&255;
+                screenData.data[screenIndex+1] = (GPU._colorMap[bgIndex]>>8)&255;
+                screenData.data[screenIndex+2] = GPU._colorMap[bgIndex]&255;
+                screenData.data[screenIndex+3] = 255;
+            }
+        }
+
+        GPU._screenCanvas.putImageData(screenData, 0, 0);
     },
 
     renderBackgroundTileMap: function () {
@@ -273,24 +279,26 @@ GPU = {
 
                 for (var py = 0; py < 8; py++) {
                     for (var px = 0; px < 8; px++) {
-                        let color = tile.data[8 * py + px];
+                        let colorCode = tile.data[8 * py + px];
+                        let pixelColor = 0;
 
-                        switch (color) {
+                        switch (colorCode) {
                             case 0:
-                                GPU._bgMapCanvas.fillStyle = color0;
+                                pixelColor = color0;
                                 break;
                             case 1:
-                                GPU._bgMapCanvas.fillStyle = color1;
+                                pixelColor = color1;
                                 break;
                             case 2:
-                                GPU._bgMapCanvas.fillStyle = color2;
+                                pixelColor = color2;
                                 break;
                             case 3:
-                                GPU._bgMapCanvas.fillStyle = color3;
+                                pixelColor = color3;
                                 break;
                         }
-    
-                        GPU._bgMapCanvas.fillRect(px + (tx*8), py + (ty*8), 1, 1);
+                        
+                        let index = 256 * ((ty*8)+py) + ((tx*8)+px);
+                        GPU._colorMap[index] = pixelColor;
                     }
                 }
             }
