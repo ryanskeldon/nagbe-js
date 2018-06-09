@@ -29,7 +29,7 @@ MMU = {
         loadBios.send();
     
         var loadRom = new XMLHttpRequest();
-        loadRom.open('GET', '/roms/cpu_instrs.gb', true);
+        loadRom.open('GET', '/roms/tetris.gb', true);
         loadRom.responseType = 'arraybuffer';         
         loadRom.onload = function(e) {
             var responseArray = new Uint8Array(this.response); 
@@ -44,10 +44,10 @@ MMU = {
     reset: function() {        
         MMU._biosEnabled = true; // Enabled BIOS boot code.
         
-        for (var i = 0; i < 32768; i++) MMU._rom[i] = 0; // Reset cartridge ROM (32kB) 
-        for (var i = 0; i < 8192; i++) MMU._wram[i] = 0;  // Reset Working RAM (8kB)       
-        for (var i = 0; i < 128; i++) MMU._zram[i] = 0;   // Reset Zero-page RAM (128B)
-        for (var i = 0; i < 128; i++) MMU._ioram[i] = 0;   // Reset I/O RAM (128B)
+        for (var i = 0; i < 32768; i++) MMU._rom[i] = Math.floor(Math.random() * 256); // Reset cartridge ROM (32kB) 
+        for (var i = 0; i < 8192; i++) MMU._wram[i] = Math.floor(Math.random() * 256);  // Reset Working RAM (8kB)       
+        for (var i = 0; i < 128; i++) MMU._zram[i]  = Math.floor(Math.random() * 256);   // Reset Zero-page RAM (128B)
+        for (var i = 0; i < 128; i++) MMU._ioram[i] = Math.floor(Math.random() * 256);   // Reset I/O RAM (128B)
     },
 
     readByte: function (address) {

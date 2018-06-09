@@ -39,8 +39,8 @@ GPU = {
     },
 
     init: function () {
-        for (var i = 0; i < 8192; i++) GPU._vram[i] = 0; // Reset Video RAM (8kB)       
-        for (var i = 0; i < 128; i++) GPU._oam[i] = 0;   // Sprite Attribute Memory (OAM) (128B)
+        for (var i = 0; i < 8192; i++) GPU._vram[i] = Math.floor(Math.random() * 256); // Reset Video RAM (8kB)       
+        for (var i = 0; i < 128; i++) GPU._oam[i]   = Math.floor(Math.random() * 256); // Sprite Attribute Memory (OAM) (128B)
 
         // Initialize background map.
         let backgroundMapElement = document.getElementById("map");
@@ -79,7 +79,7 @@ GPU = {
     },
 
     readByte: function (address) {
-        traceLog.write("GPU", "Reading from $ 0x" + address.toString(16));
+        //traceLog.write("GPU", "Reading from $ 0x" + address.toString(16));
 
         if (address >= 0x8000 && address <= 0x9FFF) {
             return GPU._vram[address & 0x1FFF];
@@ -102,7 +102,7 @@ GPU = {
     },
 
     writeByte: function (address, byte) {
-        traceLog.write("GPU", "Writing to $ 0x" + address.toString(16) + " / Value: 0x" + byte.toString(16));
+        //traceLog.write("GPU", "Writing to $ 0x" + address.toString(16) + " / Value: 0x" + byte.toString(16));
 
         // Video RAM
         if (address >= 0x8000 && address <= 0x9FFF) {
