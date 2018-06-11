@@ -31,11 +31,15 @@ GPU = {
     // Registers
     _register: {
         _lcdc: 0, // 0xFF40 (r/w) LCD control
-        _stat: 0, // 0xFF41 LCDC Status
+        _stat: 0, // 0xFF41 (r/w) LCDC Status
         _scy: 0, // 0xFF42 (r/w) Scroll Y
         _scx: 0, // 0xFF43 (r/w) Scroll X TODO: Fill in full memory address
         _ly: 0, // 0xFF44 (r) LCDC Y-coordinate
-        _bgp: 0 // 0xFF47 (r/w) BG & Window palette
+        _bgp: 0, // 0xFF47 (r/w) BG & Window palette
+        _obj0: 0, // 0xFF48 (r/w) OBJ 0 Palette
+        _obj1: 0, // 0xFF49 (r/w) OBJ 1 Palette
+        _wy: 0, // 0xFF4A (r/w) Window Y position
+        _wb: 0, // 0xFF4B (r/w) Window X position
     },
 
     init: function () {
@@ -88,14 +92,24 @@ GPU = {
         switch (address) {
             case 0xFF40:
                 return GPU._register._lcdc;
+            case 0xFF41:
+                return GPU._register._stat;
             case 0xFF42:
                 return GPU._register._scy;
             case 0xFF43:
                 return GPU._register._scx;
             case 0xFF44:
                 return GPU._register._ly;
-            case 0xFF47:
+            case 0xFF47:            
                 return GPU._register._bgp;
+            case 0xFF48:
+                return GPU._register._obj0;
+            case 0xFF49:
+                return GPU._register._obj1;
+            case 0xFF4A:
+                return GPU._register._wy;
+            case 0xFF4B:
+                return GPU._register._wx;
         }
 
         throw "GPU: Unable to read from @ 0x" + address.toString(16);
@@ -122,6 +136,9 @@ GPU = {
             case 0xFF40:
                 GPU._register._lcdc = byte;
                 return;
+            case 0xFF41:
+                GPU._register._stat = byte;
+                return;
             case 0xFF42:
                 GPU._register._scy = byte;
                 return;
@@ -129,7 +146,19 @@ GPU = {
                 GPU._register._scx = byte;
                 return;                
             case 0xFF47:
-                GPU._register._bgp = byte;
+                GPU._register._bgp = byte;                
+                return;
+            case 0xFF48:
+                GPU._register._obj0 = byte;
+                return;
+            case 0xFF49:
+                GPU._register._obj1 = byte;
+                return;
+            case 0xFF4A:
+                GPU._register._wy = byte;
+                return;
+            case 0xFF4B:
+                GPU._register._wx = byte;
                 return;
         }
 

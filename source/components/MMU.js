@@ -94,6 +94,12 @@ MMU = {
 
         // I/O Ports
         if (address >= 0xFF00 && address <= 0xFF7F) {
+            // Joypad
+            if (address == 0xFF00) {
+                Joypad.readByte(address);
+                return;
+            }
+
             // Interrupt Flag
             if (address === 0xFF0F) {
                 return MMU._if;
@@ -124,11 +130,13 @@ MMU = {
     writeByte: function (address, byte) {
         // ROM Bank 0 & BIOS
         if (address >= 0x0000 && address <=0x3FFF) { 
+            return; // TODO: add proper ROM write handling.
             throw "Writes to $0x" + address.toString(16) + " not implemented.";
         }
 
         // ROM Bank 1 (Memory Bank Controlled)
         if (address >= 0x4000 && address <= 0x7FFF) { 
+            return; // TODO: add proper ROM write handling.
             throw "Writes to $0x" + address.toString(16) + " not implemented.";
         }
 
@@ -160,6 +168,19 @@ MMU = {
 
         // I/O Ports
         if (address >= 0xFF00 && address <= 0xFF7F) {
+            // Joypad
+            if (address == 0xFF00) {
+                Joypad.writeByte(address, byte);
+                return;
+            }
+
+            // Serial
+            if (address >= 0xFF01 && address <= 0xFF02) {
+                // TODO: Implement serial.
+                Serial.writeByte(address, byte);
+                return;
+            }
+
             // Interrupt Flag
             if (address === 0xFF0F) {
                 MMU._if = byte;
@@ -197,7 +218,8 @@ MMU = {
             return;
         }
 
-        throw "Writes to $0x" + address.toString(16) + " not implemented.";
+        console.log("Warning: Writes to $0x" + address.toString(16) + " not implemented.");
+        //throw "Writes to $0x" + address.toString(16) + " not implemented.";
     },
     writeWord: function (address, word) {
         MMU.writeByte(address, word&255); // LSB
