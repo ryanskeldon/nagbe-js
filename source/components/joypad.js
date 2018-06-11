@@ -15,4 +15,4 @@ Joypad = {
                 return;
         }
     }
-}
+};

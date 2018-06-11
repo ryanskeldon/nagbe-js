@@ -128,16 +128,10 @@ MMU = {
         return (MMU.readByte(address+1)<<8) + MMU.readByte(address);
     },
     writeByte: function (address, byte) {
-        // ROM Bank 0 & BIOS
-        if (address >= 0x0000 && address <=0x3FFF) { 
+        // ROM area, no writes allowed.
+        if (address >= 0x0000 && address <= 0x7FFF) { 
             return; // TODO: add proper ROM write handling.
-            throw "Writes to $0x" + address.toString(16) + " not implemented.";
-        }
-
-        // ROM Bank 1 (Memory Bank Controlled)
-        if (address >= 0x4000 && address <= 0x7FFF) { 
-            return; // TODO: add proper ROM write handling.
-            throw "Writes to $0x" + address.toString(16) + " not implemented.";
+            throw "Writes to $0x" + address.toString(16) + " not allowed.";
         }
 
         // VRAM
@@ -160,6 +154,11 @@ MMU = {
             return;
         }
 
+        // Unusable space
+        if (address >= 0xFEA0 && address <= 0xFEFF) {
+            return;
+        }
+
         // Sprite Attribute Table (OAM)
         if (address >= 0xFE00 && address <= 0xFE9F) { 
             GPU.writeByte(address, byte);
@@ -178,6 +177,12 @@ MMU = {
             if (address >= 0xFF01 && address <= 0xFF02) {
                 // TODO: Implement serial.
                 Serial.writeByte(address, byte);
+                return;
+            }
+
+            // Timers
+            if (address >= 0xFF04 && address <= 0xFF07) {
+                Timer.writeByte(address, byte);
                 return;
             }
 

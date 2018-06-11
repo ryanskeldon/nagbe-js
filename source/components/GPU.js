@@ -32,14 +32,16 @@ GPU = {
     _register: {
         _lcdc: 0, // 0xFF40 (r/w) LCD control
         _stat: 0, // 0xFF41 (r/w) LCDC Status
-        _scy: 0, // 0xFF42 (r/w) Scroll Y
-        _scx: 0, // 0xFF43 (r/w) Scroll X TODO: Fill in full memory address
-        _ly: 0, // 0xFF44 (r) LCDC Y-coordinate
-        _bgp: 0, // 0xFF47 (r/w) BG & Window palette
+        _scy: 0,  // 0xFF42 (r/w) Scroll Y
+        _scx: 0,  // 0xFF43 (r/w) Scroll X TODO: Fill in full memory address
+        _ly: 0,   // 0xFF44 (r) LCDC Y-coordinate
+        _lyc: 0,  // 0xFF45 (r/w) LY Compare
+        _dma: 0,  // 0xFF46 (w) DM Transfer & Start Address
+        _bgp: 0,  // 0xFF47 (r/w) BG & Window palette
         _obj0: 0, // 0xFF48 (r/w) OBJ 0 Palette
         _obj1: 0, // 0xFF49 (r/w) OBJ 1 Palette
-        _wy: 0, // 0xFF4A (r/w) Window Y position
-        _wb: 0, // 0xFF4B (r/w) Window X position
+        _wy: 0,   // 0xFF4A (r/w) Window Y position
+        _wb: 0,   // 0xFF4B (r/w) Window X position
     },
 
     init: function () {
@@ -100,6 +102,8 @@ GPU = {
                 return GPU._register._scx;
             case 0xFF44:
                 return GPU._register._ly;
+            case 0xFF45:
+                return GPU._register._lyc;
             case 0xFF47:            
                 return GPU._register._bgp;
             case 0xFF48:
@@ -145,6 +149,13 @@ GPU = {
             case 0xFF43:
                 GPU._register._scx = byte;
                 return;                
+            case 0xFF45:
+                GPU._register._lyc = byte;
+                return;
+            case 0xFF46:
+                GPU._register._dma = byte;                
+                GPU.transferDMA();
+                return;
             case 0xFF47:
                 GPU._register._bgp = byte;                
                 return;
@@ -166,76 +177,204 @@ GPU = {
     },
 
     step: function () {
-        // Skip execution if LCD is not enabled.
-        if (!(MMU.readByte(0xFF40)&0x80)) return;
+        GPU.setLcdStatus();
 
-        GPU._clock += Z80._register.t; // Add last instruction's clock length.
+        if (MMU.readByte(0xFF40)&0x80) // Is the LCD enabled?
+            GPU._clock += Z80._register.t; // Add last instruction's clock length.
+        else
+            return;
 
         if (GPU._clock >= 456) {
             GPU._register._ly++;
+            GPU._clock = 0;
+
+            if (GPU._register._ly == 144) { // In V-Blank
+                GPU.drawScreen();
+                Z80.requestInterrupt(0x01);
+            }
+            else if (GPU._register._ly > 153) {            
+                GPU._register._ly = 0;
+            }
+            else if (GPU._register._ly < 144) {                
+                //GPU.drawLine();                
+            }
         }
-
-        if (GPU._register._ly === 144) {
-            GPU.drawScreen();            
-            Z80.requestInterrupt(0x01);
-        }
-
-        if (GPU._register._ly > 153) {            
-            GPU._register._ly = 0;
-        }            
-
-        switch (GPU._mode) {
-            case 0:
-                break;
-            case 1:
-                break;
-            case 2:
-                break;
-            case 3:
-                break;
-        }        
     },
 
-    readLine: function () {
-        for (var x = 0; x < 160; x++) {
-            GPU._linePixelData[x] = Math.floor(Math.random() * 4);
+    setLcdStatus: function () {
+        let status = GPU._register._stat;
+
+        if (!(MMU.readByte(0xFF40)&0x80)) { // Is the LCD enabled?
+            GPU._register._ly = 0;
+            status &= 252;
+            status |= 0x01;
+            GPU._register._stat = status;
+            return;
         }
+
+        let currentLine = GPU._register._ly;
+        let currentMode = status&0x03;
+        let mode = 0;
+        let interruptRequired = false;
+
+        if (currentLine >= 144) {
+            mode = 1;
+            status |= 0x01;
+            status &= ~0x02;
+            interruptRequired = !!(status&0x10);
+        } else {
+            if (GPU._clock <= 80) {
+                mode = 2;
+                status |= 0x02;
+                status &= ~0x01;
+                interruptRequired = !!(status&0x20);
+            } else if (GPU._clock <= 204) {
+                mode = 3;
+                status |= 0x02;
+                status |= 0x01;
+            } else {
+                mode = 0;
+                status &= ~0x02;
+                status &= ~0x01;
+                interruptRequired = !!(status&0x08);
+            }
+        }
+
+        if (interruptRequired && (mode != currentMode))
+            Z80.requestInterrupt(0x02);
+
+        if (currentLine = GPU._register._lyc) {
+            status |= 0x04;
+
+            if (!!(status&0x40))
+                Z80.requestInterrupt(0x02);
+        } else {
+            status &= ~0x04;
+        }
+
+        GPU._register._stat = status;
     },
 
     drawLine: function () {
-        // Load color palette for background.
-        let palette = MMU.readByte(0xFF47);
+        let unsignedTiles = true; // Used when in tile data is signed.
+        let scrollY = GPU._register._scy;
+        let scrollX = GPU._register._scx;
+        let windowY = GPU._register._wy;
+        let windowX = GPU._register._wx - 7; // Added offset for visibility.
+        let usingWindow = GPU._register._lcdc&0x20 && windowY <= GPU._register._ly; // Is window enabled and visible?
 
-        let color0 = GPU._colors[palette&0x3];
-        let color1 = GPU._colors[(palette>>2)&0x3];
-        let color2 = GPU._colors[(palette>>4)&0x3];
-        let color3 = GPU._colors[(palette>>6)&0x3];
+        // Load tiles for background map.
+        let tileOffset = 0;
 
-        // Get screen data.
-        let screenData = GPU._screenCanvas.getImageData(0, 0, 160, 144);
-
-        for (var x = 0; x < 160; x++) {
-            let color = GPU._linePixelData[x];
-
-            let pixelIndex = 4 * x + GPU._register._ly;
-            screenData.data[pixelIndex] = Math.floor(Math.random() * 256);
-            screenData.data[pixelIndex+1] = Math.floor(Math.random() * 256);
-            screenData.data[pixelIndex+2] = Math.floor(Math.random() * 256);
-            screenData.data[pixelIndex+3] = 255;
+        if (GPU._register._lcdc & 0x10)
+            tileOffset = 0x8000; // 0x8000 - 0x8FFF
+        else {
+            tileOffset = 0x8800; // 0x8800 - 0x97FF
+            unsignedTiles = false;
         }
- 
-        GPU._screenCanvas.putImageData(screenData, 0, 0);
+
+        let bgMapOffset = 0;
+        if (usingWindow) {
+            if (GPU._register._lcdc&0x40) bgMapOffset = 0x9C00;
+            else                          bgMapOffset = 0x9800;
+        } else {
+            if (GPU._register._lcdc&0x08) bgMapOffset = 0x9C00;
+            else                          bgMapOffset = 0x9800;
+        }
+        
+        let yPos = 0;
+
+        if (usingWindow)
+            yPos = GPU._register._ly - windowY;
+        else
+            yPos = scrollY + GPU._register._ly;
+
+        let tileRow = (yPos/8)*32;
+
+        for (let pixel = 0; pixel < 160; pixel++) {
+            let xPos = pixel + scrollX;
+
+            if (usingWindow && pixel >= windowX)
+                xPos = pixel - windowX;
+
+            let tileCol = xPos/8;
+            let tileNum = 0;
+            let tileAddress = bgMapOffset+tileRow+tileCol;
+
+            if (unsignedTiles)
+                tileNum = MMU.readByte(tileAddress);
+            else
+                tileNum = -((~MMU.readByte(tileAddress)+1)&255);
+
+            let tileLocation = tileOffset;
+
+            if (unsignedTiles)
+                tileLocation += (tileNum*16);
+            else
+                tileLocation += ((tileNum+128)*16);
+
+            let line = yPos%8;
+            line *= 2;
+            let data1 = GPU.readByte(tileLocation+line);
+            let data2 = GPU.readByte(tileLocation+line+1);
+
+            let colorBit = xPos%8;
+            colorBit -= 7;
+            colorBit *= -1;
+
+            let colorNum = data2&colorBit;
+            colorNum <<= 1;
+            colorNum |= data1&colorBit;
+
+            let palette = GPU.readByte(0xFF47);
+            let color0 = GPU._colors[palette&0x3];
+            let color1 = GPU._colors[(palette>>2)&0x3];
+            let color2 = GPU._colors[(palette>>4)&0x3];
+            let color3 = GPU._colors[(palette>>6)&0x3];
+
+            let pixelColor = 0;
+
+            switch (colorNum) {
+                case 0:
+                    pixelColor = color0;
+                    break;
+                case 1:
+                    pixelColor = color1;
+                    break;
+                case 2:
+                    pixelColor = color2;
+                    break;
+                case 3:
+                    pixelColor = color3;
+                    break;
+            }
+
+            let finalY = GPU._register._ly;
+
+            if (finalY < 0 || finalY > 143 || pixel < 0 || pixel > 159) continue;
+
+            let r = (pixelColor>>16)&255;
+            let g = (pixelColor>>8)&255;
+            let b = pixelColor&255;
+            GPU._screenCanvas.fillStyle = `rgb(${r}, ${g}, ${b})`;
+            GPU._screenCanvas.fillRect(pixel, finalY, 1, 1);
+
+            //let screenData = GPU._screenCanvas.getImageData(0, 0, 160, 144);
+
+            //let sx = GPU._register._scx; let sy = GPU._register._scy;
+            // let screenIndex = 160*4 * GPU._register._ly + pixel*4;    
+    
+            // screenData.data[screenIndex]   = r;
+            // screenData.data[screenIndex+1] = g;
+            // screenData.data[screenIndex+2] = b;
+            // screenData.data[screenIndex+3] = 255;
+    
+            // GPU._screenCanvas.putImageData(screenData, 0, 0);
+        }
     },
 
     drawScreen: function() {
         GPU.renderBackgroundTileMap();
-        // Load color palette for background.
-        // let palette = MMU.readByte(0xFF47);
-
-        // let color0 = GPU._colors[palette&0x3];
-        // let color1 = GPU._colors[(palette>>2)&0x3];
-        // let color2 = GPU._colors[(palette>>4)&0x3];
-        // let color3 = GPU._colors[(palette>>6)&0x3];
 
         // Get screen data.
         let bgData = GPU._bgMapScreen;
@@ -248,7 +387,7 @@ GPU = {
                 bgIndex = 256 * ((sy+y)%256) + ((sx+x)%256);
                 screenIndex = 160*4 * y + x*4;
 
-                screenData.data[screenIndex] = (GPU._colorMap[bgIndex]>>16)&255;
+                screenData.data[screenIndex]   = (GPU._colorMap[bgIndex]>>16)&255;
                 screenData.data[screenIndex+1] = (GPU._colorMap[bgIndex]>>8)&255;
                 screenData.data[screenIndex+2] = GPU._colorMap[bgIndex]&255;
                 screenData.data[screenIndex+3] = 255;
@@ -333,7 +472,12 @@ GPU = {
             }
         }
     },
+    transferDMA: function () {
+        let address = GPU._register._dma << 8;
 
+        for (let i = 0; i < 0xA0; i++)
+            MMU.writeByte(0xFE00+i, MMU.readByte(address+i));
+    },
     renderTiles: function() {
         let offX = 0;
         let offY = 0;

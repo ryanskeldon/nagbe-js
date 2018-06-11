@@ -10,6 +10,8 @@ Z80 = {
         t: 0
     },
 
+    _interval: null,
+
     _debug: {
         reg_dump: function () {
             traceLog.write("Z80", "--- DUMP--- ");
@@ -55,29 +57,24 @@ Z80 = {
 
     frame: function () {
         let frameClock = Z80._clock.t + 70224;
-        let targetInstruction = 0xffff;
 
         do {
-            // if (!MMU._biosEnabled) { // Stop the CPU while still in dev.
-            //     console.log("BIOS load complete!");
-            //     traceLog.write("Z80", "BIOS load complete!");
-            //     clearInterval(Z80._interval);
-            //     Z80._interval = null;
+            // if (!MMU._biosEnabled) {
+            //     Z80.run();
+            //     console.log("BIOS booted");
             //     break;
             // }
 
             // TODO: Implement HALT check
-            try {
-                Z80.checkInterrupts();
-
+            try {                
                 var opCode = MMU.readByte(Z80._register.pc++);
                 Z80._register.pc &= 0xFFFF;
                 //if (Z80._register.pc >= 0x100) traceLog.write("Z80", "$0x" + (Z80._register.pc-1).toString(16) + "\tOP: 0x" + opCode.toString(16));
-                if (Z80._register.pc == targetInstruction) {Z80.run(); console.log("breaking");break;}
                 Z80._map[opCode]();
                 Z80._clock.t += Z80._register.t;
-
+                Timer.update();
                 GPU.step();
+                Z80.checkInterrupts();
             } catch (error) {
                 console.log("OpCode error @ $0x" + (Z80._register.pc-1).toString(16) + "\tOpcode 0x" + opCode.toString(16));
                 console.log(error);
@@ -89,12 +86,11 @@ Z80 = {
         } while (Z80._clock.t < frameClock);
     },
 
-    _interval: null,
-
     run: function () {
         if (!Z80._interval) {
-            Z80._interval = setInterval(Z80.frame, 1);
+            Z80._interval = setInterval(Z80.frame, 1);            
         } else {
+            traceLog.write("Z80", "$0x" + (Z80._register.pc-1).toString(16));
             clearInterval(Z80._interval);
             Z80._interval = null;
         }
@@ -614,6 +610,39 @@ Z80 = {
             Z80._register.t = 4;
         },
 
+        RST_00: function () { // 0xC7
+            Z80._ops.RST_n(0x00); },
+        RST_08: function () { // 0xCF
+            Z80._ops.RST_n(0x08); },
+        RST_10: function () { // 0xD7
+            Z80._ops.RST_n(0x10); },
+        RST_18: function () { // 0xDF
+            Z80._ops.RST_n(0x18); },
+        RST_20: function () { // 0xE7
+            Z80._ops.RST_n(0x20); },
+        RST_28: function () { // 0xEF
+            Z80._ops.RST_n(0x28); },
+        RST_30: function () { // 0xF7
+            Z80._ops.RST_n(0x30); },
+        RST_38: function () { // 0xFF
+            Z80._ops.RST_n(0x38); },
+                                                                                                                
+        RST_n: function (address) {
+            Z80._register.sp-=2;
+            MMU.writeWord(Z80._register.sp, Z80._register.pc);
+            Z80._register.pc = address;
+            Z80._register.t = 32;
+        },     
+
+        ADD_HL_BC: function () { // 0x09
+            ALU.ADD_HL_n((Z80._register.b<<8)+Z80._register.c); },
+        ADD_HL_DE: function () { // 0x19
+            ALU.ADD_HL_n((Z80._register.d<<8)+Z80._register.e); },
+        ADD_HL_HL: function () { // 0x29
+            ALU.ADD_HL_n((Z80._register.h<<8)+Z80._register.l); },
+        ADD_HL_SP: function () { // 0x39
+            ALU.ADD_HL_n(Z80._register.sp); },
+                        
 
         // Jumps
         JP_d16: function () { // 0xC3 JP nn
@@ -905,13 +934,13 @@ Z80 = {
 
 Z80._map = [
     // 00 - 0F
-    Z80._ops.NOP, Z80._ops.LD_BC_d16, Z80._ops.LD_BCmem_A, Z80._ops.INC_BC, Z80._ops.INC_B, Z80._ops.DEC_B, Z80._ops.LD_B_n, null, Z80._ops.LD_d16mem_SP, null, Z80._ops.LD_A_BCmem, Z80._ops.DEC_BC, Z80._ops.INC_C, Z80._ops.DEC_C, Z80._ops.LD_C_n, null, 
+    Z80._ops.NOP, Z80._ops.LD_BC_d16, Z80._ops.LD_BCmem_A, Z80._ops.INC_BC, Z80._ops.INC_B, Z80._ops.DEC_B, Z80._ops.LD_B_n, null, Z80._ops.LD_d16mem_SP, Z80._ops.ADD_HL_BC, Z80._ops.LD_A_BCmem, Z80._ops.DEC_BC, Z80._ops.INC_C, Z80._ops.DEC_C, Z80._ops.LD_C_n, null, 
     // 10 - 1F
-    null, Z80._ops.LD_DE_d16, Z80._ops.LD_DEmem_A, Z80._ops.INC_DE, Z80._ops.INC_D, Z80._ops.DEC_D, Z80._ops.LD_D_n, Z80._ops.RLA, Z80._ops.JR_n, null, Z80._ops.LD_A_DEmem, Z80._ops.DEC_DE, Z80._ops.INC_E, Z80._ops.DEC_E, Z80._ops.LD_E_n, null, 
+    null, Z80._ops.LD_DE_d16, Z80._ops.LD_DEmem_A, Z80._ops.INC_DE, Z80._ops.INC_D, Z80._ops.DEC_D, Z80._ops.LD_D_n, Z80._ops.RLA, Z80._ops.JR_n, Z80._ops.ADD_HL_DE, Z80._ops.LD_A_DEmem, Z80._ops.DEC_DE, Z80._ops.INC_E, Z80._ops.DEC_E, Z80._ops.LD_E_n, null, 
     // 20 - 2F
-    Z80._ops.JR_nz_n, Z80._ops.LD_HL_nn, Z80._ops.LDI_HLmem_A, Z80._ops.INC_HL, Z80._ops.INC_H, Z80._ops.DEC_H, Z80._ops.LD_H_n, null, Z80._ops.JR_z_n, null, Z80._ops.LDI_A_HLmem, Z80._ops.DEC_HL, Z80._ops.INC_L, Z80._ops.DEC_L, Z80._ops.LD_L_n, Z80._ops.CPL, 
+    Z80._ops.JR_nz_n, Z80._ops.LD_HL_nn, Z80._ops.LDI_HLmem_A, Z80._ops.INC_HL, Z80._ops.INC_H, Z80._ops.DEC_H, Z80._ops.LD_H_n, null, Z80._ops.JR_z_n, Z80._ops.ADD_HL_HL, Z80._ops.LDI_A_HLmem, Z80._ops.DEC_HL, Z80._ops.INC_L, Z80._ops.DEC_L, Z80._ops.LD_L_n, Z80._ops.CPL, 
     // 30 - 3F
-    null, Z80._ops.LD_SP_nn, Z80._ops.LDD_HLmem_A, null, null, null, Z80._ops.LD_HLmem_d8, null, null, null, Z80._ops.LDD_A_HLmem, Z80._ops.DEC_SP, Z80._ops.INC_A, Z80._ops.DEC_A, Z80._ops.LD_A_d8, null, 
+    null, Z80._ops.LD_SP_nn, Z80._ops.LDD_HLmem_A, null, null, null, Z80._ops.LD_HLmem_d8, null, Z80._ops.ADD_HL_SP, null, Z80._ops.LDD_A_HLmem, Z80._ops.DEC_SP, Z80._ops.INC_A, Z80._ops.DEC_A, Z80._ops.LD_A_d8, null, 
     // 40 - 4F
     Z80._ops.LD_B_B, Z80._ops.LD_B_C, Z80._ops.LD_B_D, Z80._ops.LD_B_E, Z80._ops.LD_B_H, Z80._ops.LD_B_L, Z80._ops.LD_B_HLmem, Z80._ops.LD_B_A, Z80._ops.LD_C_B, Z80._ops.LD_C_C, Z80._ops.LD_C_D, Z80._ops.LD_C_E, Z80._ops.LD_C_H, Z80._ops.LD_C_L, Z80._ops.LD_C_HLmem, Z80._ops.LD_C_A, 
     // 50 - 5F
@@ -929,13 +958,13 @@ Z80._map = [
     // B0 - BF
     Z80._ops.OR_B, Z80._ops.OR_C, Z80._ops.OR_D, Z80._ops.OR_E, Z80._ops.OR_H, Z80._ops.OR_L, Z80._ops.OR_HLmem, Z80._ops.OR_A, null, null, null, null, null, null, Z80._ops.CP_HLmem, null, 
     // C0 - CF
-    Z80._ops.RET_NZ, Z80._ops.POP_BC, null, Z80._ops.JP_d16, Z80._ops.CALL_NZ_nn, Z80._ops.PUSH_BC, Z80._ops.ADD_A_d8, null, Z80._ops.RET_Z, Z80._ops.RET, null, Z80._ops.map_to_CB, Z80._ops.CALL_Z_nn, Z80._ops.CALL_nn, Z80._ops.ADC_A_d8, null, 
+    Z80._ops.RET_NZ, Z80._ops.POP_BC, null, Z80._ops.JP_d16, Z80._ops.CALL_NZ_nn, Z80._ops.PUSH_BC, Z80._ops.ADD_A_d8, Z80._ops.RST_00, Z80._ops.RET_Z, Z80._ops.RET, null, Z80._ops.map_to_CB, Z80._ops.CALL_Z_nn, Z80._ops.CALL_nn, Z80._ops.ADC_A_d8, Z80._ops.RST_08, 
     // D0 - DF
-    Z80._ops.RET_NC, Z80._ops.POP_DE, null, null, Z80._ops.CALL_NC_nn, Z80._ops.PUSH_DE, Z80._ops.SUB_d8, null, Z80._ops.RET_C, null, null, null, Z80._ops.CALL_C_nn, null, null, null, 
+    Z80._ops.RET_NC, Z80._ops.POP_DE, null, null, Z80._ops.CALL_NC_nn, Z80._ops.PUSH_DE, Z80._ops.SUB_d8, Z80._ops.RST_10, Z80._ops.RET_C, null, null, null, Z80._ops.CALL_C_nn, null, null, Z80._ops.RST_18, 
     // E0 - EF
-    Z80._ops.LDH_d8mem_A, Z80._ops.POP_HL, Z80._ops.LD_Cmem_A, null, null, Z80._ops.PUSH_HL, Z80._ops.AND_d8, null, null, Z80._ops.JP_HLmem, Z80._ops.LD_a16mem_A, null, null, null, Z80._ops.XOR_d8, null, 
+    Z80._ops.LDH_d8mem_A, Z80._ops.POP_HL, Z80._ops.LD_Cmem_A, null, null, Z80._ops.PUSH_HL, Z80._ops.AND_d8, Z80._ops.RST_20, null, Z80._ops.JP_HLmem, Z80._ops.LD_a16mem_A, null, null, null, Z80._ops.XOR_d8, Z80._ops.RST_28, 
     // F0 - FF
-    Z80._ops.LDH_A_d8mem, Z80._ops.POP_AF, Z80._ops.LD_A_Cmem, Z80._ops.DI, null, Z80._ops.PUSH_AF, Z80._ops.OR_d8, null, Z80._ops.LDHL_SP_n, Z80._ops.LD_SP_HL, Z80._ops.LD_A_d16mem, Z80._ops.EI, null, null, Z80._ops.CP_d8, null
+    Z80._ops.LDH_A_d8mem, Z80._ops.POP_AF, Z80._ops.LD_A_Cmem, Z80._ops.DI, null, Z80._ops.PUSH_AF, Z80._ops.OR_d8, Z80._ops.RST_30, Z80._ops.LDHL_SP_n, Z80._ops.LD_SP_HL, Z80._ops.LD_A_d16mem, Z80._ops.EI, null, null, Z80._ops.CP_d8, Z80._ops.RST_38
 ];
 
 Z80._cbMap = [

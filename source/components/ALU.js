@@ -72,4 +72,13 @@ ALU = {
             Z80._register.t = falseTime;
         }
     },
+    ADD_HL_n: function (input) {
+        let hl = (Z80._register.h<<8)+Z80._register.l;
+        Z80._register.f &= ~Z80._flags.subtraction;
+        if (hl+input > 0xFFFF) Z80._register.f |= Z80._flags.carry;
+        if ((hl&0xFF)+(input&0xFF) > 0xFF) Z80._register.f |= Z80._flags.halfCarry;
+        Z80._register.h = ((hl+input)>>8)&0xFF;
+        Z80._register.l = (hl+input)&0xFF;
+        Z80._register.t = 8;
+    }
 }
