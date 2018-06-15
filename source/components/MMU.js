@@ -47,7 +47,7 @@ MMU = {
         for (var i = 0; i < 32768; i++) MMU._rom[i] = Math.floor(Math.random() * 256); // Reset cartridge ROM (32kB) 
         for (var i = 0; i < 8192; i++) MMU._wram[i] = Math.floor(Math.random() * 256);  // Reset Working RAM (8kB)       
         for (var i = 0; i < 128; i++) MMU._zram[i]  = Math.floor(Math.random() * 256);   // Reset Zero-page RAM (128B)
-        for (var i = 0; i < 128; i++) MMU._ioram[i] = Math.floor(Math.random() * 256);   // Reset I/O RAM (128B)
+        for (var i = 0; i < 127; i++) MMU._ioram[i] = Math.floor(Math.random() * 256);   // Reset I/O RAM (128B)
     },
 
     readByte: function (address) {
@@ -127,7 +127,12 @@ MMU = {
         // Read byte + next byte shifted by 1 byte.
         return (MMU.readByte(address+1)<<8) + MMU.readByte(address);
     },
-    writeByte: function (address, byte) {
+    writeByte: function (address, byte) {        
+        // ***** DEBUGGING *****
+        if (byte > 255)
+            console.log(`DEBUG: ins ${(Z80._register.pc-1).toString(16)} op: 0x${MMU.readByte(Z80._register.pc-1).toString(16)}`);
+        // *********************
+        
         // ROM area, no writes allowed.
         if (address >= 0x0000 && address <= 0x7FFF) { 
             return; // TODO: add proper ROM write handling.
@@ -148,7 +153,7 @@ MMU = {
         }
 
         // Working RAM and shadow RAM (?)
-        if (address >= 0xC000 && address <= 0xEFFF) { 
+        if (address >= 0xC000 && address <= 0xDFFF) { 
             // TODO: Break this out into different arrays?
             MMU._wram[address & 0x1FFF] = byte;
             return;
@@ -213,6 +218,7 @@ MMU = {
 
         // High RAM (stack)
         if (address >= 0xFF80 && address <= 0xFFFE) { 
+            //console.log(`Writing to HRAM $${address.toString(16)} value: 0x${byte.toString(16)}`);
             MMU._zram[address & 0x7F] = byte;
             return;
         }
@@ -223,7 +229,7 @@ MMU = {
             return;
         }
 
-        console.log("Warning: Writes to $0x" + address.toString(16) + " not implemented.");
+        //console.log("Warning: Writes to $0x" + address.toString(16) + " not implemented.");
         //throw "Writes to $0x" + address.toString(16) + " not implemented.";
     },
     writeWord: function (address, word) {

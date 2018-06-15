@@ -31,6 +31,9 @@ Z80 = {
         }
     },
 
+    pendingEnableInterrupts: 0,
+    pendingDisableInterrupts: 0,
+
     _register: {
         // Basic registers
         a: 0, b: 0, c: 0, d: 0, e: 0, h: 0, l: 0,
@@ -54,90 +57,121 @@ Z80 = {
         // Cycles for last instruction
         t: 0
     },
+    stopAddress: 0x1f32,
 
     frame: function () {
         let frameClock = Z80._clock.t + 70224;
 
         do {
-            // if (!MMU._biosEnabled) {
-            //     Z80.run();
-            //     console.log("BIOS booted");
-            //     break;
-            // }
+            if (Z80._register.pc == Z80.stopAddress && !MMU._biosEnabled) {
+                clearInterval(Z80._interval);
+                Z80._interval = null;            
+                console.log(`Stop address reached: ${Z80.stopAddress.toString(16)}`);
+                break;
+            }
 
             // TODO: Implement HALT check
-            try {                
-                var opCode = MMU.readByte(Z80._register.pc++);
-                Z80._register.pc &= 0xFFFF;
-                //if (Z80._register.pc >= 0x100) traceLog.write("Z80", "$0x" + (Z80._register.pc-1).toString(16) + "\tOP: 0x" + opCode.toString(16));
-                Z80._map[opCode]();
-                Z80._clock.t += Z80._register.t;
-                Timer.update();
-                GPU.step();
-                Z80.checkInterrupts();
+            try {            
+                Z80.step();
             } catch (error) {
                 console.log("OpCode error @ $0x" + (Z80._register.pc-1).toString(16) + "\tOpcode 0x" + opCode.toString(16));
                 console.log(error);
                 traceLog.write("Z80", "OpCode error @ $0x" + (Z80._register.pc-1).toString(16) + "\tOpcode 0x" + opCode.toString(16));                
                 clearInterval(Z80._interval);
-                Z80._interval = null;
+                Z80._interval = null;            
                 break;
             }
         } while (Z80._clock.t < frameClock);
+    },
+
+    step: function () {
+        var opCode = MMU.readByte(Z80._register.pc++);
+        Z80._register.pc &= 0xFFFF;
+        //if (!MMU._biosEnabled) traceLog.write("Z80", "$0x" + (Z80._register.pc-1).toString(16) + "\tOP: 0x" + opCode.toString(16));
+        
+        try {            
+            Z80._map[opCode]();
+        } catch (error) {
+            console.log("OpCode error @ $0x" + (Z80._register.pc-1).toString(16) + "\tOpcode 0x" + opCode.toString(16));
+            console.log(error);
+            traceLog.write("Z80", "OpCode error @ $0x" + (Z80._register.pc-1).toString(16) + "\tOpcode 0x" + opCode.toString(16));                
+            clearInterval(Z80._interval);
+            Z80._interval = null;            
+            throw error;
+        }
+        
+
+        if (Z80.pendingEnableInterrupts) {
+            if (Z80.pendingEnableInterrupts&0xF>0) Z80.pendingEnableInterrupts--;
+            else { Z80._ime = true; Z80.pendingEnableInterrupts = 0; }
+        }
+
+        if (Z80.pendingDisableInterrupts) {
+                if (Z80.pendingDisableInterrupts&0xF>0) Z80.pendingDisableInterrupts--;
+            else { Z80._ime = false; Z80.pendingDisableInterrupts = 0; }
+        }
+
+        Z80._clock.t += Z80._register.t;
+        Timer.update();
+        GPU.step();
+        Z80.checkInterrupts();
     },
 
     run: function () {
         if (!Z80._interval) {
             Z80._interval = setInterval(Z80.frame, 1);            
         } else {
-            traceLog.write("Z80", "$0x" + (Z80._register.pc-1).toString(16));
+            traceLog.write("Z80", "$0x" + (Z80._register.pc).toString(16));
             clearInterval(Z80._interval);
             Z80._interval = null;
         }
     },
 
-    start: function () {
-        while (true) {
-            if (Z80._register.pc === 0x100) { // Stop the CPU while still in dev.
-                console.log("BIOS load complete!");
-                traceLog.write("Z80", "BIOS load complete!");
-                break;
-            }
+    // start: function () {
+    //     while (true) {
+    //         if (Z80._register.pc === 0x100) { // Stop the CPU while still in dev.
+    //             console.log("BIOS load complete!");
+    //             traceLog.write("Z80", "BIOS load complete!");
+    //             break;
+    //         }
 
-            Z80.checkInterrupts();
+    //         Z80.checkInterrupts();
 
-            var opCode = MMU.readByte(Z80._register.pc++);
-            Z80._register.pc &= 0xFFFF;
+    //         var opCode = MMU.readByte(Z80._register.pc++);
+    //         Z80._register.pc &= 0xFFFF;
 
-            try {
-                traceLog.write("Z80", "$0x" + (Z80._register.pc-1).toString(16) + "\tOP: 0x" + opCode.toString(16));
-                Z80._map[opCode]();
-                Z80._clock.t += Z80._register.t;
-                GPU.step();
+    //         try {
+    //             traceLog.write("Z80", "$0x" + (Z80._register.pc-1).toString(16) + "\tOP: 0x" + opCode.toString(16));
+    //             Z80._map[opCode]();
+    //             Z80._clock.t += Z80._register.t;
+    //             GPU.step();
                 
-                if (Z80._clock.t >= 70224) {
-                    Z80._clock.t = 0;
-                    break;
-                }                    
-            } catch (error) {
-                console.log("OpCode error @ $0x" + (Z80._register.pc-1).toString(16) + "\tOpcode 0x" + opCode.toString(16));
-                console.log(error);
-                traceLog.write("Z80", "OpCode error @ $0x" + (Z80._register.pc-1).toString(16) + "\tOpcode 0x" + opCode.toString(16));                
-                break;
-            }            
-        }
-    },
+    //             if (Z80._clock.t >= 70224) {
+    //                 Z80._clock.t = 0;
+    //                 break;
+    //             }                    
+    //         } catch (error) {
+    //             console.log("OpCode error @ $0x" + (Z80._register.pc-1).toString(16) + "\tOpcode 0x" + opCode.toString(16));
+    //             console.log(error);
+    //             traceLog.write("Z80", "OpCode error @ $0x" + (Z80._register.pc-1).toString(16) + "\tOpcode 0x" + opCode.toString(16));                
+    //             break;
+    //         }            
+    //     }
+    // },
     
     checkInterrupts: function () {
         // Check if interrupts are enabled.
-        if (!Z80._register._ime) return;
+        if (!Z80._ime) return;
 
-        // Check if anything is allowed to interrupt.
-        if (!MMU.readByte(0xFFFF)) return; 
+        console.log("Check int: IME enabled");
+
+        try {
+                    // Check if anything is allowed to interrupt.
+        if (MMU.readByte(0xFFFF) == 0) return; 
 
         let interrupts = MMU.readByte(0xFF0F); // Get active interrupt flags.
 
-        if (!interupts) return; // Leave if nothing to handle.
+        if (!interrupts) return; // Leave if nothing to handle.
 
         for (var i = 0; i < 5; i++) {
             // Check if the IE flag is set for the given interrupt.
@@ -145,28 +179,32 @@ Z80 = {
                 Z80.handleInterrupt(i);
             }
         }
+        } catch (error) {
+            console.log(error);
+        }
     },
 
     handleInterrupt: function (interrupt) {
         // TODO: Implement clock timings for interrupt handling.
-        Z80.readByte._ime = false; // Disable interrupt handling.
+        Z80._ime = false; // Disable interrupt handling.
 
         Z80._register.sp -= 2; // Push program counter to stack.
         MMU.writeWord(Z80._register.sp, Z80._register.pc); 
 
-        interrupts &= ~(1<<interrupt); // Reset interrupt flag.
-        MMU.writeByte(0xFF0F, interrupts);
+        interrupt &= ~(1<<interrupt); // Reset interrupt flag.
+        MMU.writeByte(0xFF0F, interrupt);
 
         switch (interrupt) {
-            case 0: Z80._register.pc = 0x40; break; // V-blank
-            case 1: Z80._register.pc = 0x48; break; // LCD
-            case 2: Z80._register.pc = 0x50; break; // Timer
+            case 0: Z80._register.pc = 0x40; console.log("vblank int"); break; // V-blank
+            case 1: Z80._register.pc = 0x48; console.log("lcdc int"); break; // LCD
+            case 2: Z80._register.pc = 0x50; console.log("timer int"); break; // Timer
             case 3:                          break; // Serial (not implemented)
             case 4: Z80._register.pc = 0x60; break; // Joypad
         }
     },
 
     requestInterrupt: function (id) {
+        //console.log(`Interrupt requested: ${id}`);
         let interrupts = MMU.readByte(0xFF0F);
         interrupts |= id;
         MMU.writeByte(0xFF0F, interrupts);
@@ -362,7 +400,7 @@ Z80 = {
         LD_A_Cmem: function () { // 0xF2 LD A, (C)
             Z80._register.a = MMU.readByte(0xFF00 + Z80._register.c); Z80._register.t = 8; },
         LD_Cmem_A: function () { // 0xE2 LD A, (C)
-            MMU.writeByte(0xFF00 + Z80._register.c, 0xFF00 + Z80._register.a); Z80._register.t = 8; },
+            MMU.writeByte(0xFF00 + Z80._register.c, Z80._register.a); Z80._register.t = 8; },
 
         LDD_A_HLmem: function () { // 0x3A LDD A, (HL)
             Z80._register.a = MMU.readByte((Z80._register.h<<8)+Z80._register.l);
@@ -581,7 +619,8 @@ Z80 = {
             ALU.XOR_n(MMU.readByte(Z80._register.pc++), 8); },
     
         JP_HLmem: function () { // 0xE9
-            Z80._register.pc = MMU.readWord(Z80._register.pc); Z80._register.t = 4; },
+            console.log("0xE9 called");
+            Z80._register.pc = MMU.readWord((Z80._register.h<<8)+Z80._register.l); Z80._register.t = 4; },
 
         RET: function () { // 0xC9 RET
             Z80._register.pc = MMU.readWord(Z80._register.sp); Z80._register.sp+=2; Z80._register.t = 8; },
@@ -666,13 +705,13 @@ Z80 = {
             let move = MMU.readByte(Z80._register.pc++);
 
             // Check if Zero flag is set.
-            if (!(Z80._register.f & Z80._flags.zero)) {                
+            if ((Z80._register.f & Z80._flags.zero) == 0) {                
                 if (move > 127) { // move is signed byte.
                     // Calculate the 2's compliment and make it a negative.
                     move = -((~move+1)&255);
                 }
 
-                Z80._register.pc = Z80._register.pc + move; // Move PC the number of bytes in the next address.
+                Z80._register.pc += move; // Move PC the number of bytes in the next address.
                 Z80._register.t = 12;                       // Set operation time.
             } else {
                 Z80._register.t = 8;                        // Set operation time.
@@ -682,13 +721,13 @@ Z80 = {
             let move = MMU.readByte(Z80._register.pc++);
 
             // Check if Zero flag is set.
-            if (Z80._register.f & Z80._flags.zero) {
+            if ((Z80._register.f&Z80._flags.zero) != 0) {
                 if (move > 127) { // move is signed byte.
                     // Calculate the 2's compliment and make it a negative.
                     move = -((~move+1)&255);
                 }
 
-                Z80._register.pc = Z80._register.pc + move; // Move PC the number of bytes in the next address.
+                Z80._register.pc += move; // Move PC the number of bytes in the next address.
                 Z80._register.t = 12;                       // Set operation time.
             } else {
                 Z80._register.t = 8;                        // Set operation time.
@@ -719,7 +758,7 @@ Z80 = {
             Z80._register.f |= ((Z80._register.a&0xf) - (value&0xf)) < 0 ? 0 : Z80._flags.halfCarry;
             Z80._register.t = 8;
         },
-        CP_d8: function () { // 0xFE CP #
+        CP_d8: function () { // 0xFE CP #            
             let value = MMU.readByte(Z80._register.pc++); // Read next byte to use as comparison.
             let result = Z80._register.a-value;           // Don't mask to 8-bit.
             Z80._register.f = Z80._flags.subtraction;
@@ -797,7 +836,6 @@ Z80 = {
             Z80._register.t = 8;                                                        // Set operation time.
         },
 
-
         // DEC n
         DEC_A: function () { // 0x3D DEC A
             Z80._register.f = Z80._flags.subtraction;
@@ -810,7 +848,7 @@ Z80 = {
             Z80._register.f = Z80._flags.subtraction;
             Z80._register.f |= (Z80._register.b&0xf)-1 < 0 ? 0 : Z80._flags.halfCarry;
             Z80._register.b = (Z80._register.b-1)&255;
-            Z80._register.f |= Z80._register.b ? 0 : Z80._flags.zero;
+            Z80._register.f |= Z80._register.b == 0 ? Z80._flags.zero : 0;
             Z80._register.t = 4;
         },
         DEC_C: function () { // 0x0D DEC C
@@ -893,10 +931,10 @@ Z80 = {
         },
         NOP: function () { // 0x00
             Z80._register.t = 4; },
-        DI: function () { // 0xF3
-            Z80._ime = false; Z80._register.t = 4; },
+        DI: function () { // 0xF3            
+            Z80.pendingDisableInterrupts = 0x11; Z80._register.t = 4; },
         EI: function () { // 0xFB
-            Z80._ime = true; Z80._register.t = 4; },
+            Z80.pendingEnableInterrupts = 0x11; Z80._register.t = 4; },
 
         SWAP_A: function () { // CB 0x37
             Z80._register.a = Z80._ops.SWAP_n(Z80._register.a); Z80._register.t = 8; },

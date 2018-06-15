@@ -4,6 +4,6 @@ Serial = {
 
     },
     writeByte: function (address, byte) {
-
+        //console.log(byte);
     }
 };

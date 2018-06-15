@@ -181,8 +181,6 @@ GPU = {
 
         if (MMU.readByte(0xFF40)&0x80) // Is the LCD enabled?
             GPU._clock += Z80._register.t; // Add last instruction's clock length.
-        else
-            return;
 
         if (GPU._clock >= 456) {
             GPU._register._ly++;
