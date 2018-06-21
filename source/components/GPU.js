@@ -91,6 +91,11 @@ GPU = {
             return GPU._vram[address & 0x1FFF];
         }
 
+        // Sprite Attribute Memory
+        if (address >= 0xFE00 && address <= 0xFE9F) {
+            return GPU._oam[address & 0x7F];
+        }
+
         switch (address) {
             case 0xFF40:
                 return GPU._register._lcdc;
@@ -288,7 +293,7 @@ GPU = {
             yPos = scrollY + GPU._register._ly;
 
         let tileRow = (yPos/8)*32;
-
+        
         for (let pixel = 0; pixel < 160; pixel++) {
             let xPos = pixel + scrollX;
 

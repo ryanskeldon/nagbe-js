@@ -10,6 +10,8 @@ Z80 = {
         t: 0
     },
 
+    _usedCodes: [],
+
     _interval: null,
 
     _debug: {
@@ -57,7 +59,8 @@ Z80 = {
         // Cycles for last instruction
         t: 0
     },
-    stopAddress: 0x1f32,
+    stopAddress: 0xFF377,
+    opCode: 0,
 
     frame: function () {
         let frameClock = Z80._clock.t + 70224;
@@ -74,9 +77,7 @@ Z80 = {
             try {            
                 Z80.step();
             } catch (error) {
-                console.log("OpCode error @ $0x" + (Z80._register.pc-1).toString(16) + "\tOpcode 0x" + opCode.toString(16));
                 console.log(error);
-                traceLog.write("Z80", "OpCode error @ $0x" + (Z80._register.pc-1).toString(16) + "\tOpcode 0x" + opCode.toString(16));                
                 clearInterval(Z80._interval);
                 Z80._interval = null;            
                 break;
@@ -85,16 +86,21 @@ Z80 = {
     },
 
     step: function () {
-        var opCode = MMU.readByte(Z80._register.pc++);
-        Z80._register.pc &= 0xFFFF;
-        //if (!MMU._biosEnabled) traceLog.write("Z80", "$0x" + (Z80._register.pc-1).toString(16) + "\tOP: 0x" + opCode.toString(16));
+        if (Z80._register.pc < 0 || Z80._register.pc > 0xFFFF) throw "Program counter out of range.";
+        //if (MMU.readWord((Z80._register.d<<8)+Z80._register.e) == 0x74cd) throw "BAD SPOT"       ;
+
+        Z80.opCode = MMU.readByte(Z80._register.pc++);
+        if (!Z80._usedCodes.includes(Z80.opCode.toString(16))) Z80._usedCodes.push(Z80.opCode.toString(16));
+        
+        //if (!MMU._biosEnabled) traceLog.write("Z80", "$" + (Z80._register.pc-1).toString(16) + "\tOP: 0x" + Z80.opCode.toString(16));
         
         try {            
-            Z80._map[opCode]();
+            Z80._map[Z80.opCode]();
         } catch (error) {
-            console.log("OpCode error @ $0x" + (Z80._register.pc-1).toString(16) + "\tOpcode 0x" + opCode.toString(16));
+            console.log("OpCode error @ $0x" + (Z80._register.pc-1).toString(16) + "\tOpcode 0x" + Z80.opCode.toString(16));
             console.log(error);
-            traceLog.write("Z80", "OpCode error @ $0x" + (Z80._register.pc-1).toString(16) + "\tOpcode 0x" + opCode.toString(16));                
+            traceLog.write("Z80", "OpCode error @ $0x" + (Z80._register.pc-1).toString(16) + "\tOpcode 0x" + Z80.opCode.toString(16));                
+            Z80._debug.reg_dump();
             clearInterval(Z80._interval);
             Z80._interval = null;            
             throw error;
@@ -126,44 +132,10 @@ Z80 = {
             Z80._interval = null;
         }
     },
-
-    // start: function () {
-    //     while (true) {
-    //         if (Z80._register.pc === 0x100) { // Stop the CPU while still in dev.
-    //             console.log("BIOS load complete!");
-    //             traceLog.write("Z80", "BIOS load complete!");
-    //             break;
-    //         }
-
-    //         Z80.checkInterrupts();
-
-    //         var opCode = MMU.readByte(Z80._register.pc++);
-    //         Z80._register.pc &= 0xFFFF;
-
-    //         try {
-    //             traceLog.write("Z80", "$0x" + (Z80._register.pc-1).toString(16) + "\tOP: 0x" + opCode.toString(16));
-    //             Z80._map[opCode]();
-    //             Z80._clock.t += Z80._register.t;
-    //             GPU.step();
-                
-    //             if (Z80._clock.t >= 70224) {
-    //                 Z80._clock.t = 0;
-    //                 break;
-    //             }                    
-    //         } catch (error) {
-    //             console.log("OpCode error @ $0x" + (Z80._register.pc-1).toString(16) + "\tOpcode 0x" + opCode.toString(16));
-    //             console.log(error);
-    //             traceLog.write("Z80", "OpCode error @ $0x" + (Z80._register.pc-1).toString(16) + "\tOpcode 0x" + opCode.toString(16));                
-    //             break;
-    //         }            
-    //     }
-    // },
     
     checkInterrupts: function () {
         // Check if interrupts are enabled.
         if (!Z80._ime) return;
-
-        console.log("Check int: IME enabled");
 
         try {
                     // Check if anything is allowed to interrupt.
@@ -199,12 +171,11 @@ Z80 = {
             case 1: Z80._register.pc = 0x48; console.log("lcdc int"); break; // LCD
             case 2: Z80._register.pc = 0x50; console.log("timer int"); break; // Timer
             case 3:                          break; // Serial (not implemented)
-            case 4: Z80._register.pc = 0x60; break; // Joypad
+            case 4: Z80._register.pc = 0x60; console.log("joypad int"); break; // Joypad
         }
     },
 
     requestInterrupt: function (id) {
-        //console.log(`Interrupt requested: ${id}`);
         let interrupts = MMU.readByte(0xFF0F);
         interrupts |= id;
         MMU.writeByte(0xFF0F, interrupts);
@@ -231,17 +202,17 @@ Z80 = {
 
     _ops: {
         // LD nn, n
-        LD_B_n: function () { // 0x06 LD b, n
+        LD_B_n: function () { // 0x06 LD B, n
             Z80._register.b = MMU.readByte(Z80._register.pc++); Z80._register.t = 8; },
-        LD_C_n: function () { // 0x0E LD c, n
+        LD_C_n: function () { // 0x0E LD C, n
             Z80._register.c = MMU.readByte(Z80._register.pc++); Z80._register.t = 8; },
-        LD_D_n: function () { // 0x16 LD d, n
+        LD_D_n: function () { // 0x16 LD D, n
             Z80._register.d = MMU.readByte(Z80._register.pc++); Z80._register.t = 8; },
-        LD_E_n: function () { // 0x1E LD e, n
+        LD_E_n: function () { // 0x1E LD E, n
             Z80._register.e = MMU.readByte(Z80._register.pc++); Z80._register.t = 8; },
-        LD_H_n: function () { // 0x26 LD h, n
+        LD_H_n: function () { // 0x26 LD H, n
             Z80._register.h = MMU.readByte(Z80._register.pc++); Z80._register.t = 8; },
-        LD_L_n: function () { // 0x2E LD l, n
+        LD_L_n: function () { // 0x2E LD L, n
             Z80._register.l = MMU.readByte(Z80._register.pc++); Z80._register.t = 8; },
 
         // LD r1, r2
@@ -260,11 +231,11 @@ Z80 = {
         LD_A_L: function () { // 0x7D LD A, L
             Z80._register.a = Z80._register.l; Z80._register.t = 4; },
         LD_A_BCmem: function () { // 0x0A LD A, (BC)
-            Z80._register.a = MMU.readByte((Z80._register.b<<8) + Z80._register.c); Z80._register.t = 8; },
+            Z80._register.a = MMU.readByte((Z80._register.b<<8)+Z80._register.c); Z80._register.t = 8; },
         LD_A_DEmem: function () { // 0x1A LD A, (DE)
-            Z80._register.a = MMU.readByte((Z80._register.d<<8) + Z80._register.e); Z80._register.t = 8; },
+            Z80._register.a = MMU.readByte((Z80._register.d<<8)+Z80._register.e); Z80._register.t = 8; },
         LD_A_HLmem: function () { // 0x7E LD A, (HL)
-            Z80._register.a = MMU.readByte((Z80._register.h<<8) + Z80._register.l); Z80._register.t = 8; },
+            Z80._register.a = MMU.readByte((Z80._register.h<<8)+Z80._register.l); Z80._register.t = 8; },
         LD_A_d16mem: function () { // 0xFA LD A, (nn)
             Z80._register.a = MMU.readByte(MMU.readWord(Z80._register.pc)); Z80._register.pc+=2; Z80._register.t = 16; },    
         LD_A_d8: function () { // 0x3E LD A, n
@@ -283,7 +254,7 @@ Z80 = {
         LD_B_L: function () { // 0x45 LD B, L
             Z80._register.b = Z80._register.l; Z80._register.t = 4; },
         LD_B_HLmem: function () { // 0x46 LD B, (HL)
-            Z80._register.b = MMU.readByte((Z80._register.h<<8) + Z80._register.l); Z80._register.t = 8; },
+            Z80._register.b = MMU.readByte((Z80._register.h<<8)+Z80._register.l); Z80._register.t = 8; },
 
         LD_C_B: function () { // 0x48 LD C, B
             Z80._register.c = Z80._register.b; Z80._register.t = 4; },
@@ -298,7 +269,7 @@ Z80 = {
         LD_C_L: function () { // 0x4D LD C, L
             Z80._register.c = Z80._register.l; Z80._register.t = 4; },
         LD_C_HLmem: function () { // 0x4E LD C, (HL)
-            Z80._register.c = MMU.readByte((Z80._register.h<<8) + Z80._register.l); Z80._register.t = 8; },
+            Z80._register.c = MMU.readByte((Z80._register.h<<8)+Z80._register.l); Z80._register.t = 8; },
 
         LD_D_B: function () { // 0x50 LD D, B
             Z80._register.d = Z80._register.b; Z80._register.t = 4; },
@@ -313,7 +284,7 @@ Z80 = {
         LD_D_L: function () { // 0x55 LD D, L
             Z80._register.d = Z80._register.l; Z80._register.t = 4; },
         LD_D_HLmem: function () { // 0x56 LD D, (HL)
-            Z80._register.d = MMU.readByte((Z80._register.h<<8) + Z80._register.l); Z80._register.t = 8; },
+            Z80._register.d = MMU.readByte((Z80._register.h<<8)+Z80._register.l); Z80._register.t = 8; },
 
         LD_E_B: function () { // 0x58 LD E, B
             Z80._register.e = Z80._register.b; Z80._register.t = 4; },
@@ -328,7 +299,7 @@ Z80 = {
         LD_E_L: function () { // 0x5E LD E, L
             Z80._register.e = Z80._register.l; Z80._register.t = 4; },
         LD_E_HLmem: function () { // 0x5E LD E, (HL)
-            Z80._register.e = MMU.readByte((Z80._register.h<<8) + Z80._register.l); Z80._register.t = 8; },
+            Z80._register.e = MMU.readByte((Z80._register.h<<8)+Z80._register.l); Z80._register.t = 8; },
 
         LD_H_B: function () { // 0x60 LD H, B
             Z80._register.h = Z80._register.b; Z80._register.t = 4; },
@@ -343,7 +314,7 @@ Z80 = {
         LD_H_L: function () { // 0x65 LD H, L
             Z80._register.h = Z80._register.l; Z80._register.t = 4; },
         LD_H_HLmem: function () { // 0x66 LD H, (HL)
-            Z80._register.h = MMU.readByte((Z80._register.h<<8) + Z80._register.l); Z80._register.t = 8; },
+            Z80._register.h = MMU.readByte((Z80._register.h<<8)+Z80._register.l); Z80._register.t = 8; },
 
         LD_L_B: function () { // 0x68 LD L, B
             Z80._register.l = Z80._register.b; Z80._register.t = 4; },
@@ -358,22 +329,22 @@ Z80 = {
         LD_L_L: function () { // 0x6D LD L, L
             Z80._register.l = Z80._register.l; Z80._register.t = 4; },
         LD_L_HLmem: function () { // 0x6E LD L, (HL)
-            Z80._register.l = MMU.readByte((Z80._register.h<<8) + Z80._register.l); Z80._register.t = 8; },
+            Z80._register.l = MMU.readByte((Z80._register.h<<8)+Z80._register.l); Z80._register.t = 8; },
 
         LD_HLmem_B: function () { // 0x70 LD (HL), B
-            MMU.writeByte((Z80._register.h<<8) + Z80._register.l, Z80._register.b); Z80._register.t = 8; },
+            MMU.writeByte((Z80._register.h<<8)+Z80._register.l, Z80._register.b); Z80._register.t = 8; },
         LD_HLmem_C: function () { // 0x71 LD (HL), C
-            MMU.writeByte((Z80._register.h<<8) + Z80._register.l, Z80._register.c); Z80._register.t = 8; },
+            MMU.writeByte((Z80._register.h<<8)+Z80._register.l, Z80._register.c); Z80._register.t = 8; },
         LD_HLmem_D: function () { // 0x72 LD (HL), D
-            MMU.writeByte((Z80._register.h<<8) + Z80._register.l, Z80._register.d); Z80._register.t = 8; },
+            MMU.writeByte((Z80._register.h<<8)+Z80._register.l, Z80._register.d); Z80._register.t = 8; },
         LD_HLmem_E: function () { // 0x73 LD (HL), E
-            MMU.writeByte((Z80._register.h<<8) + Z80._register.l, Z80._register.e); Z80._register.t = 8; },
+            MMU.writeByte((Z80._register.h<<8)+Z80._register.l, Z80._register.e); Z80._register.t = 8; },
         LD_HLmem_H: function () { // 0x74 LD (HL), H
-            MMU.writeByte((Z80._register.h<<8) + Z80._register.l, Z80._register.h); Z80._register.t = 8; },
+            MMU.writeByte((Z80._register.h<<8)+Z80._register.l, Z80._register.h); Z80._register.t = 8; },
         LD_HLmem_L: function () { // 0x75 LD (HL), L
-            MMU.writeByte((Z80._register.h<<8) + Z80._register.l, Z80._register.l); Z80._register.t = 8; },
+            MMU.writeByte((Z80._register.h<<8)+Z80._register.l, Z80._register.l); Z80._register.t = 8; },
         LD_HLmem_d8: function () { // 0x36 LD (HL), n
-            MMU.writeByte((Z80._register.h<<8) + Z80._register.l, MMU.readByte(Z80._register.pc++)); Z80._register.t = 12; },            
+            MMU.writeByte((Z80._register.h<<8)+Z80._register.l, MMU.readByte(Z80._register.pc++)); Z80._register.t = 12; },            
 
         // LD n, A
         LD_B_A: function () { // 0x47 LD B, A
@@ -389,11 +360,11 @@ Z80 = {
         LD_L_A: function () { // 0x6F LD L, A
             Z80._register.l = Z80._register.a; Z80._register.t = 4; },
         LD_BCmem_A: function () { // 0x02 LD (BC), A
-            MMU.writeWord((Z80._register.b<<8)+Z80._register.c, Z80._register.a); Z80._register.t = 8; },
+            MMU.writeByte((Z80._register.b<<8)+Z80._register.c, Z80._register.a); Z80._register.t = 8; },
         LD_DEmem_A: function () { // 0x12 LD (DE), A
-            MMU.writeWord((Z80._register.d<<8)+Z80._register.e, Z80._register.a); Z80._register.t = 8; },
+            MMU.writeByte((Z80._register.d<<8)+Z80._register.e, Z80._register.a); Z80._register.t = 8; },
         LD_HLmem_A: function () { // 0x77 LD (HL), A
-            MMU.writeWord((Z80._register.h<<8)+Z80._register.l, Z80._register.a); Z80._register.t = 8; },
+            MMU.writeByte((Z80._register.h<<8)+Z80._register.l, Z80._register.a); Z80._register.t = 8; },
         LD_a16mem_A: function () { // 0xEA LD (nn), A
             MMU.writeByte(MMU.readWord(Z80._register.pc), Z80._register.a); Z80._register.pc+=2; Z80._register.t = 16; },    
 
@@ -427,7 +398,7 @@ Z80 = {
             Z80._register.t = 8;
         },
         LDH_d8mem_A: function () { // 0xE0 LDH ($FF00+n), A
-            MMU.writeByte(MMU.readByte(Z80._register.pc++)+0xFF00, Z80._register.a); Z80._register.t = 12; },
+            MMU.writeByte(0xFF00+MMU.readByte(Z80._register.pc++), Z80._register.a); Z80._register.t = 12; },
         LDH_A_d8mem: function () { // 0xF0 LDH A, ($FF00+n)
             Z80._register.a = MMU.readByte(0xFF00+MMU.readByte(Z80._register.pc++)); Z80._register.t = 12; },
         LD_BC_d16: function () { // 0x01 LD BC, nn
@@ -440,13 +411,15 @@ Z80 = {
             Z80._register.sp = MMU.readWord(Z80._register.pc); Z80._register.pc += 2; Z80._register.t = 12; },
         LD_SP_HL: function () { // 0xF9 LD SP, HL
             Z80._register.sp = (Z80._register.h<<8)+Z80._register.l; Z80._register.t = 8; },
-        LDHL_SP_n: function () { // 0xF8 LDHL SP, n
+        LDHL_SP_n: function () { // 0xF8 LDHL SP, n            
+            throw "";
             Z80._register.f &= ~(Z80._flags.zero+Z80._flags.subtraction);
             let value = MMU.readByte(Z80._register.pc++);
             if (value>127) value = -((~value+1)&255);
             value += Z80._register.sp;
             Z80._register.h = (value>>8)&255;
             Z80._register.l = value&255;
+            console.log(`SP Changed @ Ins: $${(Z80._register.pc-1).toString(16)} SP: $${Z80._register.sp.toString(16)} Val: 0x${MMU.readByte(Z80._register.sp).toString(16)}  Op: 0x${Z80.opCode.toString(16)}`);
             Z80._register.t = 12;
         },
         LD_d16mem_SP: function () { // 0x08 LD (nn), SP
@@ -459,7 +432,6 @@ Z80 = {
             Z80._register.sp-=2; MMU.writeWord(Z80._register.sp, (Z80._register.d<<8)+Z80._register.e); Z80._register.t = 16; },        
         PUSH_HL: function () { // 0xE5 PUSH HL
             Z80._register.sp-=2; MMU.writeWord(Z80._register.sp, (Z80._register.h<<8)+Z80._register.l); Z80._register.t = 16; },
-
         POP_AF: function () { // 0xF1 POP AF
             Z80._register.f = MMU.readByte(Z80._register.sp++); Z80._register.a = MMU.readByte(Z80._register.sp++); Z80._register.t = 12; },
         POP_BC: function () { // 0xC1 POP BC
@@ -468,7 +440,6 @@ Z80 = {
             Z80._register.e = MMU.readByte(Z80._register.sp++); Z80._register.d = MMU.readByte(Z80._register.sp++); Z80._register.t = 12; },
         POP_HL: function () { // 0xE1 POP HL
             Z80._register.l = MMU.readByte(Z80._register.sp++); Z80._register.h = MMU.readByte(Z80._register.sp++); Z80._register.t = 12; },
-
         ADD_A_A: function () { // 0x87
             ALU.ADD_A_n(Z80._register.a, 4); },
         ADD_A_B: function () { // 0x80
@@ -525,7 +496,7 @@ Z80 = {
             ALU.SUB_n(MMU.readByte((Z80._register.h<<8)+Z80._register.l), 8); },
         SUB_d8: function (input, time) { // 0xD6
             ALU.SUB_n(MMU.readByte(Z80._register.pc++), 8); },
-                                                                                                                                                                                    
+        
         SBC_A_A: function () { // 0x9F
             ALU.SBC_A_n(Z80._register.a, 4); },
         SBC_A_B: function () { // 0x98
@@ -543,14 +514,22 @@ Z80 = {
         SBC_A_HLmem: function () { // 0x9E
             ALU.SBC_A_n(MMU.readByte((Z80._register.h<<8)+Z80._register.l), 8); },
 
+
+
+
+
+                                                                                                                                                                                    
+
         DEC_BC: function () { // 0x0B
             Z80._register.c = (Z80._register.c-1)&255; if (Z80._register.c == 255) Z80._register.b--; Z80._register.t = 8; },
         DEC_DE: function () { // 0x1B
             Z80._register.e = (Z80._register.e-1)&255; if (Z80._register.e == 255) Z80._register.d--; Z80._register.t = 8; },
         DEC_HL: function () { // 0x2B
             Z80._register.l = (Z80._register.l-1)&255; if (Z80._register.l == 255) Z80._register.h--; Z80._register.t = 8; },
-        DEC_SP: function () { // 0x3B
-            Z80._register.sp--; Z80._register.t = 8; },
+        DEC_SP: function () { // 0x3B            
+            Z80._register.sp--; Z80._register.t = 8; 
+            console.log(`SP Changed @ Ins: $${(Z80._register.pc-1).toString(16)} SP: $${Z80._register.sp.toString(16)} Val: 0x${MMU.readByte(Z80._register.sp).toString(16)}  Op: 0x${Z80.opCode.toString(16)}`);
+        },
                                         
         OR_A: function () { // 0xB7
             ALU.OR_n(Z80._register.a, 4); },
@@ -607,7 +586,7 @@ Z80 = {
             ALU.XOR_n(Z80._register.c, 4); },
         XOR_D: function () { // 0xAA            
             ALU.XOR_n(Z80._register.d, 4); },
-        XOR_E: function () { // 0xAC            
+        XOR_E: function () { // 0xAB            
             ALU.XOR_n(Z80._register.e, 4); },
         XOR_H: function () { // 0xAC            
             ALU.XOR_n(Z80._register.h, 4); },
@@ -619,25 +598,27 @@ Z80 = {
             ALU.XOR_n(MMU.readByte(Z80._register.pc++), 8); },
     
         JP_HLmem: function () { // 0xE9
-            console.log("0xE9 called");
             Z80._register.pc = MMU.readWord((Z80._register.h<<8)+Z80._register.l); Z80._register.t = 4; },
 
-        RET: function () { // 0xC9 RET
-            Z80._register.pc = MMU.readWord(Z80._register.sp); Z80._register.sp+=2; Z80._register.t = 8; },
+        RET: function () { // 0xC9 RET            
+            Z80._register.pc = MMU.readWord(Z80._register.sp); Z80._register.sp+=2; Z80._register.t = 8; 
+            console.log(`SP Changed @ Ins: $${(Z80._register.pc-1).toString(16)} SP: $${Z80._register.sp.toString(16)} Val: 0x${MMU.readByte(Z80._register.sp).toString(16)}  Op: 0x${Z80.opCode.toString(16)}`);
+         },
 
         RET_NZ: function () { // 0xC0
-            Z80._ops.RET_cc((Z80._register.f&Z80._flags.zero)==0, 20, 8); },
+            Z80._ops.RET_cc(!(Z80._register.f&Z80._flags.zero), 20, 8); },
         RET_Z: function () { // 0xC8
             Z80._ops.RET_cc(Z80._register.f&Z80._flags.zero, 20, 8); },
         RET_NC: function () { // 0xD0
-            Z80._ops.RET_cc((Z80._register.f&Z80._flags.carry)==0, 20, 8); },
+            Z80._ops.RET_cc(!(Z80._register.f&Z80._flags.carry), 20, 8); },
         RET_C: function () { // 0xD8
             Z80._ops.RET_cc(Z80._register.f&Z80._flags.carry, 20, 8); },
                         
         RET_cc: function (condition, trueTime, falseTime) {
-            if (condition) {
+            if (condition) {                
                 Z80._register.pc = MMU.readWord(Z80._register.sp); Z80._register.sp+=2;
                 Z80._register.t = trueTime;
+                console.log(`SP Changed @ Ins: $${(Z80._register.pc-1).toString(16)} SP: $${Z80._register.sp.toString(16)} Val: 0x${MMU.readByte(Z80._register.sp).toString(16)}  Op: 0x${Z80.opCode.toString(16)}`);
             } else {
                 Z80._register.t = falseTime;
             }
@@ -666,11 +647,12 @@ Z80 = {
         RST_38: function () { // 0xFF
             Z80._ops.RST_n(0x38); },
                                                                                                                 
-        RST_n: function (address) {
+        RST_n: function (address) {            
             Z80._register.sp-=2;
             MMU.writeWord(Z80._register.sp, Z80._register.pc);
             Z80._register.pc = address;
             Z80._register.t = 32;
+            console.log(`SP Changed @ Ins: $${(Z80._register.pc-1).toString(16)} SP: $${Z80._register.sp.toString(16)} Val: 0x${MMU.readByte(Z80._register.sp).toString(16)}  Op: 0x${Z80.opCode.toString(16)}`);
         },     
 
         ADD_HL_BC: function () { // 0x09
@@ -681,74 +663,91 @@ Z80 = {
             ALU.ADD_HL_n((Z80._register.h<<8)+Z80._register.l); },
         ADD_HL_SP: function () { // 0x39
             ALU.ADD_HL_n(Z80._register.sp); },
-                        
+
+        JR_n: function () { // 0x18 JR n
+            traceLog.write("Z80", `JR Op: 0x${Z80.opCode.toString(16)} @ $${(Z80._register.pc-1).toString(16)}`);
+            let move = MMU.readByte(Z80._register.pc++);
+            if (move > 127) move = -((~move+1)&255);
+            Z80._register.pc += move;
+            Z80._register.t = 12;
+        },
+
+        JR_NZ_n: function () { // 0x20
+            ALU.JR_cc_n(!(Z80._register.f&Z80._flags.zero), 12, 8); },
+        JR_Z_N: function () { // 0x28
+            ALU.JR_cc_n(Z80._register.f&Z80._flags.zero, 12, 8); },            
+        JR_NC_n: function () { // 0x30
+            ALU.JR_cc_n(!(Z80._register.f&Z80._flags.carry), 12, 8); },
+        JR_C_n: function () { // 0x38
+            ALU.JR_cc_n(Z80._register.f&Z80._flags.carry, 12, 8); },    
 
         // Jumps
         JP_d16: function () { // 0xC3 JP nn
-            // Jump to the position of the next word.
-            Z80._register.pc = MMU.readWord(Z80._register.pc);
-        
+            // Jump to the position of the next word.            
+            Z80._register.pc = MMU.readWord(Z80._register.pc);        
             Z80._register.t = 12;
         },
-        JR_n: function () { // 0x18 JR n
-            let move = MMU.readByte(Z80._register.pc++);
 
-            if (move > 127) { // move is signed byte.
-                // Calculate the 2's compliment and make it a negative.
-                move = -((~move+1)&255);
-            }
-
-            Z80._register.pc = Z80._register.pc + move; // Move PC the number of bytes in the next address.
-            Z80._register.t = 12;                       // Set operation time.
+        JP_NZ_nn: function () { // 0xC2            
+            Z80._ops.JP_cc_nn((Z80._register.f&Z80._flags.zero) == 0, 16, 12);
         },
-        JR_nz_n: function () { // 0x20
-            let move = MMU.readByte(Z80._register.pc++);
+        JP_Z_nn: function () { // 0xCA
+            Z80._ops.JP_cc_nn((Z80._register.f&Z80._flags.zero) == 1, 16, 12);
+        },
+        JP_NC_nn: function () { // 0xD2
+            Z80._ops.JP_cc_nn((Z80._register.f&Z80._flags.carry) == 0, 16, 12);
+        },
+        JP_C_nn: function () { // 0xDA
+            Z80._ops.JP_cc_nn((Z80._register.f&Z80._flags.carry) == 1, 16, 12);
+        },
 
-            // Check if Zero flag is set.
-            if ((Z80._register.f & Z80._flags.zero) == 0) {                
-                if (move > 127) { // move is signed byte.
-                    // Calculate the 2's compliment and make it a negative.
-                    move = -((~move+1)&255);
-                }
-
-                Z80._register.pc += move; // Move PC the number of bytes in the next address.
-                Z80._register.t = 12;                       // Set operation time.
+        JP_cc_nn: function (condition, trueTime, falseTime) {
+            if (condition) {
+                Z80._register.pc = MMU.readWord(Z80._register.pc);
+                Z80._register.t = trueTime;
             } else {
-                Z80._register.t = 8;                        // Set operation time.
+                Z80._register.t = falseTime;
             }
         },
-        JR_z_n: function () { // 0x28
-            let move = MMU.readByte(Z80._register.pc++);
 
-            // Check if Zero flag is set.
-            if ((Z80._register.f&Z80._flags.zero) != 0) {
-                if (move > 127) { // move is signed byte.
-                    // Calculate the 2's compliment and make it a negative.
-                    move = -((~move+1)&255);
-                }
-
-                Z80._register.pc += move; // Move PC the number of bytes in the next address.
-                Z80._register.t = 12;                       // Set operation time.
-            } else {
-                Z80._register.t = 8;                        // Set operation time.
-            }
+        JPZnn: function()  { 
+            Z80._r.m=3; 
+            if((Z80._r.f&0x80)==0x80) { 
+                Z80._r.pc=MMU.rw(Z80._r.pc); 
+                Z80._r.m++; 
+            } 
+            else Z80._r.pc+=2; 
         },
 
                                                                                                        
 
 
         // Calls
-        CALL_nn: function() { // 0xCD CALL nn
-            let address = MMU.readWord(Z80._register.pc);       // Get address of new instruction.
-            Z80._register.pc+=2;
+        CALL_nn: function() { // 0xCD CALL nn            
             Z80._register.sp-=2;                                // Move down 1 word.
-            MMU.writeWord(Z80._register.sp, Z80._register.pc);  // Push address of next instruction
-            Z80._register.pc = address;                         // Jump to new instruction.
+            MMU.writeWord(Z80._register.sp, Z80._register.pc+2);  // Push address of next instruction                        
+            Z80._register.pc = MMU.readWord(Z80._register.pc);       // Get two immediate bytes.
+            Z80._register.t = 12;
+            console.log(`SP Changed @ Ins: $${(Z80._register.pc-1).toString(16)} SP: $${Z80._register.sp.toString(16)} Val: 0x${MMU.readByte(Z80._register.sp).toString(16)}  Op: 0x${Z80.opCode.toString(16)}`);
         },
 
-
+        CALLnn: function() { 
+            Z80._r.sp-=2; 
+            MMU.ww(Z80._r.sp,Z80._r.pc+2); 
+            Z80._r.pc=MMU.rw(Z80._r.pc); 
+            Z80._r.m=5; 
+          },
 
         // CP n
+        CP_B: function () { // 0xB8
+            let value = Z80._register.b;
+            let result = Z80._register.a-value;
+            Z80._register.f = Z80._flags.subtraction;
+            Z80._register.f |= result&255 ? 0 : Z80._flags.zero;
+            Z80._register.f |= Z80._register.a < value ? Z80._flags.carry : 0;
+            Z80._register.f |= ((Z80._register.a&0xf) - (value&0xf)) < 0 ? 0 : Z80._flags.halfCarry;            
+            Z80._register.t = 4;
+        },
         CP_HLmem: function () { // 0xBE CP (HL)
             let value = MMU.readByte((Z80._register.h<<8)+Z80._register.l);
             let result = Z80._register.a-value;
@@ -771,53 +770,62 @@ Z80 = {
         
         // INC n
         INC_A: function () { // 0x3C                        
-            Z80._register.f = 0;
+            Z80._register.f &= ~Z80._flags.subtraction;
             Z80._register.f |= (Z80._register.a&0xf)+1 > 0xf ? Z80._flags.halfCarry : 0;
             Z80._register.a = (Z80._register.a+1)&255;
             Z80._register.f |= Z80._register.a ? 0 : Z80._flags.zero;
             Z80._register.t = 4;
         },
         INC_B: function () { // 0x04            
-            Z80._register.f = 0;
+            Z80._register.f &= ~Z80._flags.subtraction;
             Z80._register.f |= (Z80._register.b&0xf)+1 > 0xf ? Z80._flags.halfCarry : 0;
             Z80._register.b = (Z80._register.b+1)&255;
             Z80._register.f |= Z80._register.b ? 0 : Z80._flags.zero;
             Z80._register.t = 4;
         },
         INC_C: function () { // 0x0C            
-            Z80._register.f = 0;
+            Z80._register.f &= ~Z80._flags.subtraction;
             Z80._register.f |= (Z80._register.c&0xf)+1 > 0xf ? Z80._flags.halfCarry : 0;
             Z80._register.c = (Z80._register.c+1)&255;
             Z80._register.f |= Z80._register.c ? 0 : Z80._flags.zero;
             Z80._register.t = 4;
         },
         INC_D: function () { // 0x14            
-            Z80._register.f = 0;
+            Z80._register.f &= ~Z80._flags.subtraction;
             Z80._register.f |= (Z80._register.d&0xf)+1 > 0xf ? Z80._flags.halfCarry : 0;
             Z80._register.d = (Z80._register.d+1)&255;
             Z80._register.f |= Z80._register.d ? 0 : Z80._flags.zero;
             Z80._register.t = 4;
         },
         INC_E: function () { // 0x1C            
-            Z80._register.f = 0;
+            Z80._register.f &= ~Z80._flags.subtraction;
             Z80._register.f |= (Z80._register.e&0xf)+1 > 0xf ? Z80._flags.halfCarry : 0;
             Z80._register.e = (Z80._register.e+1)&255;
             Z80._register.f |= Z80._register.e ? 0 : Z80._flags.zero;
             Z80._register.t = 4;
         },
         INC_H: function () { // 0x24
-            Z80._register.f = 0;
+            Z80._register.f &= ~Z80._flags.subtraction;
             Z80._register.f |= (Z80._register.h&0xf)+1 > 0xf ? Z80._flags.halfCarry : 0;
             Z80._register.h = (Z80._register.h+1)&255;
             Z80._register.f |= Z80._register.h ? 0 : Z80._flags.zero;
             Z80._register.t = 4;
         },
         INC_L: function () { // 0x2C            
-            Z80._register.f = 0;
+            Z80._register.f &= ~Z80._flags.subtraction;
             Z80._register.f |= (Z80._register.l&0xf)+1 > 0xf ? Z80._flags.halfCarry : 0;
             Z80._register.l = (Z80._register.l+1)&255;
             Z80._register.f |= Z80._register.l ? 0 : Z80._flags.zero;
             Z80._register.t = 4;
+        },
+        INC_HLmem: function () { // 0x34            
+            Z80._register.f &= ~Z80._flags.subtraction;
+            let value = MMU.readByte((Z80._register.h<<8)+Z80._register.l);
+            Z80._register.f |= (value&0xf)+1 > 0xf ? Z80._flags.halfCarry : 0;
+            value = (value+1)&255;
+            Z80._register.f |= value ? 0 : Z80._flags.zero;
+            MMU.writeByte((Z80._register.h<<8)+Z80._register.l, value);
+            Z80._register.t = 12;
         },        
 
         INC_BC: function () { // 0x03 INC BC
@@ -848,7 +856,7 @@ Z80 = {
             Z80._register.f = Z80._flags.subtraction;
             Z80._register.f |= (Z80._register.b&0xf)-1 < 0 ? 0 : Z80._flags.halfCarry;
             Z80._register.b = (Z80._register.b-1)&255;
-            Z80._register.f |= Z80._register.b == 0 ? Z80._flags.zero : 0;
+            Z80._register.f |= Z80._register.b ? 0 : Z80._flags.zero;
             Z80._register.t = 4;
         },
         DEC_C: function () { // 0x0D DEC C
@@ -890,13 +898,35 @@ Z80 = {
 
         // Rotations 
         RLA: function () { // 0x17
-            let carryIn = Z80._register.f & Z80._flags.carry ? 1 : 0;
-            let carryOut = Z80._register.a & 0x80 ? Z80._flags.carry : 0;
-            Z80._register.a = (Z80._register.a<<1) + carryIn;
-            Z80._register.a &= 255;
-            Z80._register.f = carryOut;
+            let a = Z80._register.a;
+            let newCarry = (a >> 7) != 0;
+            let oldCarry = Z80._register.f & Z80._flags.carry ? 1 : 0; 
+            Z80._register.a = ((a<<1)|oldCarry)&255;
+            
+            if (newCarry) Z80._register.f = Z80._flags.carry;
+            else Z80._register.f &= -Z80._flags.carry;
+
+            Z80._register.f &= -Z80._flags.zero;
+            Z80._register.f &= -Z80._flags.subtraction;
+            Z80._register.f &= -Z80._flags.halfCarry;
+
+            // let carryIn = Z80._register.f & Z80._flags.carry ? 1 : 0;
+            // let carryOut = Z80._register.a & 0x80 ? 1 : 0;
+            // Z80._register.a = (Z80._register.a<<1) + carryIn;
+            // Z80._register.a &= 255;
+            // Z80._register.f = carryOut ? Z80._flags.carry : 0;
+            // if (!Z80._register.a) Z80._register.f |= Z80._flags.zero;
             Z80._register.t = 4;
         },
+        // RRA: function () { // 0x1F
+        //     let carryIn = Z80._register.f & Z80._flags.carry ? 1 : 0;
+        //     let carryOut = Z80._register.a & 0x01 ? 1 : 0;
+        //     Z80._register.a = (Z80._register.a>>1) + (carryIn<<7);
+        //     Z80._register.a &= 255;
+        //     Z80._register.f = carryOut;
+        //     if (!Z80._register.a) Z80._register.f |= Z80._flags.zero;
+        //     Z80._register.t = 4;
+        // },
 
         // RL n
         RL_C: function () { // CB 0x11            
@@ -910,10 +940,32 @@ Z80 = {
 
 
         // Bits
-        BIT_7_h: function () { // CB 0x7C
-            Z80._register.f = Z80._flags.halfCarry;                                     // Enable just the half-carry flag.
-            Z80._register.f |= (Z80._register.h & 0x80) === 0 ? Z80._flags.zero : 0;    // Check if bit 7 is zero, set flag if true.
-            Z80._register.m = 2; Z80._register.t = 8;                                   // Set operation time.
+        BIT_b1_A: function () { // CB 0x4F
+            Z80._ops.BIT_b_r(Z80._register.a, 1, 8);
+        },
+
+        BIT_b7_H: function () { // CB 0x7C
+            Z80._ops.BIT_b_r(Z80._register.h, 7, 8);
+        },
+
+        BIT_b_r: function (value, bit, cycles) {
+            Z80._register.f = Z80._flags.halfCarry;
+            Z80._register.f &= -Z80._flags.subtraction;
+            if (value&(1<<bit)) Z80._register.f &= -Z80._flags.zero;
+            else Z80._register.f |= Z80._flags.zero;
+            Z80._register.t = cycles;
+        },
+
+        // RES b, r
+        RES_b0_A: function () { // CB 0x87
+            Z80._register.a &= -(1<<0);
+            Z80._register.t = 8;
+        },
+
+        // SET b, r
+        SET_b1_A: function () { // CB 0xCF
+            Z80._register.a |= (1<<1);
+            Z80._register.t = 8;
         },
 
 
@@ -923,10 +975,10 @@ Z80 = {
             //traceLog.write("Z80", "\tCB OP: 0x" + cbAddress.toString(16));
             try {
                 Z80._cbMap[cbAddress]();                            // Run the OpCode in the CB map.            
-                Z80._register.pc &= 65535;                          // Mask the PC to 16-bit.
                 Z80._register.m = 1; Z80._register.t = 4;           // Set operation time.
             } catch (error) {
                 console.log("CB OpCode error @ $0x" + (Z80._register.pc-1).toString(16) + "\tOpcode 0x" + cbAddress.toString(16));
+                throw error;
             }
         },
         NOP: function () { // 0x00
@@ -935,6 +987,14 @@ Z80 = {
             Z80.pendingDisableInterrupts = 0x11; Z80._register.t = 4; },
         EI: function () { // 0xFB
             Z80.pendingEnableInterrupts = 0x11; Z80._register.t = 4; },
+
+        RETI: function () { // 0xD9
+            let address = MMU.readWord(Z80._register.sp);
+            Z80._register.sp+=2;
+            Z80._register.pc = address;
+            Z80._ime = true;
+            Z80._register.t = 8;
+        },
 
         SWAP_A: function () { // CB 0x37
             Z80._register.a = Z80._ops.SWAP_n(Z80._register.a); Z80._register.t = 8; },
@@ -974,11 +1034,11 @@ Z80._map = [
     // 00 - 0F
     Z80._ops.NOP, Z80._ops.LD_BC_d16, Z80._ops.LD_BCmem_A, Z80._ops.INC_BC, Z80._ops.INC_B, Z80._ops.DEC_B, Z80._ops.LD_B_n, null, Z80._ops.LD_d16mem_SP, Z80._ops.ADD_HL_BC, Z80._ops.LD_A_BCmem, Z80._ops.DEC_BC, Z80._ops.INC_C, Z80._ops.DEC_C, Z80._ops.LD_C_n, null, 
     // 10 - 1F
-    null, Z80._ops.LD_DE_d16, Z80._ops.LD_DEmem_A, Z80._ops.INC_DE, Z80._ops.INC_D, Z80._ops.DEC_D, Z80._ops.LD_D_n, Z80._ops.RLA, Z80._ops.JR_n, Z80._ops.ADD_HL_DE, Z80._ops.LD_A_DEmem, Z80._ops.DEC_DE, Z80._ops.INC_E, Z80._ops.DEC_E, Z80._ops.LD_E_n, null, 
+    null, Z80._ops.LD_DE_d16, Z80._ops.LD_DEmem_A, Z80._ops.INC_DE, Z80._ops.INC_D, Z80._ops.DEC_D, Z80._ops.LD_D_n, Z80._ops.RLA, Z80._ops.JR_n, Z80._ops.ADD_HL_DE, Z80._ops.LD_A_DEmem, Z80._ops.DEC_DE, Z80._ops.INC_E, Z80._ops.DEC_E, Z80._ops.LD_E_n, Z80._ops.RRA, 
     // 20 - 2F
-    Z80._ops.JR_nz_n, Z80._ops.LD_HL_nn, Z80._ops.LDI_HLmem_A, Z80._ops.INC_HL, Z80._ops.INC_H, Z80._ops.DEC_H, Z80._ops.LD_H_n, null, Z80._ops.JR_z_n, Z80._ops.ADD_HL_HL, Z80._ops.LDI_A_HLmem, Z80._ops.DEC_HL, Z80._ops.INC_L, Z80._ops.DEC_L, Z80._ops.LD_L_n, Z80._ops.CPL, 
+    Z80._ops.JR_NZ_n, Z80._ops.LD_HL_nn, Z80._ops.LDI_HLmem_A, Z80._ops.INC_HL, Z80._ops.INC_H, Z80._ops.DEC_H, Z80._ops.LD_H_n, null, Z80._ops.JR_Z_N, Z80._ops.ADD_HL_HL, Z80._ops.LDI_A_HLmem, Z80._ops.DEC_HL, Z80._ops.INC_L, Z80._ops.DEC_L, Z80._ops.LD_L_n, Z80._ops.CPL, 
     // 30 - 3F
-    null, Z80._ops.LD_SP_nn, Z80._ops.LDD_HLmem_A, null, null, null, Z80._ops.LD_HLmem_d8, null, Z80._ops.ADD_HL_SP, null, Z80._ops.LDD_A_HLmem, Z80._ops.DEC_SP, Z80._ops.INC_A, Z80._ops.DEC_A, Z80._ops.LD_A_d8, null, 
+    Z80._ops.JR_NC_n, Z80._ops.LD_SP_nn, Z80._ops.LDD_HLmem_A, null, Z80._ops.INC_HLmem, null, Z80._ops.LD_HLmem_d8, null, Z80._ops.JR_C_n, Z80._ops.ADD_HL_SP, Z80._ops.LDD_A_HLmem, Z80._ops.DEC_SP, Z80._ops.INC_A, Z80._ops.DEC_A, Z80._ops.LD_A_d8, null, 
     // 40 - 4F
     Z80._ops.LD_B_B, Z80._ops.LD_B_C, Z80._ops.LD_B_D, Z80._ops.LD_B_E, Z80._ops.LD_B_H, Z80._ops.LD_B_L, Z80._ops.LD_B_HLmem, Z80._ops.LD_B_A, Z80._ops.LD_C_B, Z80._ops.LD_C_C, Z80._ops.LD_C_D, Z80._ops.LD_C_E, Z80._ops.LD_C_H, Z80._ops.LD_C_L, Z80._ops.LD_C_HLmem, Z80._ops.LD_C_A, 
     // 50 - 5F
@@ -994,11 +1054,11 @@ Z80._map = [
     // A0 - AF
     Z80._ops.AND_B, Z80._ops.AND_C, Z80._ops.AND_D, Z80._ops.AND_E, Z80._ops.AND_H, Z80._ops.AND_L, Z80._ops.AND_HLmem, Z80._ops.AND_A, Z80._ops.XOR_B, Z80._ops.XOR_C, Z80._ops.XOR_D, Z80._ops.XOR_E, Z80._ops.XOR_H, Z80._ops.XOR_L, Z80._ops.XOR_HLmem, Z80._ops.XOR_A, 
     // B0 - BF
-    Z80._ops.OR_B, Z80._ops.OR_C, Z80._ops.OR_D, Z80._ops.OR_E, Z80._ops.OR_H, Z80._ops.OR_L, Z80._ops.OR_HLmem, Z80._ops.OR_A, null, null, null, null, null, null, Z80._ops.CP_HLmem, null, 
+    Z80._ops.OR_B, Z80._ops.OR_C, Z80._ops.OR_D, Z80._ops.OR_E, Z80._ops.OR_H, Z80._ops.OR_L, Z80._ops.OR_HLmem, Z80._ops.OR_A, Z80._ops.CP_B, null, null, null, null, null, Z80._ops.CP_HLmem, null, 
     // C0 - CF
-    Z80._ops.RET_NZ, Z80._ops.POP_BC, null, Z80._ops.JP_d16, Z80._ops.CALL_NZ_nn, Z80._ops.PUSH_BC, Z80._ops.ADD_A_d8, Z80._ops.RST_00, Z80._ops.RET_Z, Z80._ops.RET, null, Z80._ops.map_to_CB, Z80._ops.CALL_Z_nn, Z80._ops.CALL_nn, Z80._ops.ADC_A_d8, Z80._ops.RST_08, 
+    Z80._ops.RET_NZ, Z80._ops.POP_BC, Z80._ops.JP_NZ_nn, Z80._ops.JP_d16, Z80._ops.CALL_NZ_nn, Z80._ops.PUSH_BC, Z80._ops.ADD_A_d8, Z80._ops.RST_00, Z80._ops.RET_Z, Z80._ops.RET, Z80._ops.JP_Z_nn, Z80._ops.map_to_CB, Z80._ops.CALL_Z_nn, Z80._ops.CALL_nn, Z80._ops.ADC_A_d8, Z80._ops.RST_08, 
     // D0 - DF
-    Z80._ops.RET_NC, Z80._ops.POP_DE, null, null, Z80._ops.CALL_NC_nn, Z80._ops.PUSH_DE, Z80._ops.SUB_d8, Z80._ops.RST_10, Z80._ops.RET_C, null, null, null, Z80._ops.CALL_C_nn, null, null, Z80._ops.RST_18, 
+    Z80._ops.RET_NC, Z80._ops.POP_DE, Z80._ops.JP_NC_nn, null, Z80._ops.CALL_NC_nn, Z80._ops.PUSH_DE, Z80._ops.SUB_d8, Z80._ops.RST_10, Z80._ops.RET_C, Z80._ops.RETI, Z80._ops.JP_C_nn, null, Z80._ops.CALL_C_nn, null, null, Z80._ops.RST_18, 
     // E0 - EF
     Z80._ops.LDH_d8mem_A, Z80._ops.POP_HL, Z80._ops.LD_Cmem_A, null, null, Z80._ops.PUSH_HL, Z80._ops.AND_d8, Z80._ops.RST_20, null, Z80._ops.JP_HLmem, Z80._ops.LD_a16mem_A, null, null, null, Z80._ops.XOR_d8, Z80._ops.RST_28, 
     // F0 - FF
@@ -1015,15 +1075,15 @@ Z80._cbMap = [
     // 30 - 3F
     Z80._ops.SWAP_B, Z80._ops.SWAP_C, Z80._ops.SWAP_D, Z80._ops.SWAP_E, Z80._ops.SWAP_H, Z80._ops.SWAP_L, Z80._ops.SWAP_HLmem, Z80._ops.SWAP_A, null, null, null, null, null, null, null, null, 
     // 40 - 4F
-    null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 
+    null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, Z80._ops.BIT_b1_A, 
     // 50 - 5F
     null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 
     // 60 - 6F
     null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 
     // 70 - 7F
-    null, null, null, null, null, null, null, null, null, null, null, null, Z80._ops.BIT_7_h, null, null, null, 
+    null, null, null, null, null, null, null, null, null, null, null, null, Z80._ops.BIT_b7_H, null, null, null, 
     // 80 - 8F
-    null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 
+    null, null, null, null, null, null, null, Z80._ops.RES_b0_A, null, null, null, null, null, null, null, null, 
     // 90 - 9F
     null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 
     // A0 - AF
@@ -1031,7 +1091,7 @@ Z80._cbMap = [
     // B0 - BF
     null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 
     // C0 - CF
-    null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 
+    null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, Z80._ops.SET_b1_A, 
     // D0 - DF
     null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 
     // E0 - EF
@@ -1040,12 +1100,12 @@ Z80._cbMap = [
     null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null
 ];
 
-let opCodes = 512-11;
-for (let i = 0; i < 512; i++)
+let opCodes = 256-11;
+for (let i = 0; i < 256; i++)
     if (!!Z80._map[i]) opCodes--;
 
-let cbCodes = 512;
-for (let i = 0; i < 512; i++)
+let cbCodes = 256;
+for (let i = 0; i < 256; i++)
     if (!!Z80._cbMap[i]) cbCodes--;
 
 console.log(`Missing ${opCodes} op codes`);

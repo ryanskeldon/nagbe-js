@@ -73,6 +73,11 @@ assert(0, Z80._register.b, "dec b value check failed");
 assert(Z80._flags.subtraction, Z80._register.f & Z80._flags.subtraction, "dec b sub flag failed");
 assert(Z80._flags.zero, Z80._register.f & Z80._flags.zero, "dec b sub flag failed");
 
+// ***** Jumps *****
+
+
+// ***** End Jumps *****
+
 // Tests complete.
 Z80.reset();
 console.log("Tests failed: " + totalFailedTests);

@@ -51,6 +51,9 @@ MMU = {
     },
 
     readByte: function (address) {
+        if (address < 0x0000 || address > 0xFFFF)
+            throw `Segfault read @ $${address.toString(16)}`;
+
         // ROM Bank 0 & BIOS
         if (address >= 0x0000 && address <=0x3FFF) { 
             if (MMU._biosEnabled) {
@@ -80,16 +83,17 @@ MMU = {
             return MMU._eram[address & 0x1FFF];
         }
 
-        // Working RAM and shadow RAM (?)
-        if (address >= 0xC000 && address <= 0xEFFF) { 
-            // TODO: Break this out into different arrays?
+        if (address >= 0xC000 && address <= 0xDFFF) { 
+            return MMU._wram[address & 0x1FFF];
+        }
+
+        if (address >= 0xE000 && address <= 0xFDFF) { 
             return MMU._wram[address & 0x1FFF];
         }
 
         // Sprite Attribute Table (OAM)
         if (address >= 0xFE00 && address <= 0xFE9F) { 
-            // TODO: Implement this in the GPU.
-            throw "Error: Reads not implemented at $0x" + address.toString(16);
+            return GPU.readByte(address);
         }
 
         // I/O Ports
@@ -119,24 +123,29 @@ MMU = {
             return MMU._ie;
         }
 
-        // Unhandled addresses should throw an exception.
-        // They're either not implemented or out of addressable range.
-        throw "Error: Unknown memory read @ 0x" + address.toString(16);
+        console.log(`Warning: Read attempt @ $${address.toString(16)} / instr: $${Z80.opCode.toString(16)}`);
+        return 0xFF;
     },
     readWord: function (address) {
         // Read byte + next byte shifted by 1 byte.
         return (MMU.readByte(address+1)<<8) + MMU.readByte(address);
     },
-    writeByte: function (address, byte) {        
+    writeByte: function (address, byte) {            
+        if (address < 0x0000 || address > 0xFFFF)
+            throw `Segfault write @ $${address.toString(16)} / value: ${byte.toString(16)}`;            
+
         // ***** DEBUGGING *****
-        if (byte > 255)
-            console.log(`DEBUG: ins ${(Z80._register.pc-1).toString(16)} op: 0x${MMU.readByte(Z80._register.pc-1).toString(16)}`);
+        if (byte > 255 || byte < 0)
+            console.log(`DEBUG: ins ${(Z80._register.pc-1).toString(16)} op: 0x${MMU.readByte(Z80._register.pc-1).toString(16)}`);            
+
+        // if (address == 0xffb6) 
+        //     console.log(`TARGET: Write attempt @ $${address.toString(16)}`);
         // *********************
-        
+
         // ROM area, no writes allowed.
-        if (address >= 0x0000 && address <= 0x7FFF) { 
-            return; // TODO: add proper ROM write handling.
-            throw "Writes to $0x" + address.toString(16) + " not allowed.";
+        if (address >= 0x0000 && address <= 0x7FFF) {
+            traceLog.write("MMU", `Write attempt in ROM @ $${address.toString(16)} /  Value: 0x${byte.toString(16)}`);
+            return;
         }
 
         // VRAM
@@ -216,9 +225,9 @@ MMU = {
             }
         }
 
-        // High RAM (stack)
+        // High RAM
         if (address >= 0xFF80 && address <= 0xFFFE) { 
-            //console.log(`Writing to HRAM $${address.toString(16)} value: 0x${byte.toString(16)}`);
+            console.log(`Writing to HRAM $${address.toString(16)} value: 0x${byte.toString(16)}`);
             MMU._zram[address & 0x7F] = byte;
             return;
         }
@@ -229,7 +238,7 @@ MMU = {
             return;
         }
 
-        //console.log("Warning: Writes to $0x" + address.toString(16) + " not implemented.");
+        console.log(`Warning: Write attempt @ $${address.toString(16)}`);
         //throw "Writes to $0x" + address.toString(16) + " not implemented.";
     },
     writeWord: function (address, word) {
