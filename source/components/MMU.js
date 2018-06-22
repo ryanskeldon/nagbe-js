@@ -136,7 +136,7 @@ MMU = {
 
         // ***** DEBUGGING *****
         if (byte > 255 || byte < 0)
-            console.log(`DEBUG: ins ${(Z80._register.pc-1).toString(16)} op: 0x${MMU.readByte(Z80._register.pc-1).toString(16)}`);            
+            console.log(`DEBUG: ins ${(Z80._register.pc-1).toString(16)} op: 0x${Z80.opCode.toString(16)}`);            
 
         // if (address == 0xffb6) 
         //     console.log(`TARGET: Write attempt @ $${address.toString(16)}`);

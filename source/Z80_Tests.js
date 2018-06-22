@@ -67,11 +67,8 @@ Z80._ops.RL_C();
 assert(0x21, Z80._register.c, "rl c value check failed.");
 
 Z80.reset();
-Z80._register.b = 1;
-Z80._map[0x05]();
-assert(0, Z80._register.b, "dec b value check failed");
-assert(Z80._flags.subtraction, Z80._register.f & Z80._flags.subtraction, "dec b sub flag failed");
-assert(Z80._flags.zero, Z80._register.f & Z80._flags.zero, "dec b sub flag failed");
+Z80._ops.BIT_b_r(0x9f, 7, 4);
+assert(0x20, Z80._register.f, "BIT_b_r failed");
 
 // ***** Jumps *****
 
