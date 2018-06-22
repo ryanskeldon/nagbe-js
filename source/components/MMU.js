@@ -1,10 +1,10 @@
 MMU = {
     // Memory regions.
-    _bios: [], // Boot instructions
-    _rom: [], // Cartridge ROM
-    _eram: [], // External RAM
-    _wram: [], // Working RAM
-    _zram: [], // Zero-page RAM
+    _bios:  [], // Boot instructions
+    _rom:   [], // Cartridge ROM
+    _eram:  [], // External RAM
+    _wram:  [], // Working RAM
+    _zram:  [], // Zero-page RAM
     _ioram: [], // I/O
 
     // Registers
@@ -227,7 +227,7 @@ MMU = {
 
         // High RAM
         if (address >= 0xFF80 && address <= 0xFFFE) { 
-            console.log(`Writing to HRAM $${address.toString(16)} value: 0x${byte.toString(16)}`);
+            //console.log(`Writing to HRAM $${address.toString(16)} value: 0x${byte.toString(16)}`);
             MMU._zram[address & 0x7F] = byte;
             return;
         }
@@ -239,7 +239,6 @@ MMU = {
         }
 
         console.log(`Warning: Write attempt @ $${address.toString(16)}`);
-        //throw "Writes to $0x" + address.toString(16) + " not implemented.";
     },
     writeWord: function (address, word) {
         MMU.writeByte(address, word&255); // LSB

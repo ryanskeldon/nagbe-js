@@ -1,9 +1,4 @@
-// TODO: Implement serial component
 Serial = {
-    readByte: function (address) {
-
-    },
-    writeByte: function (address, byte) {
-        //console.log(byte);
-    }
+    readByte: function (address) {},
+    writeByte: function (address, byte) {}
 };

@@ -85,8 +85,6 @@ GPU = {
     },
 
     readByte: function (address) {
-        //traceLog.write("GPU", "Reading from $ 0x" + address.toString(16));
-
         if (address >= 0x8000 && address <= 0x9FFF) {
             return GPU._vram[address & 0x1FFF];
         }
@@ -97,39 +95,26 @@ GPU = {
         }
 
         switch (address) {
-            case 0xFF40:
-                return GPU._register._lcdc;
-            case 0xFF41:
-                return GPU._register._stat;
-            case 0xFF42:
-                return GPU._register._scy;
-            case 0xFF43:
-                return GPU._register._scx;
-            case 0xFF44:
-                return GPU._register._ly;
-            case 0xFF45:
-                return GPU._register._lyc;
-            case 0xFF47:            
-                return GPU._register._bgp;
-            case 0xFF48:
-                return GPU._register._obj0;
-            case 0xFF49:
-                return GPU._register._obj1;
-            case 0xFF4A:
-                return GPU._register._wy;
-            case 0xFF4B:
-                return GPU._register._wx;
+            case 0xFF40: return GPU._register._lcdc;
+            case 0xFF41: return GPU._register._stat;
+            case 0xFF42: return GPU._register._scy;
+            case 0xFF43: return GPU._register._scx;
+            case 0xFF44: return GPU._register._ly;
+            case 0xFF45: return GPU._register._lyc;
+            case 0xFF47: return GPU._register._bgp;
+            case 0xFF48: return GPU._register._obj0;
+            case 0xFF49: return GPU._register._obj1;
+            case 0xFF4A: return GPU._register._wy;
+            case 0xFF4B: return GPU._register._wx;
         }
 
         throw "GPU: Unable to read from @ 0x" + address.toString(16);
     },
 
     writeByte: function (address, byte) {
-        //traceLog.write("GPU", "Writing to $ 0x" + address.toString(16) + " / Value: 0x" + byte.toString(16));
-
         // Video RAM
         if (address >= 0x8000 && address <= 0x9FFF) {
-            // TODO: Check if tile or map data modified.            
+            // TODO: Check if tile or map data modified?
             GPU._vram[address & 0x1FFF] = byte;
             return;
         }
@@ -142,40 +127,17 @@ GPU = {
 
         // GPU Registers
         switch (address) {            
-            case 0xFF40:
-                GPU._register._lcdc = byte;
-                return;
-            case 0xFF41:
-                GPU._register._stat = byte;
-                return;
-            case 0xFF42:
-                GPU._register._scy = byte;
-                return;
-            case 0xFF43:
-                GPU._register._scx = byte;
-                return;                
-            case 0xFF45:
-                GPU._register._lyc = byte;
-                return;
-            case 0xFF46:
-                GPU._register._dma = byte;                
-                GPU.transferDMA();
-                return;
-            case 0xFF47:
-                GPU._register._bgp = byte;                
-                return;
-            case 0xFF48:
-                GPU._register._obj0 = byte;
-                return;
-            case 0xFF49:
-                GPU._register._obj1 = byte;
-                return;
-            case 0xFF4A:
-                GPU._register._wy = byte;
-                return;
-            case 0xFF4B:
-                GPU._register._wx = byte;
-                return;
+            case 0xFF40: GPU._register._lcdc = byte; return;
+            case 0xFF41: GPU._register._stat = byte; return;
+            case 0xFF42: GPU._register._scy = byte; return;
+            case 0xFF43: GPU._register._scx = byte; return;                
+            case 0xFF45: GPU._register._lyc = byte; return;
+            case 0xFF46: GPU._register._dma = byte; GPU.transferDMA(); return;
+            case 0xFF47: GPU._register._bgp = byte; return;
+            case 0xFF48: GPU._register._obj0 = byte; return;
+            case 0xFF49: GPU._register._obj1 = byte; return;
+            case 0xFF4A: GPU._register._wy = byte; return;
+            case 0xFF4B: GPU._register._wx = byte; return;
         }
 
         throw "GPU: Unable to write to @ 0x" + address.toString(16) + " / Value: 0x" + byte.toString(16);
@@ -474,6 +436,22 @@ GPU = {
                 }
             }
         }
+
+        let screenData = GPU._bgMapCanvas.getImageData(0, 0, 256, 256);
+
+        for (let y = 0; y < 256; y++){
+            for (let x = 0; x < 256; x++){
+                bgIndex = 256 * ((y)%256) + ((x)%256);
+                screenIndex = 256*4 * y + x*4;
+
+                screenData.data[screenIndex]   = (GPU._colorMap[bgIndex]>>16)&255;
+                screenData.data[screenIndex+1] = (GPU._colorMap[bgIndex]>>8)&255;
+                screenData.data[screenIndex+2] = GPU._colorMap[bgIndex]&255;
+                screenData.data[screenIndex+3] = 255;
+            }
+        }
+
+        GPU._bgMapCanvas.putImageData(screenData, 0, 0);
     },
     transferDMA: function () {
         let address = GPU._register._dma << 8;
