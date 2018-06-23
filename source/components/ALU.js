@@ -10,14 +10,16 @@ ALU = {
         Z80._register.t = time;                                                            
     },
     ADC_A_n: function (input, time) {
-        let original = Z80._register.a;
-        Z80.clearN();
+        let a = Z80._register.a;
         let carry = Z80._register.f & Z80._flags.carry ? 1 : 0;
-        Z80._register.a += (input + carry);
-        if (Z80._register.a > 255) Z80.setC(); else Z80.clearC();
-        Z80._register.a &= 255;
-        if (Z80._register.a==0) Z80.setZ(); else Z80.clearZ();
-        if (((original&0xf)+(value&0xf))>0xf) Z80.setH(); else Z80.clearH();
+        let result = a + (input + carry);
+
+        Z80.clearN();
+        if (result > 255) Z80.setC(); else Z80.clearC();
+        result &= 255;        
+        if (result===0) Z80.setZ(); else Z80.clearZ();
+
+        if ((a ^ (input + carry) ^ result)&0x10 == 0x10) Z80.setH(); else Z80.clearH();
         Z80._register.t = time;
     },
     SUB_n: function (input, time) {

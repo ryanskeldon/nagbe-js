@@ -145,20 +145,17 @@ Z80 = {
         // Check if interrupts are enabled.
         if (!Z80._ime) return;
 
-        try {
-                    // Check if anything is allowed to interrupt.
-        if (MMU.readByte(0xFFFF) == 0) return; 
+        try {            
+            if (MMU.readByte(0xFFFF) == 0) return; // Check if anything is allowed to interrupt.
+            let interrupts = MMU.readByte(0xFF0F); // Get active interrupt flags.
+            if (!interrupts) return; // Leave if nothing to handle.
 
-        let interrupts = MMU.readByte(0xFF0F); // Get active interrupt flags.
-
-        if (!interrupts) return; // Leave if nothing to handle.
-
-        for (var i = 0; i < 5; i++) {
-            // Check if the IE flag is set for the given interrupt.
-            if (interrupts&1<<i && MMU.readByte(0xFFFF)&1<<i) {                
-                Z80.handleInterrupt(i);
+            for (var i = 0; i < 5; i++) {
+                // Check if the IE flag is set for the given interrupt.
+                if (interrupts&1<<i && MMU.readByte(0xFFFF)&1<<i) {                
+                    Z80.handleInterrupt(i);
+                }
             }
-        }
         } catch (error) {
             console.log(error);
         }
@@ -175,7 +172,7 @@ Z80 = {
         MMU.writeByte(0xFF0F, interrupt);
 
         switch (interrupt) {
-            case 0: Z80._register.pc = 0x40; console.log("vblank int"); break; // V-blank
+            case 0: Z80._register.pc = 0x40;  break; // V-blank
             case 1: Z80._register.pc = 0x48; console.log("lcdc int"); break; // LCD
             case 2: Z80._register.pc = 0x50; console.log("timer int"); break; // Timer
             case 3:                          break; // Serial (not implemented)
@@ -183,7 +180,7 @@ Z80 = {
         }
     },
 
-    requestInterrupt: function (id) {
+    requestInterrupt: function (id) {        
         let interrupts = MMU.readByte(0xFF0F);
         interrupts |= id;
         MMU.writeByte(0xFF0F, interrupts);
@@ -422,7 +419,7 @@ Z80 = {
         LDHL_SP_n: function () { // 0xF8 LDHL SP, n            
             let n = MMU.readByte(Z80._register.pc++);
             if (n>127) n = -((~n+1)&255);
-            let result = n + Z80._register.sp;
+            let result = (n + Z80._register.sp)&0xFFFF;
             Z80._register.h = (result>>8)&255;            
             Z80._register.l = result&255;            
             Z80.clearZ(); Z80.clearN();
@@ -662,6 +659,19 @@ Z80 = {
         ADD_HL_SP: function () { // 0x39
             ALU.ADD_HL_n(Z80._register.sp); },
 
+        ADD_SP_n: function () { // 0x38
+            let n = MMU.readByte(Z80._register.pc++);
+            if (n>127) n = -((~n+1)&255);
+            let result = Z80._register.sp + n;
+            Z80.clearZ(); Z80.clearN();            
+            if (((Z80._register.sp ^ n ^ result)&0x100)==0x100) Z80.setC();
+            else Z80.clearC();
+            if (((Z80._register.sp ^ n ^ result)&0x10)==0x10) Z80.setH();
+            else Z80.clearH();
+            Z80._register.sp = result&0xFFFF;
+            Z80._register.t = 12;
+        },
+
         JR_n: function () { // 0x18 JR n
             let move = MMU.readByte(Z80._register.pc++);
             if (move > 127) move = -((~move+1)&255);
@@ -783,7 +793,7 @@ Z80 = {
         },
         INC_HLmem: function () { // 0x34
             let value = MMU.readByte((Z80._register.h<<8)+Z80._register.l);
-            let result = (value+1)*255;
+            let result = (value+1)&255;
             if (result === 0) Z80.setZ(); else Z80.clearZ();
             Z80.clearN();
             if ((value&0xf)+1 > 0xf) Z80.setH(); else Z80.clearH();
@@ -863,6 +873,15 @@ Z80 = {
             if ((Z80._register.l&0xf)-1 < 0) Z80.setH(); else Z80.clearH();
             Z80._register.l = result;
             Z80._register.t = 4;
+        },
+        DEC_HL: function () { // 0x35
+            let value = MMU.readByte((Z80._register.h<<8)+Z80._register.l);
+            let result = (value-1)*255;
+            if (result === 0) Z80.setZ(); else Z80.clearZ();
+            Z80.setN();
+            if ((value&0xf)-1 < 0) Z80.setH(); else Z80.clearH();
+            MMU.writeByte((Z80._register.h<<8)+Z80._register.l, result);
+            Z80._register.t = 12;
         },
 
         // Rotations 
@@ -949,6 +968,14 @@ Z80 = {
             Z80._register.t = 8;
         },
 
+        SRL_B: function () { // CB 0x38
+            let carry = Z80._register.b&0xFE ? 1 : 0;
+            Z80._register.b >>= 1;
+            if (carry) Z80.setC(); else Z80.clearC();
+            Z80.clearN(); Z80.clearH();
+            Z80._register.t = 8
+        },
+
         SWAP_A: function () { // CB 0x37
             Z80._register.a = Z80._ops.SWAP_n(Z80._register.a); Z80._register.t = 8; },
         SWAP_B: function () { // CB 0x30
@@ -971,7 +998,7 @@ Z80 = {
             let lower = input&0xF;
             let value = (lower<<4)+upper;
 
-            Z80._register.f = value ? 0 : Z80._flags.zero;
+            if (value) Z80.clearZ(); else Z80.setZ();
 
             return value;
         }
@@ -989,7 +1016,7 @@ Z80._map = [
     // 20 - 2F
     Z80._ops.JR_NZ_n, Z80._ops.LD_HL_nn, Z80._ops.LDI_HLmem_A, Z80._ops.INC_HL, Z80._ops.INC_H, Z80._ops.DEC_H, Z80._ops.LD_H_n, null, Z80._ops.JR_Z_N, Z80._ops.ADD_HL_HL, Z80._ops.LDI_A_HLmem, Z80._ops.DEC_HL, Z80._ops.INC_L, Z80._ops.DEC_L, Z80._ops.LD_L_n, Z80._ops.CPL, 
     // 30 - 3F
-    Z80._ops.JR_NC_n, Z80._ops.LD_SP_nn, Z80._ops.LDD_HLmem_A, null, Z80._ops.INC_HLmem, null, Z80._ops.LD_HLmem_d8, null, Z80._ops.JR_C_n, Z80._ops.ADD_HL_SP, Z80._ops.LDD_A_HLmem, Z80._ops.DEC_SP, Z80._ops.INC_A, Z80._ops.DEC_A, Z80._ops.LD_A_d8, null, 
+    Z80._ops.JR_NC_n, Z80._ops.LD_SP_nn, Z80._ops.LDD_HLmem_A, null, Z80._ops.INC_HLmem, Z80._ops.DEC_HL, Z80._ops.LD_HLmem_d8, null, Z80._ops.JR_C_n, Z80._ops.ADD_HL_SP, Z80._ops.LDD_A_HLmem, Z80._ops.DEC_SP, Z80._ops.INC_A, Z80._ops.DEC_A, Z80._ops.LD_A_d8, null, 
     // 40 - 4F
     Z80._ops.LD_B_B, Z80._ops.LD_B_C, Z80._ops.LD_B_D, Z80._ops.LD_B_E, Z80._ops.LD_B_H, Z80._ops.LD_B_L, Z80._ops.LD_B_HLmem, Z80._ops.LD_B_A, Z80._ops.LD_C_B, Z80._ops.LD_C_C, Z80._ops.LD_C_D, Z80._ops.LD_C_E, Z80._ops.LD_C_H, Z80._ops.LD_C_L, Z80._ops.LD_C_HLmem, Z80._ops.LD_C_A, 
     // 50 - 5F
@@ -1011,7 +1038,7 @@ Z80._map = [
     // D0 - DF
     Z80._ops.RET_NC, Z80._ops.POP_DE, Z80._ops.JP_NC_nn, null, Z80._ops.CALL_NC_nn, Z80._ops.PUSH_DE, Z80._ops.SUB_d8, Z80._ops.RST_10, Z80._ops.RET_C, Z80._ops.RETI, Z80._ops.JP_C_nn, null, Z80._ops.CALL_C_nn, null, null, Z80._ops.RST_18, 
     // E0 - EF
-    Z80._ops.LDH_d8mem_A, Z80._ops.POP_HL, Z80._ops.LD_Cmem_A, null, null, Z80._ops.PUSH_HL, Z80._ops.AND_d8, Z80._ops.RST_20, null, Z80._ops.JP_HLmem, Z80._ops.LD_a16mem_A, null, null, null, Z80._ops.XOR_d8, Z80._ops.RST_28, 
+    Z80._ops.LDH_d8mem_A, Z80._ops.POP_HL, Z80._ops.LD_Cmem_A, null, null, Z80._ops.PUSH_HL, Z80._ops.AND_d8, Z80._ops.RST_20, Z80._ops.ADD_SP_n, Z80._ops.JP_HLmem, Z80._ops.LD_a16mem_A, null, null, null, Z80._ops.XOR_d8, Z80._ops.RST_28, 
     // F0 - FF
     Z80._ops.LDH_A_d8mem, Z80._ops.POP_AF, Z80._ops.LD_A_Cmem, Z80._ops.DI, null, Z80._ops.PUSH_AF, Z80._ops.OR_d8, Z80._ops.RST_30, Z80._ops.LDHL_SP_n, Z80._ops.LD_SP_HL, Z80._ops.LD_A_d16mem, Z80._ops.EI, null, null, Z80._ops.CP_d8, Z80._ops.RST_38
 ];
@@ -1024,7 +1051,7 @@ Z80._cbMap = [
     // 20 - 2F
     null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 
     // 30 - 3F
-    Z80._ops.SWAP_B, Z80._ops.SWAP_C, Z80._ops.SWAP_D, Z80._ops.SWAP_E, Z80._ops.SWAP_H, Z80._ops.SWAP_L, Z80._ops.SWAP_HLmem, Z80._ops.SWAP_A, null, null, null, null, null, null, null, null, 
+    Z80._ops.SWAP_B, Z80._ops.SWAP_C, Z80._ops.SWAP_D, Z80._ops.SWAP_E, Z80._ops.SWAP_H, Z80._ops.SWAP_L, Z80._ops.SWAP_HLmem, Z80._ops.SWAP_A, Z80._ops.SRL_B, null, null, null, null, null, null, null, 
     // 40 - 4F
     null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, Z80._ops.BIT_b1_A, 
     // 50 - 5F

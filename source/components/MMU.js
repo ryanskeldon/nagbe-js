@@ -5,7 +5,6 @@ MMU = {
     _eram:  [], // External RAM
     _wram:  [], // Working RAM
     _zram:  [], // Zero-page RAM
-    _ioram: [], // I/O
 
     // Registers
     _ie: 0, // Interrupt Enable (R/W)
@@ -47,7 +46,6 @@ MMU = {
         for (var i = 0; i < 32768; i++) MMU._rom[i] = Math.floor(Math.random() * 256); // Reset cartridge ROM (32kB) 
         for (var i = 0; i < 8192; i++) MMU._wram[i] = Math.floor(Math.random() * 256);  // Reset Working RAM (8kB)       
         for (var i = 0; i < 128; i++) MMU._zram[i]  = Math.floor(Math.random() * 256);   // Reset Zero-page RAM (128B)
-        for (var i = 0; i < 127; i++) MMU._ioram[i] = Math.floor(Math.random() * 256);   // Reset I/O RAM (128B)
     },
 
     readByte: function (address) {
@@ -136,7 +134,7 @@ MMU = {
 
         // ***** DEBUGGING *****
         if (byte > 255 || byte < 0)
-            console.log(`DEBUG: ins ${(Z80._register.pc-1).toString(16)} op: 0x${Z80.opCode.toString(16)}`);            
+            console.log(`DEBUG: ins ${(Z80._register.pc-1).toString(16)} op: 0x${Z80.opCode.toString(16)} val: ${byte.toString(16)}`);            
 
         // if (address == 0xffb6) 
         //     console.log(`TARGET: Write attempt @ $${address.toString(16)}`);
@@ -208,8 +206,7 @@ MMU = {
 
             // Audio
             if (address >= 0xFF10 && address <= 0xFF3F) {
-                // TODO: Implement sound.
-                MMU._ioram[address & 0x7F] = byte;
+                // TODO: Implement sound?                
                 return;
             }
 

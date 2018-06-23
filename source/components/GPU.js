@@ -131,6 +131,7 @@ GPU = {
             case 0xFF41: GPU._register._stat = byte; return;
             case 0xFF42: GPU._register._scy = byte; return;
             case 0xFF43: GPU._register._scx = byte; return;                
+            case 0xFF44: GPU._register._ly = 0; return;
             case 0xFF45: GPU._register._lyc = byte; return;
             case 0xFF46: GPU._register._dma = byte; GPU.transferDMA(); return;
             case 0xFF47: GPU._register._bgp = byte; return;
@@ -146,8 +147,10 @@ GPU = {
     step: function () {
         GPU.setLcdStatus();
 
-        if (MMU.readByte(0xFF40)&0x80) // Is the LCD enabled?
+        if (GPU.isLcdEnabled()) // Is the LCD enabled?
             GPU._clock += Z80._register.t; // Add last instruction's clock length.
+        else
+            return;
 
         if (GPU._clock >= 456) {
             GPU._register._ly++;
@@ -166,10 +169,14 @@ GPU = {
         }
     },
 
+    isLcdEnabled: function () {
+        return !!(GPU._register._lcdc&0x80);
+    },
+
     setLcdStatus: function () {
         let status = GPU._register._stat;
 
-        if (!(MMU.readByte(0xFF40)&0x80)) { // Is the LCD enabled?
+        if (!GPU.isLcdEnabled()) { // Is the LCD enabled?
             GPU._register._ly = 0;
             status &= 252;
             status |= 0x01;
@@ -182,7 +189,7 @@ GPU = {
         let mode = 0;
         let interruptRequired = false;
 
-        if (currentLine >= 144) {
+        if (currentLine > 144) {
             mode = 1;
             status |= 0x01;
             status &= ~0x02;
