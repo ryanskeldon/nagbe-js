@@ -67,8 +67,16 @@ Z80._ops.RL_C();
 assert(0x21, Z80._register.c, "rl c value check failed.");
 
 Z80.reset();
+Z80._register.a = 0x91;
 Z80._ops.BIT_b_r(0x9f, 7, 4);
 assert(0x20, Z80._register.f, "BIT_b_r failed");
+
+Z80.reset();
+MMU.writeByte(0xA000, 0x91);
+Z80._register.pc = 0xA000;
+Z80._register.a = 0x91;
+Z80._ops.CP_d8();
+assert(0x80, Z80._register.f&Z80._flags.zero, "CP d8 failed on zero");
 
 // ***** Jumps *****
 

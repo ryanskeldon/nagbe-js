@@ -28,7 +28,8 @@ MMU = {
         loadBios.send();
     
         var loadRom = new XMLHttpRequest();
-        loadRom.open('GET', '/roms/tetris.gb', true);
+        // loadRom.open('GET', '/roms/mooneye/acceptance/pop_timing.gb', true);        
+        loadRom.open('GET', '/roms/games/tetris.gb', true);
         loadRom.responseType = 'arraybuffer';         
         loadRom.onload = function(e) {
             var responseArray = new Uint8Array(this.response); 

@@ -5,26 +5,13 @@
         </div>
 
         <div>
-            <p>Background Map</p>
-            <canvas id="map" width="256" height="256"></canvas>
+            <button id="stepButton">Step</button>
         </div>
 
-        <!-- <div>
-            <canvas id="tile_set" width="256" height="96"></canvas>
-        </div> -->
-
         <div>
-            <b>Registers</b>
+            <p><b>Registers</b></p>
             <table>
                 <tbody>
-                    <tr><td>A</td><td><input type="text" id="a_register" size="2"></td></tr>
-                    <tr><td>F</td><td><input type="text" id="f_register" size="2"></td></tr>
-                    <tr><td>B</td><td><input type="text" id="b_register" size="2"></td></tr>
-                    <tr><td>C</td><td><input type="text" id="c_register" size="2"></td></tr>
-                    <tr><td>D</td><td><input type="text" id="d_register" size="2"></td></tr>
-                    <tr><td>E</td><td><input type="text" id="e_register" size="2"></td></tr>
-                    <tr><td>H</td><td><input type="text" id="h_register" size="2"></td></tr>
-                    <tr><td>L</td><td><input type="text" id="l_register" size="2"></td></tr>
                     <tr><td>AF</td><td><input type="text" id="af_register" size="4"></td></tr>
                     <tr><td>BC</td><td><input type="text" id="bc_register" size="4"></td></tr>
                     <tr><td>DE</td><td><input type="text" id="de_register" size="4"></td></tr>
@@ -33,8 +20,17 @@
                     <tr><td>SP</td><td><input type="text" id="sp_register" size="4"></td></tr>
                 </tbody>
             </table>
+        </div>        
+
+        <div>
+            <p><b>Background Map</b></p>
+            <canvas id="map" width="256" height="256"></canvas>
+            <button id="updateBackgroundButton">Update Background</button>
         </div>
-        <button id="stepButton">Step</button>
+
+        <!-- <div>
+            <canvas id="tile_set" width="256" height="96"></canvas>
+        </div> -->
     </body>
     <script type="text/javascript" src="log.js" ></script>
     <script type="text/javascript" src="components/MMU.js" ></script>

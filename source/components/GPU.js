@@ -4,13 +4,19 @@ GPU = {
     _oam: [],
 
     _colors: [
-        0x9bbc0f,
-        0x8bac0f,
-        0x306230,
-        0x0f380f
+        0x9bbc0f, // White
+        0x8bac0f, // Light Grey
+        0x306230, // Dark Grey
+        0x0f380f  // Black
     ],
 
-    _mode: 0,
+    _lcdModes: {
+        HBlank: 0,
+        VBlank: 1,
+        SearchOAM: 2,
+        Transfer: 3
+    },
+
     _clock: 0,
 
     // Background Map
@@ -45,8 +51,9 @@ GPU = {
     },
 
     init: function () {
-        for (var i = 0; i < 8192; i++) GPU._vram[i] = Math.floor(Math.random() * 256); // Reset Video RAM (8kB)       
-        for (var i = 0; i < 128; i++) GPU._oam[i]   = Math.floor(Math.random() * 256); // Sprite Attribute Memory (OAM) (128B)
+        // Fill memory with random values to emulate realistic hardware.
+        for (var i = 0; i < 8192; i++) GPU._vram[i] = Math.floor(Math.random() * 256);  // Reset Video RAM (8kB)       
+        for (var i = 0; i < 128; i++)  GPU._oam[i]   = Math.floor(Math.random() * 256); // Sprite Attribute Memory (OAM) (128B)
 
         // Initialize background map.
         let backgroundMapElement = document.getElementById("map");
@@ -96,10 +103,25 @@ GPU = {
 
         switch (address) {
             case 0xFF40: return GPU._register._lcdc;
-            case 0xFF41: return GPU._register._stat;
+            case 0xFF41: 
+                let stat = GPU._register._stat;                
+                
+                // Bit 7 is unused and always returns 1.
+                stat |= 0x80; 
+
+                // Bits 0-2 return 0 when LCD is off.
+                if (!GPU.isLcdEnabled()) stat &= ~(0x07);
+
+                return stat; 
             case 0xFF42: return GPU._register._scy;
             case 0xFF43: return GPU._register._scx;
-            case 0xFF44: return GPU._register._ly;
+            case 0xFF44: 
+                let ly = GPU._register._ly;
+
+                // When the LCD is off, LY is fixed at 0.
+                if (!GPU.isLcdEnabled()) ly = 0;
+
+                return ly;
             case 0xFF45: return GPU._register._lyc;
             case 0xFF47: return GPU._register._bgp;
             case 0xFF48: return GPU._register._obj0;
@@ -108,13 +130,12 @@ GPU = {
             case 0xFF4B: return GPU._register._wx;
         }
 
-        throw "GPU: Unable to read from @ 0x" + address.toString(16);
+        throw `GPU: Invalid read from $${address.toString(16)}`;
     },
 
     writeByte: function (address, byte) {
         // Video RAM
         if (address >= 0x8000 && address <= 0x9FFF) {
-            // TODO: Check if tile or map data modified?
             GPU._vram[address & 0x1FFF] = byte;
             return;
         }
@@ -131,7 +152,7 @@ GPU = {
             case 0xFF41: GPU._register._stat = byte; return;
             case 0xFF42: GPU._register._scy = byte; return;
             case 0xFF43: GPU._register._scx = byte; return;                
-            case 0xFF44: GPU._register._ly = 0; return;
+            case 0xFF44: GPU._register._ly = 0; return; // Note: any outside write to LY resets the value to 0;
             case 0xFF45: GPU._register._lyc = byte; return;
             case 0xFF46: GPU._register._dma = byte; GPU.transferDMA(); return;
             case 0xFF47: GPU._register._bgp = byte; return;
@@ -141,10 +162,128 @@ GPU = {
             case 0xFF4B: GPU._register._wx = byte; return;
         }
 
-        throw "GPU: Unable to write to @ 0x" + address.toString(16) + " / Value: 0x" + byte.toString(16);
+        throw `GPU: Invalid write to $${address.toString(16)}`;
+    },
+
+    transferDMA: function () {
+        let address = GPU._register._dma << 8;
+
+        for (let i = 0; i < 0xA0; i++)
+            MMU.writeByte(0xFE00+i, MMU.readByte(address+i));
+    },
+
+    isLcdEnabled: function () {
+        return !!(GPU._register._lcdc&0x80);
+    },
+
+    getLcdMode: function () {
+        return GPU._register._lcdc&0x03;
+    },
+    setLcdMode: function (mode) {
+        GPU._register._lcdc &= ~0x03; // Clear mode.
+        GPU._register._lcdc |= mode;  // Set mode.
     },
 
     step: function () {
+        if (GPU.isLcdEnabled()) {
+            // Add last instruction's clock time.
+            GPU._clock += Z80._register.t;
+        } else {
+            return;
+        }
+
+        switch (GPU.getLcdMode()) {
+            case 2:
+                if (GPU._clock >= 80) {
+                    // Enter scanline mode 3
+                    GPU._clock = 0;
+                    GPU.setLcdMode(3);
+                }
+                break;
+            case 3:
+                if (GPU._clock >= 172) {
+                    // Enter H-Blank
+                    GPU._clock = 0;
+                    GPU.setLcdMode(0);
+                    GPU.renderScanline();
+                }
+                break;
+            case 0:
+                if (GPU._clock >= 204) {
+                    GPU._clock = 0;
+                    GPU._register._ly++;
+
+                    if (GPU._register._ly == 143) {
+                        GPU.setLcdMode(1);
+                        GPU.drawScreen();
+                        Z80.requestInterrupt(0x01);                        
+                    } else {
+                        GPU.setLcdMode(2);
+                    }
+                }
+                break;
+            case 1:
+                if (GPU._clock >= 456) {
+                    GPU._clock = 0;
+                    GPU._register._ly++;
+
+                    if (GPU._register._ly > 153) {
+                        GPU.setLcdMode(2);
+                        GPU._register._ly = 0;
+                    }
+                }
+                break;
+        }
+
+
+        
+        // let currentMode = GPU.getLcdMode();
+        // let interruptRequired = false;
+
+        // if (GPU._clock <= 80) {
+        //     // Mode 2: Searching Sprite Attributes
+        //     currentMode = GPU._lcdModes.SearchOAM;
+        // } else if (GPU._clock <= 172) {
+        //     // Mode 3: Transfering to LCD Driver
+        //     currentMode = GPU._lcdModes.Transfer;
+        // } else if (GPU._clock < 456) {
+        //     // Mode 0: H-Blank
+        //     currentMode = GPU._lcdModes.HBlank;
+        // } else if (GPU._clock >= 456) {
+        //     // Scanline complete.
+        //     GPU._register._ly++;
+        //     GPU._clock = 0;
+        //     currentMode = GPU._lcdModes.SearchOAM;
+
+        //     if (GPU._register._ly == 144) {
+        //         // Entering V-Blank
+        //         currentMode = GPU._lcdModes.VBlank;
+        //         Z80.requestInterrupt(0x01);
+        //     } else if (GPU._register._ly > 153) {
+        //         // V-Blank complete.
+        //         GPU._register._ly = 0;
+    
+        //         //GPU.drawScreen();
+        //     } else if (GPU._register._ly < 144) {
+        //         // Render next scanline.
+        //         GPU.renderScanline();
+        //     }
+        // }
+
+        // // Check if we're entering a new mode.
+        // if (currentMode != GPU.getLcdMode()) {
+        //     if (currentMode != 0) {
+        //         // TODO: LCD Stats INTs
+        //     }
+
+        //     GPU.setLcdMode(currentMode);
+        // }
+    },
+
+    renderScanline: function () { 
+    },
+
+    stepOld: function () {
         GPU.setLcdStatus();
 
         if (GPU.isLcdEnabled()) // Is the LCD enabled?
@@ -157,21 +296,18 @@ GPU = {
             GPU._clock = 0;
 
             if (GPU._register._ly == 144) { // In V-Blank
-                GPU.drawScreen();
+                //GPU.drawScreen();
                 Z80.requestInterrupt(0x01);
             }
             else if (GPU._register._ly > 153) {            
                 GPU._register._ly = 0;
             }
             else if (GPU._register._ly < 144) {                
-                //GPU.drawLine();                
+                GPU.drawLine();                
             }
         }
     },
 
-    isLcdEnabled: function () {
-        return !!(GPU._register._lcdc&0x80);
-    },
 
     setLcdStatus: function () {
         let status = GPU._register._stat;
@@ -460,58 +596,53 @@ GPU = {
 
         GPU._bgMapCanvas.putImageData(screenData, 0, 0);
     },
-    transferDMA: function () {
-        let address = GPU._register._dma << 8;
 
-        for (let i = 0; i < 0xA0; i++)
-            MMU.writeByte(0xFE00+i, MMU.readByte(address+i));
-    },
-    renderTiles: function() {
-        let offX = 0;
-        let offY = 0;
-        let tileIndex = 0;
+    // renderTiles: function() {
+    //     let offX = 0;
+    //     let offY = 0;
+    //     let tileIndex = 0;
 
-        let palette = MMU.readByte(0xFF47);
+    //     let palette = MMU.readByte(0xFF47);
 
-        let color0 = GPU._colors[palette&0x3];
-        let color1 = GPU._colors[(palette>>2)&0x3];
-        let color2 = GPU._colors[(palette>>4)&0x3];
-        let color3 = GPU._colors[(palette>>6)&0x3];
+    //     let color0 = GPU._colors[palette&0x3];
+    //     let color1 = GPU._colors[(palette>>2)&0x3];
+    //     let color2 = GPU._colors[(palette>>4)&0x3];
+    //     let color3 = GPU._colors[(palette>>6)&0x3];
     
-        for (var addr = 0x8000; addr <= 0x97FF; ) {
-            for (var y = 0; y < 8; y++) {
-                let lb = MMU._vram[addr++&0x1FFF];
-                let hb = MMU._vram[addr++&0x1FFF];
+    //     for (var addr = 0x8000; addr <= 0x97FF; ) {
+    //         for (var y = 0; y < 8; y++) {
+    //             let lb = MMU._vram[addr++&0x1FFF];
+    //             let hb = MMU._vram[addr++&0x1FFF];
 
-                for (var x = 0; x < 8; x++) {
-                    var color = ((hb>>(6-x))&2) + ((lb>>(7-x))&1);                   
+    //             for (var x = 0; x < 8; x++) {
+    //                 var color = ((hb>>(6-x))&2) + ((lb>>(7-x))&1);                   
 
-                    switch (color) {
-                        case 0:
-                            GPU._canvas.fillStyle = color0;
-                            break;
-                        case 1:
-                            GPU._canvas.fillStyle = color3;
-                            break;
-                        case 2:
-                            GPU._canvas.fillStyle = color3;
-                            break;
-                        case 3:
-                            GPU._canvas.fillStyle = color3;
-                            break;
-                    }
+    //                 switch (color) {
+    //                     case 0:
+    //                         GPU._canvas.fillStyle = color0;
+    //                         break;
+    //                     case 1:
+    //                         GPU._canvas.fillStyle = color3;
+    //                         break;
+    //                     case 2:
+    //                         GPU._canvas.fillStyle = color3;
+    //                         break;
+    //                     case 3:
+    //                         GPU._canvas.fillStyle = color3;
+    //                         break;
+    //                 }
 
-                    GPU._canvas.fillRect(x+offX, y+offY, 1, 1);
-                }
-            }
-            tileIndex++;
-            offX+=8;
-            if (offX >= 256) {
-                offX = 0;
-                offY +=8;
-            }
-        }
-    }
+    //                 GPU._canvas.fillRect(x+offX, y+offY, 1, 1);
+    //             }
+    //         }
+    //         tileIndex++;
+    //         offX+=8;
+    //         if (offX >= 256) {
+    //             offX = 0;
+    //             offY +=8;
+    //         }
+    //     }
+    // }
 };
 
 GPU.init();
