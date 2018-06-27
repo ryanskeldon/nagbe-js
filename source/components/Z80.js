@@ -38,6 +38,7 @@ Z80 = {
     pendingDisableInterrupts: 0,
 
     _halted: false,
+    _stopped: false,
 
     _register: {
         // Basic registers
@@ -492,23 +493,23 @@ Z80 = {
         ADC_A_d8: function () { // 0xCE ADC A, d8
             ALU.ADC_A_n(MMU.readByte(Z80._register.pc++), 8); },
 
-        SUB_A: function (input, time) { // 0x97
+        SUB_A: function () { // 0x97
             ALU.SUB_n(Z80._register.a, 4); },
-        SUB_B: function (input, time) { // 0x90
+        SUB_B: function () { // 0x90
             ALU.SUB_n(Z80._register.b, 4); },
-        SUB_C: function (input, time) { // 0x91
+        SUB_C: function () { // 0x91
             ALU.SUB_n(Z80._register.c, 4); },
-        SUB_D: function (input, time) { // 0x92
+        SUB_D: function () { // 0x92
             ALU.SUB_n(Z80._register.d, 4); },
-        SUB_E: function (input, time) { // 0x93
+        SUB_E: function () { // 0x93
             ALU.SUB_n(Z80._register.e, 4); },
-        SUB_H: function (input, time) { // 0x94
+        SUB_H: function () { // 0x94
             ALU.SUB_n(Z80._register.h, 4); },
-        SUB_L: function (input, time) { // 0x95
+        SUB_L: function () { // 0x95
             ALU.SUB_n(Z80._register.l, 4); },
-        SUB_HLmem: function (input, time) { // 0x96
+        SUB_HLmem: function () { // 0x96
             ALU.SUB_n(MMU.readByte((Z80._register.h<<8)+Z80._register.l), 8); },
-        SUB_d8: function (input, time) { // 0xD6
+        SUB_d8: function () { // 0xD6
             ALU.SUB_n(MMU.readByte(Z80._register.pc++), 8); },
         
         SBC_A_A: function () { // 0x9F
@@ -527,6 +528,8 @@ Z80 = {
             ALU.SBC_A_n(Z80._register.l, 4); },
         SBC_A_HLmem: function () { // 0x9E
             ALU.SBC_A_n(MMU.readByte((Z80._register.h<<8)+Z80._register.l), 8); },
+        SBC_A_d8: function () { // 0xDE
+            ALU.SBC_A_n(MMU.readByte(Z80._register.pc++), 8); },
 
         DEC_BC: function () { // 0x0B
             Z80._register.c = (Z80._register.c-1)&255; if (Z80._register.c == 255) Z80._register.b--; Z80._register.t = 8; },
@@ -726,8 +729,20 @@ Z80 = {
         },
 
         // CP n
+        CP_A: function () { // 0xBF
+            Z80._ops.CP_n(Z80._register.a, 4); },
         CP_B: function () { // 0xB8
             Z80._ops.CP_n(Z80._register.b, 4); },
+        CP_C: function () { // 0xB9
+            Z80._ops.CP_n(Z80._register.c, 4); },
+        CP_D: function () { // 0xBA
+            Z80._ops.CP_n(Z80._register.d, 4); },
+        CP_E: function () { // 0xBB
+            Z80._ops.CP_n(Z80._register.e, 4); },
+        CP_H: function () { // 0xBC
+            Z80._ops.CP_n(Z80._register.h, 4); },
+        CP_L: function () { // 0xBD
+            Z80._ops.CP_n(Z80._register.l, 4); },
         CP_HLmem: function () { // 0xBE CP (HL)
             Z80._ops.CP_n(MMU.readByte((Z80._register.h<<8)+Z80._register.l), 8); },
         CP_d8: function () { // 0xFE CP #                        
@@ -809,20 +824,13 @@ Z80 = {
         },        
 
         INC_BC: function () { // 0x03 INC BC
-            Z80._register.c = (Z80._register.c+1)&255;
-            if (Z80._register.c == 0) Z80._register.b = (Z80._register.b + 1) & 255;
-            Z80._register.t = 8;
-        },
+            Z80._register.c = (Z80._register.c+1)&255; if (Z80._register.c == 0) Z80._register.b = (Z80._register.b + 1) & 255; Z80._register.t = 8; },
         INC_DE: function () { // 0x13 INC DE
-            Z80._register.e = (Z80._register.e+1)&255;
-            if (Z80._register.e == 0) Z80._register.d = (Z80._register.d + 1) & 255;
-            Z80._register.t = 8;
-        },
+            Z80._register.e = (Z80._register.e+1)&255; if (Z80._register.e == 0) Z80._register.d = (Z80._register.d + 1) & 255; Z80._register.t = 8; },
         INC_HL: function () { // 0x23 INC HL
-            Z80._register.l = (Z80._register.l+1)&255;
-            if (Z80._register.l == 0) Z80._register.h = (Z80._register.h + 1) & 255;
-            Z80._register.t = 8;
-        },
+            Z80._register.l = (Z80._register.l+1)&255; if (Z80._register.l == 0) Z80._register.h = (Z80._register.h + 1) & 255; Z80._register.t = 8; },
+        INC_SP: function () { // 0x33 INC SP
+            Z80._register.sp++; Z80._register.t = 8; },
 
         // DEC n
         DEC_A: function () { // 0x3D DEC A
@@ -892,6 +900,13 @@ Z80 = {
         },
 
         // Rotations 
+        RLCA: function () { // 0x07
+            Z80.clearN(); Z80.clearH(); Z80.clearZ();
+            let carryOut = Z80._register.a&0x80?1:0;
+            if (carryOut) Z80.setC(); else Z80.clearC();
+            Z80._register.a <<= 1; Z80._register.a |= carryOut;
+            Z80._register.t = 4;
+        },
         RLA: function () { // 0x17
             let a = Z80._register.a;
             let carryOut = (a >> 7) != 0;
@@ -899,6 +914,13 @@ Z80 = {
             Z80._register.a = ((a<<1)|carryIn)&255;            
             if (carryOut) Z80.setC(); else Z80.clearC();
             Z80.clearZ(); Z80.clearN(); Z80.clearH();
+            Z80._register.t = 4;
+        },
+        RRCA: function () { // 0x0F
+            Z80.clearN(); Z80.clearH(); Z80.clearZ();
+            let carryOut = Z80._register.a&0x01?1:0;
+            if (carryOut) Z80.setC(); else Z80.clearC();
+            Z80._register.a >>= 1; Z80._register.a |= (carryOut<<7);
             Z80._register.t = 4;
         },
         RRA: function () { // 0x1F
@@ -921,8 +943,10 @@ Z80 = {
             Z80.pendingEnableInterrupts = 0x11; Z80._register.t = 4; },
 
         HALT: function () { // 0x76
-            Z80._halted = true; Z80._register.t = 4;
-        },
+            Z80._halted = true; Z80._register.t = 4; },
+
+        STOP: function () { // 0x10
+            Z80._stopped = true; Z80._register.pc++; Z80._register.t = 4; },
 
         RETI: function () { // 0xD9
             let address = MMU.readWord(Z80._register.sp);
@@ -932,6 +956,19 @@ Z80 = {
             Z80._register.t = 8;
         },
 
+        CCF: function () { // 0x3F
+            Z80.clearN(); Z80.clearH(); if (Z80._register.f&Z80._flags.carry) Z80.clearC(); else Z80.setC(); Z80._register.t = 4; },
+
+        DAA: function () { // 0x27
+            Z80.clearH();
+            if (Z80._register.f&Z80._flags.halfCarry || (Z80._register.a&0x0f)>9) 
+                Z80._register.a += 0x06;
+            if (Z80._register.f&Z80._flags.carry || (Z80._register.a&0xf0)>9) 
+                Z80._register.a += 0x60;
+            if (Z80._register.a > 0x99) Z80.setC();
+            if (!Z80._register.a) Z80.setZ(); else Z80.clear();
+            Z80._register.t = 4;
+        },
 
         // CB Instructions
         CB: function () { // 0xCB            
@@ -1825,7 +1862,11 @@ Z80 = {
         SET_b7_L: function () { // CB 0xFD                        
             Z80._register.l |= (1<<7); Z80._register.t = 8; },    
         SET_b7_HLmem: function () { // CB 0xFE
-            let hl = (Z80._register.h<<8)+Z80._register.l; MMU.writeByte(hl, MMU.readByte(hl)|(1<<7)); Z80._register.t = 16; }
+            let hl = (Z80._register.h<<8)+Z80._register.l; MMU.writeByte(hl, MMU.readByte(hl)|(1<<7)); Z80._register.t = 16; },
+
+        NOT_IMPLEMENTED: function () {
+            throw "FUNCTION NOT IMPLEMENTED";
+        }
     }
 };
 
@@ -1833,27 +1874,27 @@ Z80 = {
 Z80._map = [
     // 00 - 0F
     Z80._ops.NOP, Z80._ops.LD_BC_d16, Z80._ops.LD_BCmem_A, Z80._ops.INC_BC, 
-    Z80._ops.INC_B, Z80._ops.DEC_B, Z80._ops.LD_B_n, null, 
+    Z80._ops.INC_B, Z80._ops.DEC_B, Z80._ops.LD_B_n, Z80._ops.RLCA, 
     Z80._ops.LD_d16mem_SP, Z80._ops.ADD_HL_BC, Z80._ops.LD_A_BCmem, Z80._ops.DEC_BC, 
-    Z80._ops.INC_C, Z80._ops.DEC_C, Z80._ops.LD_C_n, null, 
+    Z80._ops.INC_C, Z80._ops.DEC_C, Z80._ops.LD_C_n, Z80._ops.RRCA, 
 
     // 10 - 1F
-    null, Z80._ops.LD_DE_d16, Z80._ops.LD_DEmem_A, Z80._ops.INC_DE, 
+    Z80._ops.STOP, Z80._ops.LD_DE_d16, Z80._ops.LD_DEmem_A, Z80._ops.INC_DE, 
     Z80._ops.INC_D, Z80._ops.DEC_D, Z80._ops.LD_D_n, Z80._ops.RLA, 
     Z80._ops.JR_n, Z80._ops.ADD_HL_DE, Z80._ops.LD_A_DEmem, Z80._ops.DEC_DE, 
     Z80._ops.INC_E, Z80._ops.DEC_E, Z80._ops.LD_E_n, Z80._ops.RRA, 
 
     // 20 - 2F
     Z80._ops.JR_NZ_n, Z80._ops.LD_HL_nn, Z80._ops.LDI_HLmem_A, Z80._ops.INC_HL, 
-    Z80._ops.INC_H, Z80._ops.DEC_H, Z80._ops.LD_H_n, null, 
+    Z80._ops.INC_H, Z80._ops.DEC_H, Z80._ops.LD_H_n, Z80._ops.DAA, 
     Z80._ops.JR_Z_N, Z80._ops.ADD_HL_HL, Z80._ops.LDI_A_HLmem, Z80._ops.DEC_HL, 
     Z80._ops.INC_L, Z80._ops.DEC_L, Z80._ops.LD_L_n, Z80._ops.CPL, 
 
     // 30 - 3F
-    Z80._ops.JR_NC_n, Z80._ops.LD_SP_nn, Z80._ops.LDD_HLmem_A, null, 
+    Z80._ops.JR_NC_n, Z80._ops.LD_SP_nn, Z80._ops.LDD_HLmem_A, Z80._ops.INC_SP, 
     Z80._ops.INC_HLmem, Z80._ops.DEC_HL, Z80._ops.LD_HLmem_d8, Z80._ops.SCF, 
     Z80._ops.JR_C_n, Z80._ops.ADD_HL_SP, Z80._ops.LDD_A_HLmem, Z80._ops.DEC_SP, 
-    Z80._ops.INC_A, Z80._ops.DEC_A, Z80._ops.LD_A_d8, null, 
+    Z80._ops.INC_A, Z80._ops.DEC_A, Z80._ops.LD_A_d8, Z80._ops.CCF, 
 
     // 40 - 4F
     Z80._ops.LD_B_B, Z80._ops.LD_B_C, Z80._ops.LD_B_D, Z80._ops.LD_B_E, 
@@ -1881,7 +1922,7 @@ Z80._map = [
 
     // 80 - 8F
     Z80._ops.ADD_A_B, Z80._ops.ADD_A_C, Z80._ops.ADD_A_D, Z80._ops.ADD_A_E, 
-    Z80._ops.ADD_h, Z80._ops.ADD_A_L, Z80._ops.ADD_A_HLmem, Z80._ops.ADD_A_A, 
+    Z80._ops.ADD_A_H, Z80._ops.ADD_A_L, Z80._ops.ADD_A_HLmem, Z80._ops.ADD_A_A, 
     Z80._ops.ADC_A_B, Z80._ops.ADC_A_C, Z80._ops.ADC_A_D, Z80._ops.ADC_A_E, 
     Z80._ops.ADC_A_H, Z80._ops.ADC_A_L, Z80._ops.ADC_A_HLmem, Z80._ops.ADC_A_A, 
 
@@ -1900,8 +1941,8 @@ Z80._map = [
     // B0 - BF
     Z80._ops.OR_B, Z80._ops.OR_C, Z80._ops.OR_D, Z80._ops.OR_E, 
     Z80._ops.OR_H, Z80._ops.OR_L, Z80._ops.OR_HLmem, Z80._ops.OR_A, 
-    Z80._ops.CP_B, null, null, null, 
-    null, null, Z80._ops.CP_HLmem, null, 
+    Z80._ops.CP_B, Z80._ops.CP_C, Z80._ops.CP_D, Z80._ops.CP_E, 
+    Z80._ops.CP_H, Z80._ops.CP_L, Z80._ops.CP_HLmem, Z80._ops.CP_A, 
 
     // C0 - CF
     Z80._ops.RET_NZ, Z80._ops.POP_BC, Z80._ops.JP_NZ_nn, Z80._ops.JP_d16, 
@@ -1910,22 +1951,22 @@ Z80._map = [
     Z80._ops.CALL_Z_nn, Z80._ops.CALL_nn, Z80._ops.ADC_A_d8, Z80._ops.RST_08, 
 
     // D0 - DF
-    Z80._ops.RET_NC, Z80._ops.POP_DE, Z80._ops.JP_NC_nn, null, 
+    Z80._ops.RET_NC, Z80._ops.POP_DE, Z80._ops.JP_NC_nn, Z80._ops.NOT_IMPLEMENTED, 
     Z80._ops.CALL_NC_nn, Z80._ops.PUSH_DE, Z80._ops.SUB_d8, Z80._ops.RST_10, 
-    Z80._ops.RET_C, Z80._ops.RETI, Z80._ops.JP_C_nn, null, 
-    Z80._ops.CALL_C_nn, null, null, Z80._ops.RST_18, 
+    Z80._ops.RET_C, Z80._ops.RETI, Z80._ops.JP_C_nn, Z80._ops.NOT_IMPLEMENTED, 
+    Z80._ops.CALL_C_nn, Z80._ops.NOT_IMPLEMENTED, Z80._ops.SBC_A_d8, Z80._ops.RST_18, 
 
     // E0 - EF
-    Z80._ops.LDH_d8mem_A, Z80._ops.POP_HL, Z80._ops.LD_Cmem_A, null, 
-    null, Z80._ops.PUSH_HL, Z80._ops.AND_d8, Z80._ops.RST_20, 
-    Z80._ops.ADD_SP_n, Z80._ops.JP_HLmem, Z80._ops.LD_a16mem_A, null, 
-    null, null, Z80._ops.XOR_d8, Z80._ops.RST_28,
+    Z80._ops.LDH_d8mem_A, Z80._ops.POP_HL, Z80._ops.LD_Cmem_A, Z80._ops.NOT_IMPLEMENTED, 
+    Z80._ops.NOT_IMPLEMENTED, Z80._ops.PUSH_HL, Z80._ops.AND_d8, Z80._ops.RST_20, 
+    Z80._ops.ADD_SP_n, Z80._ops.JP_HLmem, Z80._ops.LD_a16mem_A, Z80._ops.NOT_IMPLEMENTED, 
+    Z80._ops.NOT_IMPLEMENTED, Z80._ops.NOT_IMPLEMENTED, Z80._ops.XOR_d8, Z80._ops.RST_28,
 
     // F0 - FF
     Z80._ops.LDH_A_d8mem, Z80._ops.POP_AF, Z80._ops.LD_A_Cmem, Z80._ops.DI, 
-    null, Z80._ops.PUSH_AF, Z80._ops.OR_d8, Z80._ops.RST_30, 
+    Z80._ops.NOT_IMPLEMENTED, Z80._ops.PUSH_AF, Z80._ops.OR_d8, Z80._ops.RST_30, 
     Z80._ops.LDHL_SP_n, Z80._ops.LD_SP_HL, Z80._ops.LD_A_d16mem, Z80._ops.EI, 
-    null, null, Z80._ops.CP_d8, Z80._ops.RST_38
+    Z80._ops.NOT_IMPLEMENTED, Z80._ops.NOT_IMPLEMENTED, Z80._ops.CP_d8, Z80._ops.RST_38
 ];
 
 // CB Instruction Map
@@ -2185,14 +2226,3 @@ Z80._cbMap[0xFC] = Z80._ops.SET_b7_H;
 Z80._cbMap[0xFD] = Z80._ops.SET_b7_L;
 Z80._cbMap[0xFE] = Z80._ops.SET_b7_HLmem;
 Z80._cbMap[0xFF] = Z80._ops.SET_b7_A;
-
-let opCodes = 256-11; // There's 11 unused opcodes.
-for (let i = 0; i < 256; i++)
-    if (!!Z80._map[i]) opCodes--;
-
-let cbCodes = 256;
-for (let i = 0; i < 256; i++)
-    if (!!Z80._cbMap[i]) cbCodes--;
-
-console.log(`Missing ${opCodes} op codes`);
-console.log(`Missing ${cbCodes} cb codes`);

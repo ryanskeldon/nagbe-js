@@ -28,8 +28,8 @@ MMU = {
         loadBios.send();
     
         var loadRom = new XMLHttpRequest();
-        // loadRom.open('GET', '/roms/mooneye/acceptance/pop_timing.gb', true);        
-        loadRom.open('GET', '/roms/games/tetris.gb', true);
+        loadRom.open('GET', '/roms/games/drmario.gb', true);        
+        // loadRom.open('GET', '/roms/games/tetris.gb', true);
         loadRom.responseType = 'arraybuffer';         
         loadRom.onload = function(e) {
             var responseArray = new Uint8Array(this.response); 
@@ -99,8 +99,12 @@ MMU = {
         if (address >= 0xFF00 && address <= 0xFF7F) {
             // Joypad
             if (address == 0xFF00) {
-                Joypad.readByte(address);
-                return;
+                return Joypad.readByte(address);
+            }
+
+            // Serial
+            if (address >= 0xFF01 && address <= 0xFF02) {
+                return Serial.readByte(address);
             }
 
             // Interrupt Flag
@@ -108,6 +112,7 @@ MMU = {
                 return MMU._if;
             }
 
+            // GPU
             if (address >= 0xFF40 && address <= 0xFF4B)
                 return GPU.readByte(address);
         }
@@ -156,6 +161,7 @@ MMU = {
         // External RAM
         if (address >= 0xA000 && address <= 0xBFFF) {
             // TODO: Implement banking of external RAM?
+            // TODO: Game saves
             MMU._eram[address & 0x1FFF] = byte;
             return;
         }
@@ -223,9 +229,8 @@ MMU = {
             }
         }
 
-        // High RAM
+        // Zero-page RAM
         if (address >= 0xFF80 && address <= 0xFFFE) { 
-            //console.log(`Writing to HRAM $${address.toString(16)} value: 0x${byte.toString(16)}`);
             MMU._zram[address & 0x7F] = byte;
             return;
         }
