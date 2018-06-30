@@ -18,19 +18,19 @@ Z80 = {
     _debug: {
         reg_dump: function () {
             traceLog.write("Z80", "--- DUMP--- ");
-            traceLog.write("Z80", "A: 0x" + Z80._register.a.toString(16));
-            traceLog.write("Z80", "B: 0x" + Z80._register.b.toString(16));
-            traceLog.write("Z80", "C: 0x" + Z80._register.c.toString(16));
-            traceLog.write("Z80", "D: 0x" + Z80._register.d.toString(16));
-            traceLog.write("Z80", "E: 0x" + Z80._register.e.toString(16));
-            traceLog.write("Z80", "H: 0x" + Z80._register.h.toString(16));
-            traceLog.write("Z80", "L: 0x" + Z80._register.l.toString(16));
-            traceLog.write("Z80", "F: 0x" + Z80._register.f.toString(16));
-            traceLog.write("Z80", "PC: 0x" + Z80._register.pc.toString(16));
-            traceLog.write("Z80", "SP: 0x" + Z80._register.sp.toString(16));
-            traceLog.write("Z80", "BC: 0x" + ((Z80._register.b<<8)+Z80._register.c).toString(16));
-            traceLog.write("Z80", "DE: 0x" + ((Z80._register.d<<8)+Z80._register.e).toString(16));
-            traceLog.write("Z80", "HL: 0x" + ((Z80._register.h<<8)+Z80._register.l).toString(16));
+            traceLog.write("Z80", "A: 0x" + Z80._register.a.toString(16).toUpperCase().padStart(2,"0"));
+            traceLog.write("Z80", "B: 0x" + Z80._register.b.toString(16).toUpperCase().padStart(2,"0"));
+            traceLog.write("Z80", "C: 0x" + Z80._register.c.toString(16).toUpperCase().padStart(2,"0"));
+            traceLog.write("Z80", "D: 0x" + Z80._register.d.toString(16).toUpperCase().padStart(2,"0"));
+            traceLog.write("Z80", "E: 0x" + Z80._register.e.toString(16).toUpperCase().padStart(2,"0"));
+            traceLog.write("Z80", "H: 0x" + Z80._register.h.toString(16).toUpperCase().padStart(2,"0"));
+            traceLog.write("Z80", "L: 0x" + Z80._register.l.toString(16).toUpperCase().padStart(2,"0"));
+            traceLog.write("Z80", "F: 0x" + Z80._register.f.toString(16).toUpperCase().padStart(2,"0"));
+            traceLog.write("Z80", "PC: 0x" + Z80._register.pc.toString(16).toUpperCase().padStart(4,"0"));
+            traceLog.write("Z80", "SP: 0x" + Z80._register.sp.toString(16).toUpperCase().padStart(4,"0"));
+            traceLog.write("Z80", "BC: 0x" + ((Z80._register.b<<8)+Z80._register.c).toString(16).toUpperCase().padStart(4,"0"));
+            traceLog.write("Z80", "DE: 0x" + ((Z80._register.d<<8)+Z80._register.e).toString(16).toUpperCase().padStart(4,"0"));
+            traceLog.write("Z80", "HL: 0x" + ((Z80._register.h<<8)+Z80._register.l).toString(16).toUpperCase().padStart(4,"0"));
         }
     },
 
@@ -75,7 +75,7 @@ Z80 = {
 
     stopAddress: 0x287cF,
     opCode: 0,
-    verbose: false,
+    verbose: true,
 
     frame: function () {
         let frameClock = Z80._clock.t + 70224;
@@ -98,8 +98,6 @@ Z80 = {
                 break;
             }
         } while (Z80._clock.t < frameClock);
-
-        GPU.drawScreen();
     },
 
     step: function () {
@@ -188,7 +186,8 @@ Z80 = {
         }
     },
 
-    requestInterrupt: function (id) {        
+    requestInterrupt: function (id) {     
+        console.log(`int req ${id}`);
         let interrupts = MMU.readByte(0xFF0F);
         interrupts |= id;
         MMU.writeByte(0xFF0F, interrupts);
@@ -891,7 +890,7 @@ Z80 = {
         },
         DEC_HL: function () { // 0x35
             let value = MMU.readByte((Z80._register.h<<8)+Z80._register.l);
-            let result = (value-1)*255;
+            let result = (value-1)&255;
             if (result === 0) Z80.setZ(); else Z80.clearZ();
             Z80.setN();
             if ((value&0xf)-1 < 0) Z80.setH(); else Z80.clearH();
@@ -903,15 +902,15 @@ Z80 = {
         RLCA: function () { // 0x07
             Z80.clearN(); Z80.clearH(); Z80.clearZ();
             let carryOut = Z80._register.a&0x80?1:0;
-            if (carryOut) Z80.setC(); else Z80.clearC();
-            Z80._register.a <<= 1; Z80._register.a |= carryOut;
+            if (carryOut) Z80.setC(); else Z80.clearC();            
+            Z80._register.a = ((Z80._register.a<<1)&255) + carryOut;
             Z80._register.t = 4;
         },
         RLA: function () { // 0x17
             let a = Z80._register.a;
             let carryOut = (a >> 7) != 0;
             let carryIn = Z80._register.f & Z80._flags.carry ? 1 : 0; 
-            Z80._register.a = ((a<<1)|carryIn)&255;            
+            Z80._register.a = ((a<<1)&255) + carryIn;
             if (carryOut) Z80.setC(); else Z80.clearC();
             Z80.clearZ(); Z80.clearN(); Z80.clearH();
             Z80._register.t = 4;
@@ -920,13 +919,13 @@ Z80 = {
             Z80.clearN(); Z80.clearH(); Z80.clearZ();
             let carryOut = Z80._register.a&0x01?1:0;
             if (carryOut) Z80.setC(); else Z80.clearC();
-            Z80._register.a >>= 1; Z80._register.a |= (carryOut<<7);
+            Z80._register.a = (Z80._register.a>>1) + (carryOut<<7);
             Z80._register.t = 4;
         },
         RRA: function () { // 0x1F
             let carryIn = Z80._register.f & Z80._flags.carry ? 1 : 0;
             let carryOut = Z80._register.a & 0x01 ? 1 : 0;
-            Z80._register.a = ((Z80._register.a>>1) + (carryIn<<7))&255;
+            Z80._register.a = (Z80._register.a>>1) + (carryIn<<7);
             if (carryOut) Z80.setC(); else Z80.clearC();
             Z80.clearZ(); Z80.clearN(); Z80.clearH();
             Z80._register.t = 4;
@@ -972,11 +971,9 @@ Z80 = {
 
         // CB Instructions
         CB: function () { // 0xCB            
-            let cbAddress = MMU.readByte(Z80._register.pc++);   // Read next byte for the address of the CB code.            
-            //traceLog.write("Z80", "\tCB OP: 0x" + cbAddress.toString(16));
+            let cbAddress = MMU.readByte(Z80._register.pc++);
             try {
-                Z80._cbMap[cbAddress]();                            // Run the OpCode in the CB map.            
-                Z80._register.m = 1; Z80._register.t = 4;           // Set operation time.
+                Z80._cbMap[cbAddress]();
             } catch (error) {
                 console.log("CB OpCode error @ $0x" + (Z80._register.pc-1).toString(16) + "\tOpcode 0x" + cbAddress.toString(16));
                 throw error;
@@ -988,7 +985,7 @@ Z80 = {
             Z80.clearN(); Z80.clearH();
             let carryOut = Z80._register.a&0x80?1:0;
             if (carryOut) Z80.setC(); else Z80.clearC();
-            Z80._register.a <<= 1; Z80._register.a |= carryOut;
+            Z80._register.a = ((Z80._register.a<<1)&255) + carryOut;
             if (!Z80._register.a) Z80.setZ(); else Z80.clearZ();
             Z80._register.t = 8;
         },
@@ -996,7 +993,7 @@ Z80 = {
             Z80.clearN(); Z80.clearH();
             let carryOut = Z80._register.b&0x80?1:0;
             if (carryOut) Z80.setC(); else Z80.clearC();
-            Z80._register.b <<= 1; Z80._register.b |= carryOut;
+            Z80._register.b = ((Z80._register.b<<1)&255) + carryOut;
             if (!Z80._register.b) Z80.setZ(); else Z80.clearZ();
             Z80._register.t = 8;
         },
@@ -1004,7 +1001,7 @@ Z80 = {
             Z80.clearN(); Z80.clearH();
             let carryOut = Z80._register.c&0x80?1:0;
             if (carryOut) Z80.setC(); else Z80.clearC();
-            Z80._register.c <<= 1; Z80._register.C |= carryOut;
+            Z80._register.c = ((Z80._register.c<<1)&255) + carryOut;
             if (!Z80._register.c) Z80.setZ(); else Z80.clearZ();
             Z80._register.t = 8;
         },
@@ -1012,7 +1009,7 @@ Z80 = {
             Z80.clearN(); Z80.clearH();
             let carryOut = Z80._register.d&0x80?1:0;
             if (carryOut) Z80.setC(); else Z80.clearC();
-            Z80._register.d <<= 1; Z80._register.d |= carryOut;
+            Z80._register.d = ((Z80._register.d<<1)&255) + carryOut;
             if (!Z80._register.d) Z80.setZ(); else Z80.clearZ();
             Z80._register.t = 8;
         },
@@ -1020,7 +1017,7 @@ Z80 = {
             Z80.clearN(); Z80.clearH();
             let carryOut = Z80._register.e&0x80?1:0;
             if (carryOut) Z80.setC(); else Z80.clearC();
-            Z80._register.e <<= 1; Z80._register.e |= carryOut;
+            Z80._register.e = ((Z80._register.e<<1)&255) + carryOut;
             if (!Z80._register.e) Z80.setZ(); else Z80.clearZ();
             Z80._register.t = 8;
         },
@@ -1028,7 +1025,7 @@ Z80 = {
             Z80.clearN(); Z80.clearH();
             let carryOut = Z80._register.h&0x80?1:0;
             if (carryOut) Z80.setC(); else Z80.clearC();
-            Z80._register.h <<= 1; Z80._register.h |= carryOut;
+            Z80._register.h = ((Z80._register.h<<1)&255) + carryOut;
             if (!Z80._register.h) Z80.setZ(); else Z80.clearZ();
             Z80._register.t = 8;
         },
@@ -1036,7 +1033,7 @@ Z80 = {
             Z80.clearN(); Z80.clearH();
             let carryOut = Z80._register.l&0x80?1:0;
             if (carryOut) Z80.setC(); else Z80.clearC();
-            Z80._register.l <<= 1; Z80._register.l |= carryOut;
+            Z80._register.l = ((Z80._register.l<<1)&255) + carryOut;
             if (!Z80._register.l) Z80.setZ(); else Z80.clearZ();
             Z80._register.t = 8;
         },
@@ -1045,7 +1042,7 @@ Z80 = {
             let hl = MMU.readByte((Z80._register.h<<8)+Z80._register.l);
             let carryOut = hl&0x80?1:0;
             if (carryOut) Z80.setC(); else Z80.clearC();
-            hl <<= 1; hl |= carryOut;
+            hl = ((hl<<1)&255) + carryOut;
             if (!hl) Z80.setZ(); else Z80.clearZ();
             MMU.writeByte((Z80._register.h<<8)+Z80._register.l, hl);
             Z80._register.t = 16;
@@ -1125,7 +1122,7 @@ Z80 = {
             let carryOut = Z80._register.a&0x80?1:0;
             let carryIn = Z80._register.f&Z80._flags.carry?1:0;
             if (carryOut) Z80.setC(); else Z80.clearC();
-            Z80._register.a = ((Z80._register.a<<1)+carryIn)&255;
+            Z80._register.a = ((Z80._register.a<<1)&255)+carryIn;
             if (!Z80._register.a) Z80.setZ(); else Z80.clearZ();
             Z80._register.t = 8;
         },
@@ -1134,7 +1131,7 @@ Z80 = {
             let carryOut = Z80._register.b&0x80?1:0;
             let carryIn = Z80._register.f&Z80._flags.carry?1:0;
             if (carryOut) Z80.setC(); else Z80.clearC();
-            Z80._register.b = ((Z80._register.b<<1)+carryIn)&255;
+            Z80._register.b = ((Z80._register.b<<1)&255)+carryIn;
             if (!Z80._register.b) Z80.setZ(); else Z80.clearZ();
             Z80._register.t = 8;
         },
@@ -1143,7 +1140,7 @@ Z80 = {
             let carryOut = Z80._register.c&0x80?1:0;
             let carryIn = Z80._register.f&Z80._flags.carry?1:0;
             if (carryOut) Z80.setC(); else Z80.clearC();
-            Z80._register.c = ((Z80._register.c<<1)+carryIn)&255;
+            Z80._register.c = ((Z80._register.c<<1)&255)+carryIn;
             if (!Z80._register.c) Z80.setZ(); else Z80.clearZ();
             Z80._register.t = 8;
         },
@@ -1152,7 +1149,7 @@ Z80 = {
             let carryOut = Z80._register.d&0x80?1:0;
             let carryIn = Z80._register.f&Z80._flags.carry?1:0;
             if (carryOut) Z80.setC(); else Z80.clearC();
-            Z80._register.d = ((Z80._register.d<<1)+carryIn)&255;
+            Z80._register.d = ((Z80._register.d<<1)&255)+carryIn;
             if (!Z80._register.d) Z80.setZ(); else Z80.clearZ();
             Z80._register.t = 8;
         },
@@ -1161,7 +1158,7 @@ Z80 = {
             let carryOut = Z80._register.e&0x80?1:0;
             let carryIn = Z80._register.f&Z80._flags.carry?1:0;
             if (carryOut) Z80.setC(); else Z80.clearC();
-            Z80._register.e = ((Z80._register.e<<1)+carryIn)&255;
+            Z80._register.e = ((Z80._register.e<<1)&255)+carryIn;
             if (!Z80._register.e) Z80.setZ(); else Z80.clearZ();
             Z80._register.t = 8;
         },
@@ -1170,7 +1167,7 @@ Z80 = {
             let carryOut = Z80._register.h&0x80?1:0;
             let carryIn = Z80._register.f&Z80._flags.carry?1:0;
             if (carryOut) Z80.setC(); else Z80.clearC();
-            Z80._register.h = ((Z80._register.h<<1)+carryIn)&255;
+            Z80._register.h = ((Z80._register.h<<1)&255)+carryIn;
             if (!Z80._register.h) Z80.setZ(); else Z80.clearZ();
             Z80._register.t = 8;
         },
@@ -1179,7 +1176,7 @@ Z80 = {
             let carryOut = Z80._register.l&0x80?1:0;
             let carryIn = Z80._register.f&Z80._flags.carry?1:0;
             if (carryOut) Z80.setC(); else Z80.clearC();
-            Z80._register.l = ((Z80._register.l<<1)+carryIn)&255;
+            Z80._register.l = ((Z80._register.l<<1)&255)+carryIn;
             if (!Z80._register.l) Z80.setZ(); else Z80.clearZ();
             Z80._register.t = 8;
         },
@@ -1189,7 +1186,7 @@ Z80 = {
             let carryOut = hl&0x80?1:0;
             let carryIn = Z80._register.f&Z80._flags.carry?1:0;
             if (carryOut) Z80.setC(); else Z80.clearC();
-            hl = ((hl<<1)+carryIn)&255;
+            hl = ((hl<<1)&255)+carryIn;
             if (!hl) Z80.setZ(); else Z80.clearZ();
             MMU.writeByte((Z80._register.h<<8)+Z80._register.l, hl);
             Z80._register.t = 16;
@@ -1201,7 +1198,7 @@ Z80 = {
             let carryOut = Z80._register.a&0x01?1:0;
             let carryIn = Z80._register.f&Z80._flags.carry?1:0;
             if (carryOut) Z80.setC(); else Z80.clearC();
-            Z80._register.a = ((Z80._register.a>>1)+(carryIn<<7))&255;
+            Z80._register.a = (Z80._register.a>>1)+(carryIn<<7);
             if (!Z80._register.a) Z80.setZ(); else Z80.clearZ();
             Z80._register.t = 8;
         },
@@ -1210,7 +1207,7 @@ Z80 = {
             let carryOut = Z80._register.b&0x01?1:0;
             let carryIn = Z80._register.f&Z80._flags.carry?1:0;
             if (carryOut) Z80.setC(); else Z80.clearC();
-            Z80._register.b = ((Z80._register.b>>1)+(carryIn<<7))&255;
+            Z80._register.b = (Z80._register.b>>1)+(carryIn<<7);
             if (!Z80._register.b) Z80.setZ(); else Z80.clearZ();
             Z80._register.t = 8;
         },
@@ -1219,7 +1216,7 @@ Z80 = {
             let carryOut = Z80._register.c&0x01?1:0;
             let carryIn = Z80._register.f&Z80._flags.carry?1:0;
             if (carryOut) Z80.setC(); else Z80.clearC();
-            Z80._register.c = ((Z80._register.c>>1)+(carryIn<<7))&255;
+            Z80._register.c = (Z80._register.c>>1)+(carryIn<<7);
             if (!Z80._register.c) Z80.setZ(); else Z80.clearZ();
             Z80._register.t = 8;
         },
@@ -1228,7 +1225,7 @@ Z80 = {
             let carryOut = Z80._register.d&0x01?1:0;
             let carryIn = Z80._register.f&Z80._flags.carry?1:0;
             if (carryOut) Z80.setC(); else Z80.clearC();
-            Z80._register.d = ((Z80._register.d>>1)+(carryIn<<7))&255;
+            Z80._register.d = (Z80._register.d>>1)+(carryIn<<7);
             if (!Z80._register.d) Z80.setZ(); else Z80.clearZ();
             Z80._register.t = 8;
         },
@@ -1237,7 +1234,7 @@ Z80 = {
             let carryOut = Z80._register.e&0x01?1:0;
             let carryIn = Z80._register.f&Z80._flags.carry?1:0;
             if (carryOut) Z80.setC(); else Z80.clearC();
-            Z80._register.e = ((Z80._register.e>>1)+(carryIn<<7))&255;
+            Z80._register.e = (Z80._register.e>>1)+(carryIn<<7);
             if (!Z80._register.e) Z80.setZ(); else Z80.clearZ();
             Z80._register.t = 8;
         },
@@ -1246,7 +1243,7 @@ Z80 = {
             let carryOut = Z80._register.h&0x01?1:0;
             let carryIn = Z80._register.f&Z80._flags.carry?1:0;
             if (carryOut) Z80.setC(); else Z80.clearC();
-            Z80._register.h = ((Z80._register.h>>1)+(carryIn<<7))&255;
+            Z80._register.h = (Z80._register.h>>1)+(carryIn<<7);
             if (!Z80._register.h) Z80.setZ(); else Z80.clearZ();
             Z80._register.t = 8;
         },
@@ -1255,7 +1252,7 @@ Z80 = {
             let carryOut = Z80._register.l&0x01?1:0;
             let carryIn = Z80._register.f&Z80._flags.carry?1:0;
             if (carryOut) Z80.setC(); else Z80.clearC();
-            Z80._register.l = ((Z80._register.l>>1)+(carryIn<<7))&255;
+            Z80._register.l = (Z80._register.l>>1)+(carryIn<<7);
             if (!Z80._register.l) Z80.setZ(); else Z80.clearZ();
             Z80._register.t = 8;
         },
@@ -1265,7 +1262,7 @@ Z80 = {
             let carryOut = hl&0x01?1:0;
             let carryIn = Z80._register.f&Z80._flags.carry?1:0;
             if (carryOut) Z80.setC(); else Z80.clearC();
-            hl = ((hl>>1)+(carryIn<<7))&255;
+            hl = (hl>>1)+(carryIn<<7);
             if (!hl) Z80.setZ(); else Z80.clearZ();
             MMU.writeByte((Z80._register.h<<8)+Z80._register.l, hl);
             Z80._register.t = 16;
@@ -1275,49 +1272,49 @@ Z80 = {
         SLA_A: function () { // CB 0x27            
             Z80.clearN(); Z80.clearH();
             if (Z80._register.a&0x80) Z80.setC(); else Z80.clearC();
-            Z80._register.a <<= 1;
+            Z80._register.a = (Z80._register.a<<1)&255;
             if (Z80._register.a) Z80.clearZ(); else Z80.setZ();
             Z80._register.t = 8;
         },
         SLA_B: function () { // CB 0x20
             Z80.clearN(); Z80.clearH();
             if (Z80._register.b&0x80) Z80.setC(); else Z80.clearC();
-            Z80._register.b <<= 1;
+            Z80._register.b = (Z80._register.b<<1)&255;
             if (Z80._register.b) Z80.clearZ(); else Z80.setZ();
             Z80._register.t = 8;
         },
         SLA_C: function () { // CB 0x21
             Z80.clearN(); Z80.clearH();
             if (Z80._register.c&0x80) Z80.setC(); else Z80.clearC();
-            Z80._register.c <<= 1;
+            Z80._register.c = (Z80._register.c<<1)&255;
             if (Z80._register.c) Z80.clearZ(); else Z80.setZ();
             Z80._register.t = 8;
         },
         SLA_D: function () { // CB 0x22
             Z80.clearN(); Z80.clearH();
             if (Z80._register.d&0x80) Z80.setC(); else Z80.clearC();
-            Z80._register.d <<= 1;
+            Z80._register.d = (Z80._register.d<<1)&255;
             if (Z80._register.d) Z80.clearZ(); else Z80.setZ();
             Z80._register.t = 8;
         },
         SLA_E: function () { // CB 0x23
             Z80.clearN(); Z80.clearH();
             if (Z80._register.e&0x80) Z80.setC(); else Z80.clearC();
-            Z80._register.e <<= 1;
+            Z80._register.e = (Z80._register.e<<1)&255;
             if (Z80._register.e) Z80.clearZ(); else Z80.setZ();
             Z80._register.t = 8;
         },
         SLA_H: function () { // CB 0x24
             Z80.clearN(); Z80.clearH();
             if (Z80._register.h&0x80) Z80.setC(); else Z80.clearC();
-            Z80._register.h <<= 1;
+            Z80._register.h = (Z80._register.h<<1)&255;
             if (Z80._register.h) Z80.clearZ(); else Z80.setZ();
             Z80._register.t = 8;
         },
         SLA_L: function () { // CB 0x25
             Z80.clearN(); Z80.clearH();
             if (Z80._register.l&0x80) Z80.setC(); else Z80.clearC();
-            Z80._register.l <<= 1;
+            Z80._register.l = (Z80._register.l<<1)&255;
             if (Z80._register.l) Z80.clearZ(); else Z80.setZ();
             Z80._register.t = 8;
         },
@@ -1325,7 +1322,7 @@ Z80 = {
             Z80.clearN(); Z80.clearH();
             let hl = MMU.readByte((Z80._register.h<<8)+Z80._register.l);
             if (hl&0x80) Z80.setC(); else Z80.clearC();
-            hl <<= 1;
+            hl = (hl<<1)&255;
             if (hl) Z80.clearZ(); else Z80.setZ();
             MMU.writeByte((Z80._register.h<<8)+Z80._register.l, hl);
             Z80._register.t = 16;

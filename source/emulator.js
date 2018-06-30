@@ -1,5 +1,6 @@
 document.getElementById("stepButton").addEventListener("click", function () {
     Z80.step();
+    console.log(`GPU LY ${GPU._register._ly} / LCD MODE ${GPU.getLcdMode()} / GPU CLOCK ${GPU._clock}`);
     // document.getElementById("a_register").value = (Z80._register.a).toString(16).toUpperCase().padStart(2,"0");
     // document.getElementById("f_register").value = (Z80._register.f).toString(16).toUpperCase().padStart(2,"0");
     // document.getElementById("b_register").value = (Z80._register.b).toString(16).toUpperCase().padStart(2,"0");
