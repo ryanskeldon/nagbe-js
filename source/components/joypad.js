@@ -9,9 +9,9 @@ Joypad = {
         switch (address) {
             case 0xFF00:
                 if (Joypad._register._p1&0x10)
-                    return 0x10 + (Joypad._keys&0xF);
+                    return 0xC0 + 0x10 + (Joypad._keys&0xF);
                 if (Joypad._register._p1&0x20)
-                    return 0x20 + ((Joypad._keys>>4)&0xF);
+                    return 0xC0 + 0x20 + ((Joypad._keys>>4)&0xF);
         }
     },
     writeByte: function (address, byte) {

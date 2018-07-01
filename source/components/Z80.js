@@ -63,6 +63,7 @@ Z80 = {
         // Cycles for last instruction
         t: 0
     },
+
     // Flag helpers
     setZ: function () { Z80._register.f |= Z80._flags.zero; },
     clearZ: function () { Z80._register.f &= ~Z80._flags.zero; },
@@ -73,18 +74,18 @@ Z80 = {
     setC: function () { Z80._register.f |= Z80._flags.carry; },
     clearC: function () { Z80._register.f &= ~Z80._flags.carry; },
 
-    stopAddress: 0x287cF,
     opCode: 0,
-    verbose: true,
+    verbose: false,
+    stopAt: 0x0100,    
 
     frame: function () {
         let frameClock = Z80._clock.t + 70224;
 
         do {
-            if (Z80._register.pc == Z80.stopAddress && !MMU._biosEnabled) {
+            if (Z80._register.pc == Z80.stopAt && !MMU._biosEnabled) {
                 clearInterval(Z80._interval);
                 Z80._interval = null;            
-                console.log(`Stop address reached: ${Z80.stopAddress.toString(16)}`);
+                console.log(`Stop address reached: ${Z80.stopAt.toString(16).toUpperCase().padStart(4,"0")}`);
                 break;
             }
 
@@ -101,42 +102,49 @@ Z80 = {
     },
 
     step: function () {
-        if (Z80._register.pc < 0 || Z80._register.pc > 0xFFFF) throw "Program counter out of range.";        
+        if (Z80._register.pc < 0 || Z80._register.pc > 0xFFFF) throw "Program counter out of range.";
 
-        // TODO: Implement HALT flag.
-        Z80.opCode = MMU.readByte(Z80._register.pc++);
-        
-        if (!MMU._biosEnabled && Z80.verbose) traceLog.write("Z80", "$" + (Z80._register.pc-1).toString(16) + "\tOP: 0x" + Z80.opCode.toString(16));
-        
-        try {            
-            Z80._map[Z80.opCode]();
-        } catch (error) {
-            console.log("OpCode error @ $0x" + (Z80._register.pc-1).toString(16) + "\tOpcode 0x" + Z80.opCode.toString(16));
-            console.log(error);
-            traceLog.write("Z80", "OpCode error @ $0x" + (Z80._register.pc-1).toString(16) + "\tOpcode 0x" + Z80.opCode.toString(16));                
-            Z80._debug.reg_dump();
-            clearInterval(Z80._interval);
-            Z80._interval = null;            
-            throw error;
-        }        
+        Z80.checkInterrupts();
 
-        if (Z80.pendingEnableInterrupts) {
-            if (Z80.pendingEnableInterrupts&0xF>0) Z80.pendingEnableInterrupts--;
-            else { Z80._ime = true; Z80.pendingEnableInterrupts = 0; }
-        }
-
-        if (Z80.pendingDisableInterrupts) {
+        if (Z80._halted) {
+            // CPU "powered down". Only wake up if there's an interrupt.
+            Z80._register.t = 4;
+        } else {
+            Z80.opCode = MMU.readByte(Z80._register.pc++);
+            
+            if (!MMU._biosEnabled && Z80.verbose) traceLog.write("Z80", "$" + (Z80._register.pc-1).toString(16).toUpperCase().padStart(4,"0") + "\tOP: 0x" + Z80.opCode.toString(16).toUpperCase().padStart(2,"0"));
+            
+            try {            
+                Z80._map[Z80.opCode]();
+            } catch (error) {
+                console.log("OpCode error @ $0x" + (Z80._register.pc-1).toString(16) + "\tOpcode 0x" + Z80.opCode.toString(16));
+                console.log(error);
+                traceLog.write("Z80", "OpCode error @ $0x" + (Z80._register.pc-1).toString(16) + "\tOpcode 0x" + Z80.opCode.toString(16));                
+                Z80._debug.reg_dump();
+                clearInterval(Z80._interval);
+                Z80._interval = null;            
+                throw error;
+            }        
+            
+            if (Z80.pendingEnableInterrupts) {
+                if (Z80.pendingEnableInterrupts&0xF>0) Z80.pendingEnableInterrupts--;
+                else { Z80._ime = true; Z80.pendingEnableInterrupts = 0; }
+            }
+            
+            if (Z80.pendingDisableInterrupts) {
                 if (Z80.pendingDisableInterrupts&0xF>0) Z80.pendingDisableInterrupts--;
-            else { Z80._ime = false; Z80.pendingDisableInterrupts = 0; }
+                else { Z80._ime = false; Z80.pendingDisableInterrupts = 0; }
+            }
         }
-
+            
         Z80._clock.t += Z80._register.t;
         Timer.update();
-        GPU.step();                
-        Z80.checkInterrupts();
+        GPU.step();
     },
 
-    run: function () {
+    run: function (stopAt) {
+        if (!!stopAt) Z80.stopAt = stopAt;
+
         if (!Z80._interval) {
             Z80._interval = setInterval(Z80.frame, 1);            
         } else {
@@ -178,16 +186,18 @@ Z80 = {
         MMU.writeByte(0xFF0F, interrupt);
 
         switch (interrupt) {
-            case 0: Z80._register.pc = 0x40; console.log("vblank int");  break; // V-blank
-            case 1: Z80._register.pc = 0x48; console.log("lcdc int"); break; // LCD
-            case 2: Z80._register.pc = 0x50; console.log("timer int"); break; // Timer
-            case 3:                          break; // Serial (not implemented)
+            case 0: Z80._register.pc = 0x40; console.log("vblank int"); break; // V-blank
+            case 1: Z80._register.pc = 0x48; console.log("lcdc int");   break; // LCD
+            case 2: Z80._register.pc = 0x50; console.log("timer int");  break; // Timer
+            case 3:                                                     break; // Serial (not implemented)
             case 4: Z80._register.pc = 0x60; console.log("joypad int"); break; // Joypad
         }
+
+        Z80._register.t = 12;
     },
 
     requestInterrupt: function (id) {     
-        console.log(`int req ${id}`);
+        //console.log(`int req ${id}`);
         let interrupts = MMU.readByte(0xFF0F);
         interrupts |= id;
         MMU.writeByte(0xFF0F, interrupts);
@@ -378,7 +388,7 @@ Z80 = {
         LD_HLmem_A: function () { // 0x77 LD (HL), A
             MMU.writeByte((Z80._register.h<<8)+Z80._register.l, Z80._register.a); Z80._register.t = 8; },
         LD_a16mem_A: function () { // 0xEA LD (nn), A
-            MMU.writeByte(MMU.readWord(Z80._register.pc), Z80._register.a); Z80._register.pc+=2; Z80._register.t = 16; },    
+            MMU.writeByte(MMU.readWord(Z80._register.pc), Z80._register.a); Z80._register.pc+=2; Z80._register.t = 16; },
 
         LD_A_Cmem: function () { // 0xF2 LD A, (C)
             Z80._register.a = MMU.readByte(0xFF00 + Z80._register.c); Z80._register.t = 8; },
@@ -631,10 +641,12 @@ Z80 = {
 
         CPL: function () { // 0x2F
             Z80.setN(); Z80.setH();
-            Z80._register.a = ~Z80._register.a;
+            Z80._register.a ^= 255;
             Z80._register.t = 4;
         },
 
+        RST_n: function (address) {            
+            Z80._register.sp-=2; MMU.writeWord(Z80._register.sp, Z80._register.pc); Z80._register.pc = address; Z80._register.t = 32; },
         RST_00: function () { // 0xC7
             Z80._ops.RST_n(0x00); },
         RST_08: function () { // 0xCF
@@ -651,13 +663,6 @@ Z80 = {
             Z80._ops.RST_n(0x30); },
         RST_38: function () { // 0xFF
             Z80._ops.RST_n(0x38); },
-                                                                                                                
-        RST_n: function (address) {            
-            Z80._register.sp-=2;
-            MMU.writeWord(Z80._register.sp, Z80._register.pc);
-            Z80._register.pc = address;
-            Z80._register.t = 32;
-        },     
 
         ADD_HL_BC: function () { // 0x09
             ALU.ADD_HL_n((Z80._register.b<<8)+Z80._register.c); },
@@ -668,7 +673,7 @@ Z80 = {
         ADD_HL_SP: function () { // 0x39
             ALU.ADD_HL_n(Z80._register.sp); },
 
-        ADD_SP_n: function () { // 0x38
+        ADD_SP_n: function () { // 0xE8
             let n = MMU.readByte(Z80._register.pc++);
             if (n>127) n = -((~n+1)&255);
             let result = Z80._register.sp + n;
@@ -682,12 +687,7 @@ Z80 = {
         },
 
         JR_n: function () { // 0x18 JR n
-            let move = MMU.readByte(Z80._register.pc++);
-            if (move > 127) move = -((~move+1)&255);
-            Z80._register.pc += move;
-            Z80._register.t = 12;
-        },
-
+            let move = MMU.readByte(Z80._register.pc++); if (move > 127) move = -((~move+1)&255); Z80._register.pc += move; Z80._register.t = 12; },
         JR_NZ_n: function () { // 0x20
             ALU.JR_cc_n(!(Z80._register.f&Z80._flags.zero), 12, 8); },
         JR_Z_N: function () { // 0x28
@@ -700,7 +700,6 @@ Z80 = {
         // Jumps
         JP_d16: function () { // 0xC3 JP nn
             Z80._register.pc = MMU.readWord(Z80._register.pc); Z80._register.t = 12; },
-
         JP_NZ_nn: function () { // 0xC2            
             Z80._ops.JP_cc_nn((Z80._register.f&Z80._flags.zero) == 0, 16, 12); },
         JP_Z_nn: function () { // 0xCA
@@ -721,11 +720,7 @@ Z80 = {
 
         // Calls
         CALL_nn: function() { // 0xCD CALL nn            
-            Z80._register.sp-=2;
-            MMU.writeWord(Z80._register.sp, Z80._register.pc+2);
-            Z80._register.pc = MMU.readWord(Z80._register.pc);
-            Z80._register.t = 12;
-        },
+            Z80._register.sp-=2; MMU.writeWord(Z80._register.sp, Z80._register.pc+2); Z80._register.pc = MMU.readWord(Z80._register.pc); Z80._register.t = 12; },
 
         // CP n
         CP_A: function () { // 0xBF
@@ -835,23 +830,23 @@ Z80 = {
         DEC_A: function () { // 0x3D DEC A
             let result = (Z80._register.a-1)&255;
             if (result === 0) Z80.setZ(); else Z80.clearZ();
-            Z80.clearN();
+            Z80.setN();
             if ((Z80._register.a&0xf)-1 < 0) Z80.setH(); else Z80.clearH();
             Z80._register.a = result;
             Z80._register.t = 4;
         },
         DEC_B: function () { // 0x05 DEC B
             let result = (Z80._register.b-1)&255;
-            if (result === 0) Z80.setZ(); else Z80.clearZ();
-            Z80.clearN();
+            if (result == 0) Z80.setZ(); else Z80.clearZ();
+            Z80.setN();
             if ((Z80._register.b&0xf)-1 < 0) Z80.setH(); else Z80.clearH();
             Z80._register.b = result;
             Z80._register.t = 4;
         },
         DEC_C: function () { // 0x0D DEC C
             let result = (Z80._register.c-1)&255;
-            if (result === 0) Z80.setZ(); else Z80.clearZ();
-            Z80.clearN();
+            if (result == 0) Z80.setZ(); else Z80.clearZ();
+            Z80.setN();
             if ((Z80._register.c&0xf)-1 < 0) Z80.setH(); else Z80.clearH();
             Z80._register.c = result;
             Z80._register.t = 4;
@@ -859,7 +854,7 @@ Z80 = {
         DEC_D: function () { // 0x15 DEC D
             let result = (Z80._register.d-1)&255;
             if (result === 0) Z80.setZ(); else Z80.clearZ();
-            Z80.clearN();
+            Z80.setN();
             if ((Z80._register.d&0xf)-1 < 0) Z80.setH(); else Z80.clearH();
             Z80._register.d = result;
             Z80._register.t = 4;
@@ -867,7 +862,7 @@ Z80 = {
         DEC_E: function () { // 0x1D DEC e
             let result = (Z80._register.e-1)&255;
             if (result === 0) Z80.setZ(); else Z80.clearZ();
-            Z80.clearN();
+            Z80.setN();
             if ((Z80._register.e&0xf)-1 < 0) Z80.setH(); else Z80.clearH();
             Z80._register.e = result;
             Z80._register.t = 4;
@@ -875,7 +870,7 @@ Z80 = {
         DEC_H: function () { // 0x25 DEC H
             let result = (Z80._register.h-1)&255;
             if (result === 0) Z80.setZ(); else Z80.clearZ();
-            Z80.clearN();
+            Z80.setN();
             if ((Z80._register.h&0xf)-1 < 0) Z80.setH(); else Z80.clearH();
             Z80._register.h = result;
             Z80._register.t = 4;
@@ -883,7 +878,7 @@ Z80 = {
         DEC_L: function () { // 0x2D DEC L
             let result = (Z80._register.l-1)&255;
             if (result === 0) Z80.setZ(); else Z80.clearZ();
-            Z80.clearN();
+            Z80.setN();
             if ((Z80._register.l&0xf)-1 < 0) Z80.setH(); else Z80.clearH();
             Z80._register.l = result;
             Z80._register.t = 4;
@@ -900,37 +895,39 @@ Z80 = {
 
         // Rotations 
         RLCA: function () { // 0x07
-            Z80.clearN(); Z80.clearH(); Z80.clearZ();
+            Z80.clearN(); Z80.clearH();
             let carryOut = Z80._register.a&0x80?1:0;
             if (carryOut) Z80.setC(); else Z80.clearC();            
-            Z80._register.a = ((Z80._register.a<<1)&255) + carryOut;
+            Z80._register.a = ((Z80._register.a<<1)+carryOut)&255;
             Z80._register.t = 4;
         },
         RLA: function () { // 0x17
             let a = Z80._register.a;
-            let carryOut = (a >> 7) != 0;
+            let carryOut = Z80._register.a&0x80?1:0;
             let carryIn = Z80._register.f & Z80._flags.carry ? 1 : 0; 
-            Z80._register.a = ((a<<1)&255) + carryIn;
+            Z80._register.a = ((a<<1)+carryIn)&255;
             if (carryOut) Z80.setC(); else Z80.clearC();
             Z80.clearZ(); Z80.clearN(); Z80.clearH();
             Z80._register.t = 4;
         },
         RRCA: function () { // 0x0F
-            Z80.clearN(); Z80.clearH(); Z80.clearZ();
+            Z80.clearN(); Z80.clearH(); // NOTE: Should this clear Z?
             let carryOut = Z80._register.a&0x01?1:0;
             if (carryOut) Z80.setC(); else Z80.clearC();
-            Z80._register.a = (Z80._register.a>>1) + (carryOut<<7);
+            Z80._register.a = ((Z80._register.a>>1)+(carryOut<<7))&255;
             Z80._register.t = 4;
         },
         RRA: function () { // 0x1F
             let carryIn = Z80._register.f & Z80._flags.carry ? 1 : 0;
             let carryOut = Z80._register.a & 0x01 ? 1 : 0;
-            Z80._register.a = (Z80._register.a>>1) + (carryIn<<7);
+            Z80._register.a = ((Z80._register.a>>1)+(carryIn<<7))&255;
             if (carryOut) Z80.setC(); else Z80.clearC();
             Z80.clearZ(); Z80.clearN(); Z80.clearH();
             Z80._register.t = 4;
         },
 
+        CCF: function () { // 0x3F
+            Z80.clearN(); Z80.clearH(); if (Z80._register.f&Z80._flags.carry) Z80.clearC(); else Z80.setC(); Z80._register.t = 4; },
         SCF: function () { // 0x37
             Z80.setC(); Z80._register.t = 4; },
 
@@ -943,7 +940,6 @@ Z80 = {
 
         HALT: function () { // 0x76
             Z80._halted = true; Z80._register.t = 4; },
-
         STOP: function () { // 0x10
             Z80._stopped = true; Z80._register.pc++; Z80._register.t = 4; },
 
@@ -954,9 +950,6 @@ Z80 = {
             Z80._ime = true;
             Z80._register.t = 8;
         },
-
-        CCF: function () { // 0x3F
-            Z80.clearN(); Z80.clearH(); if (Z80._register.f&Z80._flags.carry) Z80.clearC(); else Z80.setC(); Z80._register.t = 4; },
 
         DAA: function () { // 0x27
             Z80.clearH();
@@ -985,7 +978,7 @@ Z80 = {
             Z80.clearN(); Z80.clearH();
             let carryOut = Z80._register.a&0x80?1:0;
             if (carryOut) Z80.setC(); else Z80.clearC();
-            Z80._register.a = ((Z80._register.a<<1)&255) + carryOut;
+            Z80._register.a = ((Z80._register.a<<1)+carryOut)&255;
             if (!Z80._register.a) Z80.setZ(); else Z80.clearZ();
             Z80._register.t = 8;
         },
@@ -993,7 +986,7 @@ Z80 = {
             Z80.clearN(); Z80.clearH();
             let carryOut = Z80._register.b&0x80?1:0;
             if (carryOut) Z80.setC(); else Z80.clearC();
-            Z80._register.b = ((Z80._register.b<<1)&255) + carryOut;
+            Z80._register.b = ((Z80._register.b<<1)+carryOut)&255;
             if (!Z80._register.b) Z80.setZ(); else Z80.clearZ();
             Z80._register.t = 8;
         },
@@ -1001,7 +994,7 @@ Z80 = {
             Z80.clearN(); Z80.clearH();
             let carryOut = Z80._register.c&0x80?1:0;
             if (carryOut) Z80.setC(); else Z80.clearC();
-            Z80._register.c = ((Z80._register.c<<1)&255) + carryOut;
+            Z80._register.c = ((Z80._register.c<<1)+carryOut)&255;
             if (!Z80._register.c) Z80.setZ(); else Z80.clearZ();
             Z80._register.t = 8;
         },
@@ -1009,7 +1002,7 @@ Z80 = {
             Z80.clearN(); Z80.clearH();
             let carryOut = Z80._register.d&0x80?1:0;
             if (carryOut) Z80.setC(); else Z80.clearC();
-            Z80._register.d = ((Z80._register.d<<1)&255) + carryOut;
+            Z80._register.d = ((Z80._register.d<<1)+carryOut)&255;
             if (!Z80._register.d) Z80.setZ(); else Z80.clearZ();
             Z80._register.t = 8;
         },
@@ -1017,7 +1010,7 @@ Z80 = {
             Z80.clearN(); Z80.clearH();
             let carryOut = Z80._register.e&0x80?1:0;
             if (carryOut) Z80.setC(); else Z80.clearC();
-            Z80._register.e = ((Z80._register.e<<1)&255) + carryOut;
+            Z80._register.e = ((Z80._register.e<<1)+carryOut)&255;
             if (!Z80._register.e) Z80.setZ(); else Z80.clearZ();
             Z80._register.t = 8;
         },
@@ -1025,7 +1018,7 @@ Z80 = {
             Z80.clearN(); Z80.clearH();
             let carryOut = Z80._register.h&0x80?1:0;
             if (carryOut) Z80.setC(); else Z80.clearC();
-            Z80._register.h = ((Z80._register.h<<1)&255) + carryOut;
+            Z80._register.h = ((Z80._register.h<<1)+carryOut)&255;
             if (!Z80._register.h) Z80.setZ(); else Z80.clearZ();
             Z80._register.t = 8;
         },
@@ -1033,7 +1026,7 @@ Z80 = {
             Z80.clearN(); Z80.clearH();
             let carryOut = Z80._register.l&0x80?1:0;
             if (carryOut) Z80.setC(); else Z80.clearC();
-            Z80._register.l = ((Z80._register.l<<1)&255) + carryOut;
+            Z80._register.l = ((Z80._register.l<<1)+carryOut)&255;
             if (!Z80._register.l) Z80.setZ(); else Z80.clearZ();
             Z80._register.t = 8;
         },
@@ -1042,7 +1035,7 @@ Z80 = {
             let hl = MMU.readByte((Z80._register.h<<8)+Z80._register.l);
             let carryOut = hl&0x80?1:0;
             if (carryOut) Z80.setC(); else Z80.clearC();
-            hl = ((hl<<1)&255) + carryOut;
+            hl = ((hl<<1)+carryOut)&255;
             if (!hl) Z80.setZ(); else Z80.clearZ();
             MMU.writeByte((Z80._register.h<<8)+Z80._register.l, hl);
             Z80._register.t = 16;
@@ -1053,7 +1046,7 @@ Z80 = {
             Z80.clearN(); Z80.clearH();
             let carryOut = Z80._register.a&0x01?1:0;
             if (carryOut) Z80.setC(); else Z80.clearC();
-            Z80._register.a >>= 1; Z80._register.a |= (carryOut<<7);
+            Z80._register.a = ((Z80._register.a>>1)+(carryOut<<7))&255;
             if (!Z80._register.a) Z80.setZ(); else Z80.clearZ();
             Z80._register.t = 8;
         },
@@ -1061,7 +1054,7 @@ Z80 = {
             Z80.clearN(); Z80.clearH();
             let carryOut = Z80._register.b&0x01?1:0;
             if (carryOut) Z80.setC(); else Z80.clearC();
-            Z80._register.b >>= 1; Z80._register.b |= (carryOut<<7);
+            Z80._register.b = ((Z80._register.b>>1)+(carryOut<<7))&255;
             if (!Z80._register.b) Z80.setZ(); else Z80.clearZ();
             Z80._register.t = 8;
         },
@@ -1069,7 +1062,7 @@ Z80 = {
             Z80.clearN(); Z80.clearH();
             let carryOut = Z80._register.c&0x01?1:0;
             if (carryOut) Z80.setC(); else Z80.clearC();
-            Z80._register.c >>= 1; Z80._register.c |= (carryOut<<7);
+            Z80._register.c = ((Z80._register.c>>1)+(carryOut<<7))&255;
             if (!Z80._register.c) Z80.setZ(); else Z80.clearZ();
             Z80._register.t = 8;
         },
@@ -1077,7 +1070,7 @@ Z80 = {
             Z80.clearN(); Z80.clearH();
             let carryOut = Z80._register.d&0x01?1:0;
             if (carryOut) Z80.setC(); else Z80.clearC();
-            Z80._register.d >>= 1; Z80._register.d |= (carryOut<<7);
+            Z80._register.d = ((Z80._register.d>>1)+(carryOut<<7))&255;
             if (!Z80._register.d) Z80.setZ(); else Z80.clearZ();
             Z80._register.t = 8;
         },
@@ -1085,7 +1078,7 @@ Z80 = {
             Z80.clearN(); Z80.clearH();
             let carryOut = Z80._register.e&0x01?1:0;
             if (carryOut) Z80.setC(); else Z80.clearC();
-            Z80._register.e >>= 1; Z80._register.e |= (carryOut<<7);
+            Z80._register.e = ((Z80._register.e>>1)+(carryOut<<7))&255;
             if (!Z80._register.e) Z80.setZ(); else Z80.clearZ();
             Z80._register.t = 8;
         },
@@ -1093,7 +1086,7 @@ Z80 = {
             Z80.clearN(); Z80.clearH();
             let carryOut = Z80._register.h&0x01?1:0;
             if (carryOut) Z80.setC(); else Z80.clearC();
-            Z80._register.h >>= 1; Z80._register.h |= (carryOut<<7);
+            Z80._register.h = ((Z80._register.h>>1)+(carryOut<<7))&255;
             if (!Z80._register.h) Z80.setZ(); else Z80.clearZ();
             Z80._register.t = 8;
         },
@@ -1101,7 +1094,7 @@ Z80 = {
             Z80.clearN(); Z80.clearH();
             let carryOut = Z80._register.l&0x01?1:0;
             if (carryOut) Z80.setC(); else Z80.clearC();
-            Z80._register.l >>= 1; Z80._register.l |= (carryOut<<7);
+            Z80._register.l = ((Z80._register.l>>1)+(carryOut<<7))&255;
             if (!Z80._register.l) Z80.setZ(); else Z80.clearZ();
             Z80._register.t = 8;
         },
@@ -1110,7 +1103,7 @@ Z80 = {
             let hl = MMU.readByte((Z80._register.h<<8)+Z80._register.l);
             let carryOut = hl&0x01?1:0;
             if (carryOut) Z80.setC(); else Z80.clearC();
-            hl >>= 1; hl |= (carryOut<<7);
+            hl = ((hl>>1)+(carryOut<<7))&255;
             if (!hl) Z80.setZ(); else Z80.clearZ();
             MMU.writeByte((Z80._register.h<<8)+Z80._register.l, hl);
             Z80._register.t = 16;
@@ -1122,7 +1115,7 @@ Z80 = {
             let carryOut = Z80._register.a&0x80?1:0;
             let carryIn = Z80._register.f&Z80._flags.carry?1:0;
             if (carryOut) Z80.setC(); else Z80.clearC();
-            Z80._register.a = ((Z80._register.a<<1)&255)+carryIn;
+            Z80._register.a = ((Z80._register.a<<1)+carryIn)&255;
             if (!Z80._register.a) Z80.setZ(); else Z80.clearZ();
             Z80._register.t = 8;
         },
@@ -1131,7 +1124,7 @@ Z80 = {
             let carryOut = Z80._register.b&0x80?1:0;
             let carryIn = Z80._register.f&Z80._flags.carry?1:0;
             if (carryOut) Z80.setC(); else Z80.clearC();
-            Z80._register.b = ((Z80._register.b<<1)&255)+carryIn;
+            Z80._register.b = ((Z80._register.b<<1)+carryIn)&255;
             if (!Z80._register.b) Z80.setZ(); else Z80.clearZ();
             Z80._register.t = 8;
         },
@@ -1140,7 +1133,7 @@ Z80 = {
             let carryOut = Z80._register.c&0x80?1:0;
             let carryIn = Z80._register.f&Z80._flags.carry?1:0;
             if (carryOut) Z80.setC(); else Z80.clearC();
-            Z80._register.c = ((Z80._register.c<<1)&255)+carryIn;
+            Z80._register.c = ((Z80._register.c<<1)+carryIn)&255;
             if (!Z80._register.c) Z80.setZ(); else Z80.clearZ();
             Z80._register.t = 8;
         },
@@ -1149,7 +1142,7 @@ Z80 = {
             let carryOut = Z80._register.d&0x80?1:0;
             let carryIn = Z80._register.f&Z80._flags.carry?1:0;
             if (carryOut) Z80.setC(); else Z80.clearC();
-            Z80._register.d = ((Z80._register.d<<1)&255)+carryIn;
+            Z80._register.d = ((Z80._register.d<<1)+carryIn)&255;
             if (!Z80._register.d) Z80.setZ(); else Z80.clearZ();
             Z80._register.t = 8;
         },
@@ -1158,7 +1151,7 @@ Z80 = {
             let carryOut = Z80._register.e&0x80?1:0;
             let carryIn = Z80._register.f&Z80._flags.carry?1:0;
             if (carryOut) Z80.setC(); else Z80.clearC();
-            Z80._register.e = ((Z80._register.e<<1)&255)+carryIn;
+            Z80._register.e = ((Z80._register.e<<1)+carryIn)&255;
             if (!Z80._register.e) Z80.setZ(); else Z80.clearZ();
             Z80._register.t = 8;
         },
@@ -1167,7 +1160,7 @@ Z80 = {
             let carryOut = Z80._register.h&0x80?1:0;
             let carryIn = Z80._register.f&Z80._flags.carry?1:0;
             if (carryOut) Z80.setC(); else Z80.clearC();
-            Z80._register.h = ((Z80._register.h<<1)&255)+carryIn;
+            Z80._register.h = ((Z80._register.h<<1)+carryIn)&255;
             if (!Z80._register.h) Z80.setZ(); else Z80.clearZ();
             Z80._register.t = 8;
         },
@@ -1176,7 +1169,7 @@ Z80 = {
             let carryOut = Z80._register.l&0x80?1:0;
             let carryIn = Z80._register.f&Z80._flags.carry?1:0;
             if (carryOut) Z80.setC(); else Z80.clearC();
-            Z80._register.l = ((Z80._register.l<<1)&255)+carryIn;
+            Z80._register.l = ((Z80._register.l<<1)+carryIn)&255;
             if (!Z80._register.l) Z80.setZ(); else Z80.clearZ();
             Z80._register.t = 8;
         },
@@ -1186,7 +1179,7 @@ Z80 = {
             let carryOut = hl&0x80?1:0;
             let carryIn = Z80._register.f&Z80._flags.carry?1:0;
             if (carryOut) Z80.setC(); else Z80.clearC();
-            hl = ((hl<<1)&255)+carryIn;
+            hl = ((hl<<1)+carryIn)&255;
             if (!hl) Z80.setZ(); else Z80.clearZ();
             MMU.writeByte((Z80._register.h<<8)+Z80._register.l, hl);
             Z80._register.t = 16;
@@ -1198,7 +1191,7 @@ Z80 = {
             let carryOut = Z80._register.a&0x01?1:0;
             let carryIn = Z80._register.f&Z80._flags.carry?1:0;
             if (carryOut) Z80.setC(); else Z80.clearC();
-            Z80._register.a = (Z80._register.a>>1)+(carryIn<<7);
+            Z80._register.a = ((Z80._register.a>>1)+(carryIn<<7))&255;
             if (!Z80._register.a) Z80.setZ(); else Z80.clearZ();
             Z80._register.t = 8;
         },
@@ -1207,7 +1200,7 @@ Z80 = {
             let carryOut = Z80._register.b&0x01?1:0;
             let carryIn = Z80._register.f&Z80._flags.carry?1:0;
             if (carryOut) Z80.setC(); else Z80.clearC();
-            Z80._register.b = (Z80._register.b>>1)+(carryIn<<7);
+            Z80._register.b = ((Z80._register.b>>1)+(carryIn<<7))&255;
             if (!Z80._register.b) Z80.setZ(); else Z80.clearZ();
             Z80._register.t = 8;
         },
@@ -1216,7 +1209,7 @@ Z80 = {
             let carryOut = Z80._register.c&0x01?1:0;
             let carryIn = Z80._register.f&Z80._flags.carry?1:0;
             if (carryOut) Z80.setC(); else Z80.clearC();
-            Z80._register.c = (Z80._register.c>>1)+(carryIn<<7);
+            Z80._register.c = ((Z80._register.c>>1)+(carryIn<<7))&255;
             if (!Z80._register.c) Z80.setZ(); else Z80.clearZ();
             Z80._register.t = 8;
         },
@@ -1225,7 +1218,7 @@ Z80 = {
             let carryOut = Z80._register.d&0x01?1:0;
             let carryIn = Z80._register.f&Z80._flags.carry?1:0;
             if (carryOut) Z80.setC(); else Z80.clearC();
-            Z80._register.d = (Z80._register.d>>1)+(carryIn<<7);
+            Z80._register.d = ((Z80._register.d>>1)+(carryIn<<7))&255;
             if (!Z80._register.d) Z80.setZ(); else Z80.clearZ();
             Z80._register.t = 8;
         },
@@ -1234,7 +1227,7 @@ Z80 = {
             let carryOut = Z80._register.e&0x01?1:0;
             let carryIn = Z80._register.f&Z80._flags.carry?1:0;
             if (carryOut) Z80.setC(); else Z80.clearC();
-            Z80._register.e = (Z80._register.e>>1)+(carryIn<<7);
+            Z80._register.e = ((Z80._register.e>>1)+(carryIn<<7))&255;
             if (!Z80._register.e) Z80.setZ(); else Z80.clearZ();
             Z80._register.t = 8;
         },
@@ -1243,7 +1236,7 @@ Z80 = {
             let carryOut = Z80._register.h&0x01?1:0;
             let carryIn = Z80._register.f&Z80._flags.carry?1:0;
             if (carryOut) Z80.setC(); else Z80.clearC();
-            Z80._register.h = (Z80._register.h>>1)+(carryIn<<7);
+            Z80._register.h = ((Z80._register.h>>1)+(carryIn<<7))&255;
             if (!Z80._register.h) Z80.setZ(); else Z80.clearZ();
             Z80._register.t = 8;
         },
@@ -1252,7 +1245,7 @@ Z80 = {
             let carryOut = Z80._register.l&0x01?1:0;
             let carryIn = Z80._register.f&Z80._flags.carry?1:0;
             if (carryOut) Z80.setC(); else Z80.clearC();
-            Z80._register.l = (Z80._register.l>>1)+(carryIn<<7);
+            Z80._register.l = ((Z80._register.l>>1)+(carryIn<<7))&255;
             if (!Z80._register.l) Z80.setZ(); else Z80.clearZ();
             Z80._register.t = 8;
         },
@@ -1262,7 +1255,7 @@ Z80 = {
             let carryOut = hl&0x01?1:0;
             let carryIn = Z80._register.f&Z80._flags.carry?1:0;
             if (carryOut) Z80.setC(); else Z80.clearC();
-            hl = (hl>>1)+(carryIn<<7);
+            hl = ((hl>>1)+(carryIn<<7))&255;
             if (!hl) Z80.setZ(); else Z80.clearZ();
             MMU.writeByte((Z80._register.h<<8)+Z80._register.l, hl);
             Z80._register.t = 16;
@@ -1332,49 +1325,49 @@ Z80 = {
         SRA_A: function () { // CB 0x2F            
             Z80.clearN(); Z80.clearH();
             if (Z80._register.a&0x01) Z80.setC(); else Z80.clearC();
-            Z80._register.a = (Z80._register.a>>1) | (Z80._register.a&0x80);
+            Z80._register.a = ((Z80._register.a>>1)+(Z80._register.a&0x80))&255;
             if (Z80._register.a) Z80.clearZ(); else Z80.setZ();
             Z80._register.t = 8;
         },
         SRA_B: function () { // CB 0x28
             Z80.clearN(); Z80.clearH();
             if (Z80._register.b&0x01) Z80.setC(); else Z80.clearC();
-            Z80._register.b = (Z80._register.b>>1) | (Z80._register.b&0x80);
+            Z80._register.b = ((Z80._register.b>>1)+(Z80._register.b&0x80))&255;
             if (Z80._register.b) Z80.clearZ(); else Z80.setZ();
             Z80._register.t = 8;
         },
         SRA_C: function () { // CB 0x29
             Z80.clearN(); Z80.clearH();
             if (Z80._register.c&0x01) Z80.setC(); else Z80.clearC();
-            Z80._register.c = (Z80._register.c>>1) | (Z80._register.c&0x80);
+            Z80._register.c = ((Z80._register.c>>1)+(Z80._register.c&0x80))&255;
             if (Z80._register.c) Z80.clearZ(); else Z80.setZ();
             Z80._register.t = 8;
         },
         SRA_D: function () { // CB 0x2A
             Z80.clearN(); Z80.clearH();
             if (Z80._register.d&0x01) Z80.setC(); else Z80.clearC();
-            Z80._register.d = (Z80._register.d>>1) | (Z80._register.d&0x80);
+            Z80._register.d = ((Z80._register.d>>1)+(Z80._register.d&0x80))&255;
             if (Z80._register.d) Z80.clearZ(); else Z80.setZ();
             Z80._register.t = 8;
         },
         SRA_E: function () { // CB 0x2B
             Z80.clearN(); Z80.clearH();
             if (Z80._register.e&0x01) Z80.setC(); else Z80.clearC();
-            Z80._register.e = (Z80._register.e>>1) | (Z80._register.e&0x80);
+            Z80._register.e = ((Z80._register.e>>1)+(Z80._register.e&0x80))&255;
             if (Z80._register.e) Z80.clearZ(); else Z80.setZ();
             Z80._register.t = 8;
         },
         SRA_H: function () { // CB 0x2C
             Z80.clearN(); Z80.clearH();
             if (Z80._register.h&0x01) Z80.setC(); else Z80.clearC();
-            Z80._register.h = (Z80._register.h>>1) | (Z80._register.h&0x80);
+            Z80._register.h = ((Z80._register.h>>1)+(Z80._register.h&0x80))&255;
             if (Z80._register.h) Z80.clearZ(); else Z80.setZ();
             Z80._register.t = 8;
         },
         SRA_L: function () { // CB 0x2D
             Z80.clearN(); Z80.clearH();
             if (Z80._register.l&0x01) Z80.setC(); else Z80.clearC();
-            Z80._register.l = (Z80._register.l>>1) | (Z80._register.l&0x80);
+            Z80._register.l = ((Z80._register.l>>1)+(Z80._register.l&0x80))&255;
             if (Z80._register.l) Z80.clearZ(); else Z80.setZ();
             Z80._register.t = 8;
         },
@@ -1382,7 +1375,7 @@ Z80 = {
             Z80.clearN(); Z80.clearH();
             let hl = MMU.readByte((Z80._register.h<<8)+Z80._register.l);
             if (hl&0x01) Z80.setC(); else Z80.clearC();
-            hl = (hl>>1) | (hl&0x80);
+            hl = ((hl>>1)+(hl&0x80))&255;
             if (hl) Z80.clearZ(); else Z80.setZ();
             MMU.writeByte((Z80._register.h<<8)+Z80._register.l, hl);
             Z80._register.t = 16;
@@ -1392,49 +1385,49 @@ Z80 = {
         SRL_A: function () { // CB 0x3F            
             Z80.clearN(); Z80.clearH();
             if (Z80._register.a&0x01) Z80.setC(); else Z80.clearC();
-            Z80._register.a >>= 1;
+            Z80._register.a = (Z80._register.a>>1)&255;
             if (Z80._register.a) Z80.clearZ(); else Z80.setZ();
             Z80._register.t = 8;
         },
         SRL_B: function () { // CB 0x38
             Z80.clearN(); Z80.clearH();
             if (Z80._register.b&0x01) Z80.setC(); else Z80.clearC();
-            Z80._register.b >>= 1;
+            Z80._register.b = (Z80._register.b>>1)&255;
             if (Z80._register.b) Z80.clearZ(); else Z80.setZ();
             Z80._register.t = 8;
         },
         SRL_C: function () { // CB 0x39
             Z80.clearN(); Z80.clearH();
             if (Z80._register.c&0x01) Z80.setC(); else Z80.clearC();
-            Z80._register.c >>= 1;
+            Z80._register.c = (Z80._register.c>>1)&255;
             if (Z80._register.c) Z80.clearZ(); else Z80.setZ();
             Z80._register.t = 8;
         },
         SRL_D: function () { // CB 0x3A
             Z80.clearN(); Z80.clearH();
             if (Z80._register.d&0x01) Z80.setC(); else Z80.clearC();
-            Z80._register.d >>= 1;
+            Z80._register.d = (Z80._register.d>>1)&255;
             if (Z80._register.d) Z80.clearZ(); else Z80.setZ();
             Z80._register.t = 8;
         },
         SRL_E: function () { // CB 0x3B
             Z80.clearN(); Z80.clearH();
             if (Z80._register.e&0x01) Z80.setC(); else Z80.clearC();
-            Z80._register.e >>= 1;
+            Z80._register.e = (Z80._register.e>>1)&255;
             if (Z80._register.e) Z80.clearZ(); else Z80.setZ();
             Z80._register.t = 8;
         },
         SRL_H: function () { // CB 0x3C
             Z80.clearN(); Z80.clearH();
             if (Z80._register.h&0x01) Z80.setC(); else Z80.clearC();
-            Z80._register.h >>= 1;
+            Z80._register.h = (Z80._register.h>>1)&255;
             if (Z80._register.h) Z80.clearZ(); else Z80.setZ();
             Z80._register.t = 8;
         },
         SRL_L: function () { // CB 0x3D
             Z80.clearN(); Z80.clearH();
             if (Z80._register.l&0x01) Z80.setC(); else Z80.clearC();
-            Z80._register.l >>= 1;
+            Z80._register.l = (Z80._register.l>>1)&255;
             if (Z80._register.l) Z80.clearZ(); else Z80.setZ();
             Z80._register.t = 8;
         },
@@ -1442,7 +1435,7 @@ Z80 = {
             Z80.clearN(); Z80.clearH();
             let hl = MMU.readByte((Z80._register.h<<8)+Z80._register.l);
             if (hl&0x01) Z80.setC(); else Z80.clearC();
-            hl >>= 1;
+            hl = (hl>>1)&255;
             if (hl) Z80.clearZ(); else Z80.setZ();
             MMU.writeByte((Z80._register.h<<8)+Z80._register.l, hl);
             Z80._register.t = 16;
@@ -1450,7 +1443,13 @@ Z80 = {
 
         // SWAP n
         SWAP_n: function (input) {
-            let upper = input>>4; let lower = input&0xF; let value = (lower<<4)+upper; if (value) Z80.clearZ(); else Z80.setZ(); return value; },
+            let upper = input>>4;
+            let lower = input&0xF; 
+            let value = (lower<<4)+upper; 
+            if (value) Z80.clearZ(); else Z80.setZ(); 
+            Z80.clearN(); Z80.clearH();; Z80.clearC();
+            return value; 
+        },
         SWAP_A: function () { // CB 0x37
             Z80._register.a = Z80._ops.SWAP_n(Z80._register.a); Z80._register.t = 8; },
         SWAP_B: function () { // CB 0x30
@@ -1601,135 +1600,141 @@ Z80 = {
             let hl = (Z80._register.h<<8)+Z80._register.l; Z80._ops.BIT_b_r(MMU.readByte(hl), 7, 16); },
 
         // RES b, r
-        RES_b0_A: function () { // CB 0x87
-            Z80._register.a &= -(1<<0); Z80._register.t = 8; },
+        RES_b0_A: function () { // CB 0x87            
+            Z80._register.a &= (0xFF)-(1<<0); Z80._register.t = 8; },
         RES_b0_B: function () { // CB 0x80
-            Z80._register.b &= -(1<<0); Z80._register.t = 8; },
+            Z80._register.b &= (0xFF)-(1<<0); Z80._register.t = 8; },
         RES_b0_C: function () { // CB 0x81
-            Z80._register.c &= -(1<<0); Z80._register.t = 8; },
+            Z80._register.c &= (0xFF)-(1<<0); Z80._register.t = 8; },
         RES_b0_D: function () { // CB 0x82
-            Z80._register.d &= -(1<<0); Z80._register.t = 8; },
+            Z80._register.d &= (0xFF)-(1<<0); Z80._register.t = 8; },
         RES_b0_E: function () { // CB 0x83
-            Z80._register.e &= -(1<<0); Z80._register.t = 8; },
+            Z80._register.e &= (0xFF)-(1<<0); Z80._register.t = 8; },
         RES_b0_H: function () { // CB 0x84
-            Z80._register.h &= -(1<<0); Z80._register.t = 8; },
+            Z80._register.h &= (0xFF)-(1<<0); Z80._register.t = 8; },
         RES_b0_L: function () { // CB 0x85
-            Z80._register.l &= -(1<<0); Z80._register.t = 8; },
+            Z80._register.l &= (0xFF)-(1<<0); Z80._register.t = 8; },
         RES_b0_HLmem: function () { // CB 0x86
-            let hl = (Z80._register.h<<8)+Z80._register.l; MMU.writeByte(hl, MMU.readByte(hl)&-(1<<0)); Z80._register.t = 16; },
+            let hl = (Z80._register.h<<8)+Z80._register.l; MMU.writeByte(hl, MMU.readByte(hl)&(0xFF)-(1<<0)); Z80._register.t = 16; },
+
         RES_b1_A: function () { // CB 0x8F
-            Z80._register.a &= -(1<<1); Z80._register.t = 8; },
+            Z80._register.a &= (0xFF)-(1<<1); Z80._register.t = 8; },
         RES_b1_B: function () { // CB 0x88
-            Z80._register.b &= -(1<<1); Z80._register.t = 8; },
+            Z80._register.b &= (0xFF)-(1<<1); Z80._register.t = 8; },
         RES_b1_C: function () { // CB 0x89
-            Z80._register.c &= -(1<<1); Z80._register.t = 8; },
+            Z80._register.c &= (0xFF)-(1<<1); Z80._register.t = 8; },
         RES_b1_D: function () { // CB 0x8A
-            Z80._register.d &= -(1<<1); Z80._register.t = 8; },
+            Z80._register.d &= (0xFF)-(1<<1); Z80._register.t = 8; },
         RES_b1_E: function () { // CB 0x8B
-            Z80._register.e &= -(1<<1); Z80._register.t = 8; },
+            Z80._register.e &= (0xFF)-(1<<1); Z80._register.t = 8; },
         RES_b1_H: function () { // CB 0x8C
-            Z80._register.h &= -(1<<1); Z80._register.t = 8; },
+            Z80._register.h &= (0xFF)-(1<<1); Z80._register.t = 8; },
         RES_b1_L: function () { // CB 0x8D
-            Z80._register.l &= -(1<<1); Z80._register.t = 8; },
+            Z80._register.l &= (0xFF)-(1<<1); Z80._register.t = 8; },
         RES_b1_HLmem: function () { // CB 0x8E
-            let hl = (Z80._register.h<<8)+Z80._register.l; MMU.writeByte(hl, MMU.readByte(hl)&-(1<<1)); Z80._register.t = 16; },
+            let hl = (Z80._register.h<<8)+Z80._register.l; MMU.writeByte(hl, MMU.readByte(hl)&(0xFF)-(1<<1)); Z80._register.t = 16; },
+
         RES_b2_A: function () { // CB 0x97
-            Z80._register.a &= -(1<<2); Z80._register.t = 8; },
+            Z80._register.a &= (0xFF)-(1<<2); Z80._register.t = 8; },
         RES_b2_B: function () { // CB 0x90
-            Z80._register.b &= -(1<<2); Z80._register.t = 8; },
+            Z80._register.b &= (0xFF)-(1<<2); Z80._register.t = 8; },
         RES_b2_C: function () { // CB 0x91
-            Z80._register.c &= -(1<<2); Z80._register.t = 8; },
+            Z80._register.c &= (0xFF)-(1<<2); Z80._register.t = 8; },
         RES_b2_D: function () { // CB 0x92
-            Z80._register.d &= -(1<<2); Z80._register.t = 8; },
+            Z80._register.d &= (0xFF)-(1<<2); Z80._register.t = 8; },
         RES_b2_E: function () { // CB 0x93
-            Z80._register.e &= -(1<<2); Z80._register.t = 8; },
+            Z80._register.e &= (0xFF)-(1<<2); Z80._register.t = 8; },
         RES_b2_H: function () { // CB 0x94
-            Z80._register.h &= -(1<<2); Z80._register.t = 8; },
+            Z80._register.h &= (0xFF)-(1<<2); Z80._register.t = 8; },
         RES_b2_L: function () { // CB 0x95
-            Z80._register.l &= -(1<<2); Z80._register.t = 8; },
+            Z80._register.l &= (0xFF)-(1<<2); Z80._register.t = 8; },
         RES_b2_HLmem: function () { // CB 0x96
-            let hl = (Z80._register.h<<8)+Z80._register.l; MMU.writeByte(hl, MMU.readByte(hl)&-(1<<2)); Z80._register.t = 16; },
+            let hl = (Z80._register.h<<8)+Z80._register.l; MMU.writeByte(hl, MMU.readByte(hl)&(0xFF)-(1<<2)); Z80._register.t = 16; },
+
         RES_b3_A: function () { // CB 0x9F
-            Z80._register.a &= -(1<<3); Z80._register.t = 8; },
+            Z80._register.a &= (0xFF)-(1<<3); Z80._register.t = 8; },
         RES_b3_B: function () { // CB 0x98
-            Z80._register.b &= -(1<<3); Z80._register.t = 8; },
+            Z80._register.b &= (0xFF)-(1<<3); Z80._register.t = 8; },
         RES_b3_C: function () { // CB 0x99
-            Z80._register.c &= -(1<<3); Z80._register.t = 8; },
+            Z80._register.c &= (0xFF)-(1<<3); Z80._register.t = 8; },
         RES_b3_D: function () { // CB 0x9A
-            Z80._register.d &= -(1<<3); Z80._register.t = 8; },
+            Z80._register.d &= (0xFF)-(1<<3); Z80._register.t = 8; },
         RES_b3_E: function () { // CB 0x9B
-            Z80._register.e &= -(1<<3); Z80._register.t = 8; },
+            Z80._register.e &= (0xFF)-(1<<3); Z80._register.t = 8; },
         RES_b3_H: function () { // CB 0x9C
-            Z80._register.h &= -(1<<3); Z80._register.t = 8; },
+            Z80._register.h &= (0xFF)-(1<<3); Z80._register.t = 8; },
         RES_b3_L: function () { // CB 0x9D
-            Z80._register.l &= -(1<<3); Z80._register.t = 8; },
+            Z80._register.l &= (0xFF)-(1<<3); Z80._register.t = 8; },
         RES_b3_HLmem: function () { // CB 0x9E
-            let hl = (Z80._register.h<<8)+Z80._register.l; MMU.writeByte(hl, MMU.readByte(hl)&-(1<<3)); Z80._register.t = 16; },
+            let hl = (Z80._register.h<<8)+Z80._register.l; MMU.writeByte(hl, MMU.readByte(hl)&(0xFF)-(1<<3)); Z80._register.t = 16; },
 
         RES_b4_A: function () { // CB 0xA7
-            Z80._register.a &= -(1<<4); Z80._register.t = 8; },
+            Z80._register.a &= (0xFF)-(1<<4); Z80._register.t = 8; },
         RES_b4_B: function () { // CB 0xA0
-            Z80._register.b &= -(1<<4); Z80._register.t = 8; },
+            Z80._register.b &= (0xFF)-(1<<4); Z80._register.t = 8; },
         RES_b4_C: function () { // CB 0xA1
-            Z80._register.c &= -(1<<4); Z80._register.t = 8; },
+            Z80._register.c &= (0xFF)-(1<<4); Z80._register.t = 8; },
         RES_b4_D: function () { // CB 0xA2
-            Z80._register.d &= -(1<<4); Z80._register.t = 8; },
+            Z80._register.d &= (0xFF)-(1<<4); Z80._register.t = 8; },
         RES_b4_E: function () { // CB 0xA3
-            Z80._register.e &= -(1<<4); Z80._register.t = 8; },
+            Z80._register.e &= (0xFF)-(1<<4); Z80._register.t = 8; },
         RES_b4_H: function () { // CB 0xA4
-            Z80._register.h &= -(1<<4); Z80._register.t = 8; },
+            Z80._register.h &= (0xFF)-(1<<4); Z80._register.t = 8; },
         RES_b4_L: function () { // CB 0xA5
-            Z80._register.l &= -(1<<4); Z80._register.t = 8; },
+            Z80._register.l &= (0xFF)-(1<<4); Z80._register.t = 8; },
         RES_b4_HLmem: function () { // CB 0xA6
-            let hl = (Z80._register.h<<8)+Z80._register.l; MMU.writeByte(hl, MMU.readByte(hl)&-(1<<4)); Z80._register.t = 16; },
+            let hl = (Z80._register.h<<8)+Z80._register.l; MMU.writeByte(hl, MMU.readByte(hl)&(0xFF)-(1<<4)); Z80._register.t = 16; },
+
         RES_b5_A: function () { // CB 0xAF
-            Z80._register.a &= -(1<<5); Z80._register.t = 8; },
+            Z80._register.a &= (0xFF)-(1<<5); Z80._register.t = 8; },
         RES_b5_B: function () { // CB 0xA8
-            Z80._register.b &= -(1<<5); Z80._register.t = 8; },
+            Z80._register.b &= (0xFF)-(1<<5); Z80._register.t = 8; },
         RES_b5_C: function () { // CB 0xA9
-            Z80._register.c &= -(1<<5); Z80._register.t = 8; },
+            Z80._register.c &= (0xFF)-(1<<5); Z80._register.t = 8; },
         RES_b5_D: function () { // CB 0xAA
-            Z80._register.d &= -(1<<5); Z80._register.t = 8; },
+            Z80._register.d &= (0xFF)-(1<<5); Z80._register.t = 8; },
         RES_b5_E: function () { // CB 0xAB
-            Z80._register.e &= -(1<<5); Z80._register.t = 8; },
+            Z80._register.e &= (0xFF)-(1<<5); Z80._register.t = 8; },
         RES_b5_H: function () { // CB 0xAC
-            Z80._register.h &= -(1<<5); Z80._register.t = 8; },
+            Z80._register.h &= (0xFF)-(1<<5); Z80._register.t = 8; },
         RES_b5_L: function () { // CB 0xAD
-            Z80._register.l &= -(1<<5); Z80._register.t = 8; },
+            Z80._register.l &= (0xFF)-(1<<5); Z80._register.t = 8; },
         RES_b5_HLmem: function () { // CB 0xAE
-            let hl = (Z80._register.h<<8)+Z80._register.l; MMU.writeByte(hl, MMU.readByte(hl)&-(1<<5)); Z80._register.t = 16; },
+            let hl = (Z80._register.h<<8)+Z80._register.l; MMU.writeByte(hl, MMU.readByte(hl)&(0xFF)-(1<<5)); Z80._register.t = 16; },
+
         RES_b6_A: function () { // CB 0xB7
-            Z80._register.a &= -(1<<6); Z80._register.t = 8; },
+            Z80._register.a &= (0xFF)-(1<<6); Z80._register.t = 8; },
         RES_b6_B: function () { // CB 0xB0
-            Z80._register.b &= -(1<<6); Z80._register.t = 8; },
+            Z80._register.b &= (0xFF)-(1<<6); Z80._register.t = 8; },
         RES_b6_C: function () { // CB 0xB1
-            Z80._register.c &= -(1<<6); Z80._register.t = 8; },
+            Z80._register.c &= (0xFF)-(1<<6); Z80._register.t = 8; },
         RES_b6_D: function () { // CB 0xB2
-            Z80._register.d &= -(1<<6); Z80._register.t = 8; },
+            Z80._register.d &= (0xFF)-(1<<6); Z80._register.t = 8; },
         RES_b6_E: function () { // CB 0xB3
-            Z80._register.e &= -(1<<6); Z80._register.t = 8; },
+            Z80._register.e &= (0xFF)-(1<<6); Z80._register.t = 8; },
         RES_b6_H: function () { // CB 0xB4
-            Z80._register.h &= -(1<<6); Z80._register.t = 8; },
+            Z80._register.h &= (0xFF)-(1<<6); Z80._register.t = 8; },
         RES_b6_L: function () { // CB 0xB5
-            Z80._register.l &= -(1<<6); Z80._register.t = 8; },
+            Z80._register.l &= (0xFF)-(1<<6); Z80._register.t = 8; },
         RES_b6_HLmem: function () { // CB 0xB6
-            let hl = (Z80._register.h<<8)+Z80._register.l; MMU.writeByte(hl, MMU.readByte(hl)&-(1<<6)); Z80._register.t = 16; },
+            let hl = (Z80._register.h<<8)+Z80._register.l; MMU.writeByte(hl, MMU.readByte(hl)&(0xFF)-(1<<6)); Z80._register.t = 16; },
+
         RES_b7_A: function () { // CB 0xBF
-            Z80._register.a &= -(1<<7); Z80._register.t = 8; },
+            Z80._register.a &= (0xFF)-(1<<7); Z80._register.t = 8; },
         RES_b7_B: function () { // CB 0xB8
-            Z80._register.b &= -(1<<7); Z80._register.t = 8; },
+            Z80._register.b &= (0xFF)-(1<<7); Z80._register.t = 8; },
         RES_b7_C: function () { // CB 0xB9
-            Z80._register.c &= -(1<<7); Z80._register.t = 8; },
+            Z80._register.c &= (0xFF)-(1<<7); Z80._register.t = 8; },
         RES_b7_D: function () { // CB 0xBA
-            Z80._register.d &= -(1<<7); Z80._register.t = 8; },
+            Z80._register.d &= (0xFF)-(1<<7); Z80._register.t = 8; },
         RES_b7_E: function () { // CB 0xBB
-            Z80._register.e &= -(1<<7); Z80._register.t = 8; },
+            Z80._register.e &= (0xFF)-(1<<7); Z80._register.t = 8; },
         RES_b7_H: function () { // CB 0xBC
-            Z80._register.h &= -(1<<7); Z80._register.t = 8; },
+            Z80._register.h &= (0xFF)-(1<<7); Z80._register.t = 8; },
         RES_b7_L: function () { // CB 0xBD
-            Z80._register.l &= -(1<<7); Z80._register.t = 8; },
+            Z80._register.l &= (0xFF)-(1<<7); Z80._register.t = 8; },
         RES_b7_HLmem: function () { // CB 0xBE
-            let hl = (Z80._register.h<<8)+Z80._register.l; MMU.writeByte(hl, MMU.readByte(hl)&-(1<<7)); Z80._register.t = 16; },    
+            let hl = (Z80._register.h<<8)+Z80._register.l; MMU.writeByte(hl, MMU.readByte(hl)&(0xFF)-(1<<7)); Z80._register.t = 16; },    
 
         // SET b, r
         SET_b0_A: function () { // CB 0xC7            
@@ -1965,6 +1970,263 @@ Z80._map = [
     Z80._ops.LDHL_SP_n, Z80._ops.LD_SP_HL, Z80._ops.LD_A_d16mem, Z80._ops.EI, 
     Z80._ops.NOT_IMPLEMENTED, Z80._ops.NOT_IMPLEMENTED, Z80._ops.CP_d8, Z80._ops.RST_38
 ];
+
+// Z80._map[0x00] = Z80._ops.NOP;
+// Z80._map[0x01] = Z80._ops.LD_BC_d16;
+// Z80._map[0x02] = Z80._ops.LD_BCmem_A;
+// Z80._map[0x03] = Z80._ops.INC_BC;
+// Z80._map[0x04] = Z80._ops.INC_B;
+// Z80._map[0x05] = Z80._ops.DEC_B;
+// Z80._map[0x06] = Z80._ops.LD_B_n;
+// Z80._map[0x07] = Z80._ops.RLCA;
+// Z80._map[0x08] = Z80._ops.LD_d16mem_SP;
+// Z80._map[0x09] = Z80._ops.ADD_HL_BC;
+// Z80._map[0x0A] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x0B] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x0C] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x0D] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x0E] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x0F] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x10] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x11] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x12] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x13] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x14] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x15] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x16] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x17] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x18] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x19] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x1A] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x1B] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x1C] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x1D] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x1E] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x1F] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x20] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x21] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x22] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x23] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x24] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x25] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x26] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x27] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x28] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x29] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x2A] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x2B] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x2C] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x2D] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x2E] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x2F] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x30] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x31] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x32] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x33] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x34] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x35] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x36] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x37] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x38] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x39] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x3A] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x3B] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x3C] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x3D] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x3E] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x3F] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x40] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x41] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x42] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x43] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x44] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x45] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x46] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x47] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x48] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x49] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x4A] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x4B] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x4C] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x4D] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x4E] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x4F] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x50] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x51] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x52] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x53] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x54] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x55] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x56] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x57] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x58] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x59] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x5A] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x5B] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x5C] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x5D] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x5E] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x5F] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x60] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x61] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x62] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x63] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x64] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x65] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x66] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x67] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x68] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x69] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x6A] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x6B] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x6C] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x6D] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x6E] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x6F] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x70] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x71] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x72] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x73] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x74] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x75] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x76] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x77] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x78] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x79] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x7A] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x7B] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x7C] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x7D] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x7E] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x7F] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x80] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x81] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x82] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x83] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x84] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x85] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x86] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x87] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x88] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x89] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x8A] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x8B] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x8C] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x8D] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x8E] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x8F] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x90] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x91] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x92] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x93] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x94] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x95] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x96] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x97] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x98] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x99] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x9A] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x9B] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x9C] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x9D] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x9E] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0x9F] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0xA0] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0xA1] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0xA2] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0xA3] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0xA4] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0xA5] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0xA6] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0xA7] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0xA8] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0xA9] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0xAA] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0xAB] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0xAC] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0xAD] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0xAE] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0xAF] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0xB0] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0xB1] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0xB2] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0xB3] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0xB4] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0xB5] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0xB6] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0xB7] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0xB8] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0xB9] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0xBA] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0xBB] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0xBC] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0xBD] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0xBE] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0xBF] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0xC0] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0xC1] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0xC2] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0xC3] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0xC4] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0xC5] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0xC6] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0xC7] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0xC8] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0xC9] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0xCA] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0xCB] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0xCC] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0xCD] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0xCE] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0xCF] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0xD0] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0xD1] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0xD2] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0xD3] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0xD4] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0xD5] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0xD6] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0xD7] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0xD8] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0xD9] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0xDA] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0xDB] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0xDC] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0xDD] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0xDE] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0xDF] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0xE0] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0xE1] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0xE2] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0xE3] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0xE4] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0xE5] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0xE6] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0xE7] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0xE8] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0xE9] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0xEA] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0xEB] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0xEC] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0xED] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0xEE] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0xEF] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0xF0] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0xF1] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0xF2] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0xF3] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0xF4] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0xF5] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0xF6] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0xF7] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0xF8] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0xF9] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0xFA] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0xFB] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0xFC] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0xFD] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0xFE] = Z80._ops.NOT_IMPLEMENTED;
+// Z80._map[0xFF] = Z80._ops.NOT_IMPLEMENTED;
 
 // CB Instruction Map
 Z80._cbMap[0x00] = Z80._ops.RLC_B;

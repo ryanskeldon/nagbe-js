@@ -192,50 +192,20 @@ GPU = {
             return;
         }
 
-        switch (GPU.getLcdMode()) {
-            case 2:
-                if (GPU._clock >= 80) {
-                    // Enter scanline mode 3
-                    GPU._clock = 0;
-                    GPU.setLcdMode(3);
-                }
-                break;
-            case 3:
-                if (GPU._clock >= 172) {
-                    // Enter H-Blank
-                    GPU._clock = 0;
-                    GPU.setLcdMode(0);
-                    GPU.renderScanline();
-                }
-                break;
-            case 0:
-                if (GPU._clock >= 204) {
-                    GPU._clock = 0;
-                    GPU._register._ly++;
+        if (GPU._clock >= 456) {
+            GPU._clock = 0;
+            GPU._register._ly++;
 
-                    if (GPU._register._ly == 143) {
-                        GPU.setLcdMode(1);
-                        GPU.drawScreen();
-                        Z80.requestInterrupt(0x01);                        
-                    } else {
-                        GPU.setLcdMode(2);
-                    }
-                }
-                break;
-            case 1:
-                if (GPU._clock >= 456) {
-                    GPU._clock = 0;
-                    GPU._register._ly++;
-
-                    if (GPU._register._ly > 153) {
-                        GPU.setLcdMode(2);
-                        GPU._register._ly = 0;
-                    }
-                }
-                break;
+            if (GPU._register._ly == 144) {
+                GPU.drawScreen();
+                Z80.requestInterrupt(0x01);
+            }
+            else if (GPU._register._ly > 153) {                
+                GPU._register._ly = 0;
+            } else if (GPU._register._ly < 144) {
+                GPU.renderScanline();
+            }
         }
-
-        if (GPU._register._ly > 153) throw `GPU ERROR: LY out of range ${GPU._register._ly}`;
     },
 
     renderScanline: function () { },
