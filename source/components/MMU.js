@@ -11,33 +11,55 @@ MMU = {
     _if: 0, // Interrupt Flag (R/W)
 
     _biosEnabled: true,
+    
+    // Memory Bank Controller    
+    _mbcType: 0,
+    _romBank: 1,
 
     init: function() {
         MMU.reset();
 
-        var loadBios = new XMLHttpRequest();
+        let loadBios = new XMLHttpRequest();
         loadBios.open('GET', '/bios.bin', true);
         loadBios.responseType = 'arraybuffer';         
         loadBios.onload = function(e) {
-            var responseArray = new Uint8Array(this.response); 
+            let responseArray = new Uint8Array(this.response); 
         
-            for (var i = 0; i < responseArray.length; i++)
+            for (let i = 0; i < responseArray.length; i++)
                 MMU._bios[i] = responseArray[i];
         };
          
         loadBios.send();
     
-        var loadRom = new XMLHttpRequest();
+        let loadRom = new XMLHttpRequest();
         // loadRom.open('GET', '/roms/games/drmario.gb', true);        
+        // loadRom.open('GET', '/roms/games/mario.gb', true);        
         // loadRom.open('GET', '/roms/games/tetris.gb', true);
-        loadRom.open('GET', '/roms/games/Pokemon Blue.gb', true);
-        // loadRom.open('GET', '/roms/blargg/03-op sp,hl.gb', true);
+        // loadRom.open('GET', '/roms/games/Pokemon Blue.gb', true);
+        loadRom.open('GET', '/roms/blargg/03-op sp,hl.gb', true);
         loadRom.responseType = 'arraybuffer';         
         loadRom.onload = function(e) {
-            var responseArray = new Uint8Array(this.response); 
+            let responseArray = new Uint8Array(this.response); 
         
-            for (var i = 0; i < responseArray.length; i++)
+            for (let i = 0; i < responseArray.length; i++)
                 MMU._rom[i] = responseArray[i];
+
+            // Load header info.
+            let cartridgeType = MMU._rom[0x0147];
+            switch (cartridgeType) {
+                case 1: 
+                case 2: 
+                case 3:
+                    MMU._mbcType = 1;
+                    break;
+                case 4:
+                case 5:
+                    MMU._mbcType = 2;
+                    break;
+                default:
+                    throw `MMU: Unknown cartridge type: ${cartridgeType.toString(16).toUpperCase().padStart(2,"0")}`;
+            }
+            console.log(`MMU: Cart type: ${cartridgeType.toString(16).toUpperCase().padStart(2,"0")}`);
         };
          
         loadRom.send();
@@ -69,8 +91,8 @@ MMU = {
 
         // ROM Bank 1 (Memory Bank Controlled)
         if (address >= 0x4000 && address <= 0x7FFF) { 
-            // TODO: Implement MBC
-            return MMU._rom[address];
+            let offset = 0x4000 * MMU._romBank;
+            return MMU._rom[(address-0x4000) + offset];
         }
 
         // VRAM
@@ -145,14 +167,24 @@ MMU = {
             console.log(`DEBUG: ins ${(Z80._register.pc-1).toString(16)} op: 0x${Z80.opCode.toString(16)} val: ${byte.toString(16)}`);            
             throw "Invalid byte range";
         }
-
-        // if (address == 0xffb6) 
-        //     console.log(`TARGET: Write attempt @ $${address.toString(16)}`);
         // *********************
 
-        // ROM area, no writes allowed.
+        // ROM Banking
         if (address >= 0x0000 && address <= 0x7FFF) {
-            traceLog.write("MMU", `Write attempt in ROM @ $${address.toString(16)} /  Value: 0x${byte.toString(16)}`);
+            if (address >= 0x2000 && address <= 0x3FFF) {
+                if (MMU._mbcType == 1 || MMU._mbcType == 2) {
+                    if (MMU._mbcType == 2) {
+                        MMU._romBank = byte & 0x0F;
+                        if (MMU._romBank == 0) MMU._romBank++;
+                        return;
+                    }
+
+                    let lowerFive = byte&0x1F;
+                    MMU._romBank &= 0xE0; // Turn off lower five bits.
+                    MMU._romBank |= lowerFive; // Set lower five bits.
+                    if (MMU._romBank == 0) MMU._romBank++;
+                }
+            }
             return;
         }
 

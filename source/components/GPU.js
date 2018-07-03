@@ -313,18 +313,6 @@ GPU = {
             let b = pixelColor&255;
             GPU._screenCanvas.fillStyle = `rgb(${r}, ${g}, ${b})`;
             GPU._screenCanvas.fillRect(pixel, finalY, 1, 1);
-
-            //let screenData = GPU._screenCanvas.getImageData(0, 0, 160, 144);
-
-            //let sx = GPU._register._scx; let sy = GPU._register._scy;
-            // let screenIndex = 160*4 * GPU._register._ly + pixel*4;    
-    
-            // screenData.data[screenIndex]   = r;
-            // screenData.data[screenIndex+1] = g;
-            // screenData.data[screenIndex+2] = b;
-            // screenData.data[screenIndex+3] = 255;
-    
-            // GPU._screenCanvas.putImageData(screenData, 0, 0);
         }
     },
 
