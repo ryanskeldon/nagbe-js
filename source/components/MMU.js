@@ -29,8 +29,9 @@ MMU = {
     
         var loadRom = new XMLHttpRequest();
         // loadRom.open('GET', '/roms/games/drmario.gb', true);        
-        loadRom.open('GET', '/roms/games/tetris.gb', true);
-        // loadRom.open('GET', '/roms/mooneye/acceptance/ei_sequence.gb', true);
+        // loadRom.open('GET', '/roms/games/tetris.gb', true);
+        loadRom.open('GET', '/roms/games/Pokemon Blue.gb', true);
+        // loadRom.open('GET', '/roms/blargg/03-op sp,hl.gb', true);
         loadRom.responseType = 'arraybuffer';         
         loadRom.onload = function(e) {
             var responseArray = new Uint8Array(this.response); 
@@ -110,7 +111,7 @@ MMU = {
 
             // Interrupt Flag
             if (address === 0xFF0F) {
-                return MMU._if;
+                return MMU._if|0xE0;
             }
 
             // GPU
@@ -140,8 +141,10 @@ MMU = {
             throw `Segfault write @ $${address.toString(16)} / value: ${byte.toString(16)}`;            
 
         // ***** DEBUGGING *****
-        if (byte > 255 || byte < 0)
+        if (byte > 255 || byte < 0) {
             console.log(`DEBUG: ins ${(Z80._register.pc-1).toString(16)} op: 0x${Z80.opCode.toString(16)} val: ${byte.toString(16)}`);            
+            throw "Invalid byte range";
+        }
 
         // if (address == 0xffb6) 
         //     console.log(`TARGET: Write attempt @ $${address.toString(16)}`);

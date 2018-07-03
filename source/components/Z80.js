@@ -76,7 +76,7 @@ Z80 = {
 
     opCode: 0,
     verbose: false,
-    stopAt: 0x0100,    
+    stopAt: null,
 
     frame: function () {
         let frameClock = Z80._clock.t + 70224;
@@ -89,7 +89,6 @@ Z80 = {
                 break;
             }
 
-            // TODO: Implement HALT check
             try {            
                 Z80.step();                
             } catch (error) {
@@ -186,7 +185,7 @@ Z80 = {
         MMU.writeByte(0xFF0F, interrupt);
 
         switch (interrupt) {
-            case 0: Z80._register.pc = 0x40; console.log("vblank int"); break; // V-blank
+            case 0: Z80._register.pc = 0x40; break; // V-blank
             case 1: Z80._register.pc = 0x48; console.log("lcdc int");   break; // LCD
             case 2: Z80._register.pc = 0x50; console.log("timer int");  break; // Timer
             case 3:                                                     break; // Serial (not implemented)
@@ -711,9 +710,10 @@ Z80 = {
 
         JP_cc_nn: function (condition, trueTime, falseTime) {
             if (condition) {
-                Z80._register.pc = MMU.readWord(Z80._register.pc);
+                Z80._register.pc = MMU.readWord(Z80._register.pc);                
                 Z80._register.t = trueTime;
             } else {
+                Z80._register.pc+=2;
                 Z80._register.t = falseTime;
             }
         },
@@ -958,7 +958,7 @@ Z80 = {
             if (Z80._register.f&Z80._flags.carry || (Z80._register.a&0xf0)>9) 
                 Z80._register.a += 0x60;
             if (Z80._register.a > 0x99) Z80.setC();
-            if (!Z80._register.a) Z80.setZ(); else Z80.clear();
+            if (!Z80._register.a) Z80.setZ(); else Z80.clearZ();
             Z80._register.t = 4;
         },
 

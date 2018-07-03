@@ -24,12 +24,12 @@ ALU = {
     },
     SUB_n: function (input, time) {
         let a = Z80._register.a;
-        let result = a - input;
+        Z80._register.a -= input;
         Z80.setN();        
-        if ((result&255) === 0) Z80.setZ(); else Z80.clearZ();
-        if (a < input) Z80.setC(); else Z80.clearC();
-        if ((a ^ input ^ result) & 0x10 != 0) Z80.setH(); else Z80.clearH();
-        Z80._register.a = result&255;
+        if (Z80._register.a < 0) Z80.setC(); else Z80.clearC();
+        Z80._register.a &= 255;
+        if (!Z80._register.a) Z80.setZ(); else Z80.clearZ();
+        if ((Z80._register.a ^ input ^ a) & 0x10) Z80.setH(); else Z80.clearH();
         Z80._register.t = time;
     },
     SBC_A_n: function (input, time) {
