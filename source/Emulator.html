@@ -16,22 +16,19 @@
                     <tr><td>BC</td><td><input type="text" id="bc_register" size="4"></td></tr>
                     <tr><td>DE</td><td><input type="text" id="de_register" size="4"></td></tr>
                     <tr><td>HL</td><td><input type="text" id="hl_register" size="4"></td></tr>
-                    <tr><td>PC</td><td><input type="text" id="pc_register" size="4"></td></tr>
                     <tr><td>SP</td><td><input type="text" id="sp_register" size="4"></td></tr>
+                    <tr><td>PC</td><td><input type="text" id="pc_register" size="4"></td></tr>
                 </tbody>
             </table>
         </div>        
 
         <div>
             <p><b>Background Map</b></p>
-            <canvas id="map" width="256" height="256"></canvas>
+            <canvas id="backgroundMap" width="256" height="256"></canvas>
             <button id="updateBackgroundButton">Update Background</button>
         </div>
-
-        <!-- <div>
-            <canvas id="tile_set" width="256" height="96"></canvas>
-        </div> -->
     </body>
+    
     <script type="text/javascript" src="log.js" ></script>
     <script type="text/javascript" src="components/MMU.js" ></script>
     <script type="text/javascript" src="components/GPU.js" ></script>    
