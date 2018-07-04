@@ -952,13 +952,25 @@ Z80 = {
         },
 
         DAA: function () { // 0x27
+            // TODO: This is definitely not correct.
+            let a = Z80._register.a;     
+            let correction = 0;
+
+            let flagN = Z80._register.f&Z80._flags.subtraction;
+
+            if (Z80._register.f&Z80._flags.halfCarry || (!flagN &&(Z80._register.a&0x0f)>9)) 
+                correction |= 0x06;
+            if (Z80._register.f&Z80._flags.carry || (!flagN && (Z80._register.a&0xf0)>9)) {
+                correction |= 0x60;
+                Z80.setC();
+            }
+
+            a += flagN ? -correction : correction;
+
+            Z80._register.a = a&255;
             Z80.clearH();
-            if (Z80._register.f&Z80._flags.halfCarry || (Z80._register.a&0x0f)>9) 
-                Z80._register.a += 0x06;
-            if (Z80._register.f&Z80._flags.carry || (Z80._register.a&0xf0)>9) 
-                Z80._register.a += 0x60;
-            if (Z80._register.a > 0x99) Z80.setC();
             if (!Z80._register.a) Z80.setZ(); else Z80.clearZ();
+            console.log("DAA: " + Z80._register.a.toString(16));
             Z80._register.t = 4;
         },
 

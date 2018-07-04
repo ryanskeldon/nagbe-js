@@ -36,7 +36,7 @@ MMU = {
         // loadRom.open('GET', '/roms/games/mario.gb', true);        
         // loadRom.open('GET', '/roms/games/tetris.gb', true);
         // loadRom.open('GET', '/roms/games/Pokemon Blue.gb', true);
-        loadRom.open('GET', '/roms/blargg/03-op sp,hl.gb', true);
+        loadRom.open('GET', '/roms/mooneye/acceptance/call_timing.gb', true);
         loadRom.responseType = 'arraybuffer';         
         loadRom.onload = function(e) {
             let responseArray = new Uint8Array(this.response); 
@@ -47,6 +47,7 @@ MMU = {
             // Load header info.
             let cartridgeType = MMU._rom[0x0147];
             switch (cartridgeType) {
+                case 0:
                 case 1: 
                 case 2: 
                 case 3:
@@ -129,6 +130,11 @@ MMU = {
             // Serial
             if (address >= 0xFF01 && address <= 0xFF02) {
                 return Serial.readByte(address);
+            }
+
+            // Timer
+            if (address >= 0xFF04 && address <= 0xFF07) {
+                return Timer.readByte(address);
             }
 
             // Interrupt Flag
