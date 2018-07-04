@@ -240,7 +240,7 @@ GPU = {
         // Check if window is enabled.
         let windowEnabled = !!GPU._register._lcdc&0x20;
         let tilemapRegion = 0;
-
+        
         if (windowEnabled) {
             if (GPU._register._lcdc & 0x40) {
                 tilemapRegion = 0x9C00; // 0x9C00 - 0x9FFF
@@ -254,15 +254,15 @@ GPU = {
                 tilemapRegion = 0x9800; // 0x9800 - 0x9BFF
             }
         }
-
+        
         // Get tileset region.
         let tilesetRegion = 0;
-        let tilesetOffset = 0;
+        let unsignedTiles = true;
         if (GPU._register._lcdc & 0x10) {
             tilesetRegion = 0x8000; // 0x8000 - 0x8FFF
         } else {
             tilesetRegion = 0x8800; // 0x8800 - 0x97FF
-            tilesetOffset = 128; // Offset for signed tile IDs
+            unsignedTiles = false;
         }        
 
         // Load color palette for background.
@@ -273,41 +273,35 @@ GPU = {
         let color2 = GPU._colors[(palette>>4)&0x3];
         let color3 = GPU._colors[(palette>>6)&0x3];        
 
-        let tiles = [];
-
         // Build map.
         for (let ty = 0; ty < 32; ty++) {
             for (let tx = 0; tx < 32; tx++) {
                 // Find tile.
-                let tileId = GPU.readByte(tilemapRegion + (32 * ty + tx)) + tilesetOffset;
+                let tileId = GPU.readByte(tilemapRegion + (32 * ty + tx));
+
+                if (!unsignedTiles) {
+                    // Adjust for signed byte.
+                    if (tileId > 127) tileId = -((~tileId+1)&255);
+                    tileId += 128;
+                }
+
                 let tileAddress = tilesetRegion + (tileId * 16);
-
-                let tilemapIndex = tiles.length;
-                tiles[tilemapIndex] = { data: [] };
-
                 let address = 0;
                 for (let py = 0; py < 8; py++) {
                     let lb = GPU.readByte(tileAddress + address++);
                     let hb = GPU.readByte(tileAddress + address++);
 
                     for (let px = 0; px < 8; px++) {
-                        let color = ((hb>>(6-px))&2)+((lb>>(7-px))&1);
-
+                        let l = lb&(1<<(7-px))?1:0;
+                        let h = hb&(1<<(7-px))?1:0;
+                        let color = (h<<1)+l;
                         let pixelColor = 0;
 
                         switch (color) {
-                            case 0:
-                                pixelColor = color0;
-                                break;
-                            case 1:
-                                pixelColor = color1;
-                                break;
-                            case 2:
-                                pixelColor = color2;
-                                break;
-                            case 3:
-                                pixelColor = color3;
-                                break;
+                            case 0: pixelColor = color0; break;
+                            case 1: pixelColor = color1; break;
+                            case 2: pixelColor = color2; break;
+                            case 3: pixelColor = color3; break;
                         }
 
                         let index = 256 * ((ty*8)+py) + ((tx*8)+px);

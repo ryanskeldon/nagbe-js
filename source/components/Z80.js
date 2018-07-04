@@ -540,13 +540,13 @@ Z80 = {
             ALU.SBC_A_n(MMU.readByte(Z80._register.pc++), 8); },
 
         DEC_BC: function () { // 0x0B
-            Z80._register.c = (Z80._register.c-1)&255; if (Z80._register.c == 255) Z80._register.b--; Z80._register.t = 8; },
+            Z80._register.c = (Z80._register.c-1)&255; if (Z80._register.c == 255) Z80._register.b = (Z80._register.b-1)&255; Z80._register.t = 8; },
         DEC_DE: function () { // 0x1B
-            Z80._register.e = (Z80._register.e-1)&255; if (Z80._register.e == 255) Z80._register.d--; Z80._register.t = 8; },
+            Z80._register.e = (Z80._register.e-1)&255; if (Z80._register.e == 255) Z80._register.d = (Z80._register.d-1)&255; Z80._register.t = 8; },
         DEC_HL: function () { // 0x2B
-            Z80._register.l = (Z80._register.l-1)&255; if (Z80._register.l == 255) Z80._register.h--; Z80._register.t = 8; },
+            Z80._register.l = (Z80._register.l-1)&255; if (Z80._register.l == 255) Z80._register.h = (Z80._register.h-1)&255; Z80._register.t = 8; },
         DEC_SP: function () { // 0x3B            
-            Z80._register.sp--; Z80._register.t = 8; },
+            Z80._register.sp = (Z80._register.sp-1)&0xFFFF; Z80._register.t = 8; },
                                         
         OR_A: function () { // 0xB7
             ALU.OR_n(Z80._register.a, 4); },
@@ -818,13 +818,13 @@ Z80 = {
         },        
 
         INC_BC: function () { // 0x03 INC BC
-            Z80._register.c = (Z80._register.c+1)&255; if (Z80._register.c == 0) Z80._register.b = (Z80._register.b + 1) & 255; Z80._register.t = 8; },
+            Z80._register.c = (Z80._register.c+1)&255; if (Z80._register.c == 0) Z80._register.b = (Z80._register.b+1)&255; Z80._register.t = 8; },
         INC_DE: function () { // 0x13 INC DE
-            Z80._register.e = (Z80._register.e+1)&255; if (Z80._register.e == 0) Z80._register.d = (Z80._register.d + 1) & 255; Z80._register.t = 8; },
+            Z80._register.e = (Z80._register.e+1)&255; if (Z80._register.e == 0) Z80._register.d = (Z80._register.d+1)&255; Z80._register.t = 8; },
         INC_HL: function () { // 0x23 INC HL
-            Z80._register.l = (Z80._register.l+1)&255; if (Z80._register.l == 0) Z80._register.h = (Z80._register.h + 1) & 255; Z80._register.t = 8; },
+            Z80._register.l = (Z80._register.l+1)&255; if (Z80._register.l == 0) Z80._register.h = (Z80._register.h+1)&255; Z80._register.t = 8; },
         INC_SP: function () { // 0x33 INC SP
-            Z80._register.sp++; Z80._register.t = 8; },
+            Z80._register.sp = (Z80._register.sp+1)&0xFFFF; Z80._register.t = 8; },
 
         // DEC n
         DEC_A: function () { // 0x3D DEC A
