@@ -98,6 +98,7 @@ GPU = {
 
         // Sprite Attribute Memory
         if (address >= 0xFE00 && address <= 0xFE9F) {
+            console.log(`GPU OAM Read $${address.toString(16)}`);
             return GPU._oam[address & 0x7F];
         }
 
@@ -142,7 +143,9 @@ GPU = {
 
         // Sprite Attribute Memory
         if (address >= 0xFE00 && address <= 0xFE9F) {
+            console.log(`OAM Writes $${address.toString(16)} value: 0x${byte.toString(16)}`);
             GPU._oam[address & 0x7F] = byte;
+            console.log(MMU.readByte(address).toString(16));
             return;
         }
 
@@ -198,7 +201,7 @@ GPU = {
 
             if (GPU._register._ly == 144) {
                 GPU.drawScreen();
-                Z80.requestInterrupt(0x01);
+                Z80.requestInterrupt(0);
             }
             else if (GPU._register._ly > 153) {                
                 GPU._register._ly = 0;
@@ -238,7 +241,7 @@ GPU = {
 
     renderBackgroundTileMap: function () {
         // Check if window is enabled.
-        let windowEnabled = !!GPU._register._lcdc&0x20;
+        let windowEnabled = !!(GPU._register._lcdc&0x20);
         let tilemapRegion = 0;
         
         if (windowEnabled) {

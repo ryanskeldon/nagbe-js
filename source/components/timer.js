@@ -32,6 +32,7 @@ Timer = {
         switch (address) {
             case 0xFF04:
                 Timer._register._div = 0x00;
+                Timer._divider = 0;
                 return;
             case 0xFF05:
                 Timer._register._tima = byte;
@@ -46,13 +47,13 @@ Timer = {
     },
 
     isClockEnabled: function () {
-        return !!Timer._register._tac&0x04;
+        return !!(Timer._register._tac&0x04);
     },
 
     updateFrequency: function (data) {
         let currentFrequency = Timer._register._tac&0x03;
-        Timer._register.tac = data;
-        let newFrequency = Timer._register.tac&0x03;
+        Timer._register._tac = data;
+        let newFrequency = Timer._register._tac&0x03;
 
         if (currentFrequency != newFrequency) {
             switch (newFrequency) {
@@ -66,8 +67,8 @@ Timer = {
 
     update: function () {
         Timer._divider += Z80._register.t;
-        if (Timer._divider >= 255) {
-            Timer._divider = 0;
+        if (Timer._divider >= 256) {
+            Timer._divider -= 256;
             Timer._register._div = (Timer._register._div+1)&255;
         }
 
@@ -77,12 +78,12 @@ Timer = {
         let interval = Timer._clockSpeed / Timer._frequency;
 
         if (Timer._counter >= interval) {
-            Timer._counter = 0;
+            Timer._counter -= interval;
 
             // Did timer overflow?
-            if (Timer._register._tima > 0xFF) {
+            if (Timer._register._tima == 0xFF) {
                 Timer._register._tima = Timer._register._tma;
-                Z80.requestInterrupt(0x02);
+                Z80.requestInterrupt(2);
             } else {
                 Timer._register._tima++;
             }

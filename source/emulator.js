@@ -14,4 +14,5 @@ function updateRegisterDisplay() {
     document.getElementById("hl_register").value = ((Z80._register.h<<8)+Z80._register.l).toString(16).toUpperCase().padStart(4,"0");
     document.getElementById("pc_register").value = (Z80._register.pc).toString(16).toUpperCase().padStart(4,"0");
     document.getElementById("sp_register").value = (Z80._register.sp).toString(16).toUpperCase().padStart(4,"0");
+    document.getElementById("div_register").value = (Timer._register._div).toString(16).toUpperCase().padStart(2,"0");
 }
