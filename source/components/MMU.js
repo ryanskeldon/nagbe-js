@@ -33,11 +33,11 @@ MMU = {
     
         let loadRom = new XMLHttpRequest();
         // loadRom.open('GET', '/roms/games/drmario.gb', true);        
-        // loadRom.open('GET', '/roms/games/mario.gb', true);        
+        loadRom.open('GET', '/roms/games/mario.gb', true);        
         // loadRom.open('GET', '/roms/games/tetris.gb', true);
         // loadRom.open('GET', '/roms/games/zelda.gb', true);        
         // loadRom.open('GET', '/roms/games/Pokemon Blue.gb', true);
-        loadRom.open('GET', '/roms/mooneye/acceptance/add_sp_e_timing.gb', true);
+        // loadRom.open('GET', '/roms/mooneye/acceptance/add_sp_e_timing.gb', true);
         // loadRom.open('GET', '/roms/blargg/cpu_instrs.gb', true);
         loadRom.responseType = 'arraybuffer';         
         loadRom.onload = function(e) {

@@ -143,9 +143,9 @@ GPU = {
 
         // Sprite Attribute Memory
         if (address >= 0xFE00 && address <= 0xFE9F) {
-            console.log(`OAM Writes $${address.toString(16)} value: 0x${byte.toString(16)}`);
+            // console.log(`OAM Writes $${address.toString(16)} value: 0x${byte.toString(16)}`);
             GPU._oam[address & 0x7F] = byte;
-            console.log(MMU.readByte(address).toString(16));
+            // console.log(MMU.readByte(address).toString(16));
             return;
         }
 
