@@ -32,6 +32,8 @@ GPU = {
     _screenBuffer: {},
     _screenBufferCanvas: {},
 
+    _frameBuffer: [],
+
     _linePixelData: [],
 
     // Registers
@@ -196,6 +198,9 @@ GPU = {
         }
 
         if (GPU._clock >= 456) {
+            if (GPU._register._ly < 144)
+                GPU.renderScanline();
+
             GPU._clock = 0;
             GPU._register._ly++;
 
@@ -205,33 +210,103 @@ GPU = {
             }
             else if (GPU._register._ly > 153) {                
                 GPU._register._ly = 0;
-            } else if (GPU._register._ly < 144) {
-                GPU.renderScanline();
             }
         }
     },
 
     renderScanline: function () { 
+        let pixels = [];        
+        
+        let sx = GPU._register._scx; 
+        let sy = GPU._register._scy;
+        let ly = GPU._register._ly;
 
+        // Check if window is enabled.
+        let windowEnabled = !!(GPU._register._lcdc&0x20);
+        let tilemapRegion = 0;
+        
+        if (windowEnabled) {
+            if (GPU._register._lcdc & 0x40) {
+                tilemapRegion = 0x9C00; // 0x9C00 - 0x9FFF
+            } else {
+                tilemapRegion = 0x9800; // 0x9800 - 0x9BFF
+            }
+        } else {
+            if (GPU._register._lcdc & 0x08) {
+                tilemapRegion = 0x9C00; // 0x9C00 - 0x9FFF
+            } else {
+                tilemapRegion = 0x9800; // 0x9800 - 0x9BFF
+            }
+        }
+
+        // Get tileset region.
+        let tilesetRegion = 0;
+        let unsignedTiles = true;
+        if (GPU._register._lcdc & 0x10) {
+            tilesetRegion = 0x8000; // 0x8000 - 0x8FFF
+        } else {
+            tilesetRegion = 0x8800; // 0x8800 - 0x97FF
+            unsignedTiles = false;
+        }   
+
+        // Load color palette for background.
+        let bgPalette = GPU.readByte(0xFF47);        
+
+        let color0 = GPU._colors[bgPalette&0x3];
+        let color1 = GPU._colors[(bgPalette>>2)&0x3];
+        let color2 = GPU._colors[(bgPalette>>4)&0x3];
+        let color3 = GPU._colors[(bgPalette>>6)&0x3];  
+
+        // Calculate which scanline we're on.
+        let yPos = sy + ly;
+        
+        for (let x = 0; x < 160; x++) {
+            let xPos = sx + x;
+            let tx = (xPos/8)&255; let ty = (yPos/8)&255;
+            let tileId = GPU.readByte(tilemapRegion + (32 * ty + tx));
+
+            if (!unsignedTiles) {
+                // Adjust for signed byte.
+                if (tileId > 127) tileId = -((~tileId+1)&255);
+                tileId += 128;
+            }
+
+            // Find tile pixel data for color.
+            let tileAddress = tilesetRegion + (tileId * 16);
+            let px = (sx+x)%8; let py = (sy+ly)%8;
+            let pixelRow = py*2;
+            let lb = GPU.readByte(tileAddress + pixelRow);
+            let hb = GPU.readByte(tileAddress + pixelRow + 1);
+
+            let l = lb&(1<<(7-px))?1:0;
+            let h = hb&(1<<(7-px))?1:0;
+            let color = (h<<1)+l;
+            let pixelColor = 0;
+
+            switch (color) {
+                case 0: pixelColor = color0; break;
+                case 1: pixelColor = color1; break;
+                case 2: pixelColor = color2; break;
+                case 3: pixelColor = color3; break;
+            }
+
+            pixels[x] = pixelColor;
+        }    
+
+        GPU._frameBuffer[ly] = pixels;
     },
 
     drawScreen: function() {
-        GPU.renderBackgroundTileMap();
-
-        // Get screen data.
-        let bgData = GPU._bgMapScreen;
         let screenData = GPU._screenCanvas.getImageData(0, 0, 160, 144);
-
-        let sx = GPU._register._scx; let sy = GPU._register._scy;
-
-        for (let y = 0; y < 144; y++){
-            for (let x = 0; x < 160*4; x++){
-                bgIndex = 256 * ((sy+y)%256) + ((sx+x)%256);
+        
+        for (let y = 0; y < 144; y++) {
+            for (let x = 0; x < 160*4; x++) {
+                let pixel = GPU._frameBuffer[y][x];
                 screenIndex = 160*4 * y + x*4;
 
-                screenData.data[screenIndex]   = (GPU._colorMap[bgIndex]>>16)&255;
-                screenData.data[screenIndex+1] = (GPU._colorMap[bgIndex]>>8)&255;
-                screenData.data[screenIndex+2] = GPU._colorMap[bgIndex]&255;
+                screenData.data[screenIndex]   = (pixel>>16)&255;
+                screenData.data[screenIndex+1] = (pixel>>8)&255;
+                screenData.data[screenIndex+2] = pixel&255;
                 screenData.data[screenIndex+3] = 255;
             }
         }

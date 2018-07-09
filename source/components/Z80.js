@@ -144,7 +144,7 @@ Z80 = {
         if (!!stopAt) Z80.stopAt = stopAt;
 
         if (!Z80._interval) {
-            Z80._interval = setInterval(Z80.frame, 16);            
+            Z80._interval = setInterval(Z80.frame, 1);            
         } else {
             traceLog.write("Z80", "$0x" + (Z80._register.pc).toString(16));
             clearInterval(Z80._interval);
@@ -1477,7 +1477,7 @@ Z80 = {
 
         // Bits
         BIT_b_r: function (value, bit, cycles) {
-            if (value&(1<<bit)) Z80.clearZ(); else Z80.setZ(); Z80.clearN(); Z80.setH();Z80._register.t = cycles; },
+            if (value&(1<<bit)) Z80.clearZ(); else Z80.setZ(); Z80.clearN(); Z80.setH(); Z80._register.t = cycles; },
         BIT_b0_A: function () { // CB 0x47
             Z80._ops.BIT_b_r(Z80._register.a, 0, 8); },
         BIT_b0_B: function () { // CB 0x40
