@@ -3,16 +3,28 @@ document.getElementById("stepButton").addEventListener("click", function () {
     updateRegisterDisplay();
 });
 
+document.getElementById("runButton").addEventListener("click", function () {
+    Z80.run();
+});
+
 document.getElementById("updateBackgroundButton").addEventListener("click", function () {
     GPU.renderBackgroundTileMap();
 });
 
 function updateRegisterDisplay() {
-    document.getElementById("af_register").value = ((Z80._register.a<<8)+Z80._register.f).toString(16).toUpperCase().padStart(4,"0");
-    document.getElementById("bc_register").value = ((Z80._register.b<<8)+Z80._register.c).toString(16).toUpperCase().padStart(4,"0");
-    document.getElementById("de_register").value = ((Z80._register.d<<8)+Z80._register.e).toString(16).toUpperCase().padStart(4,"0");
-    document.getElementById("hl_register").value = ((Z80._register.h<<8)+Z80._register.l).toString(16).toUpperCase().padStart(4,"0");
-    document.getElementById("pc_register").value = (Z80._register.pc).toString(16).toUpperCase().padStart(4,"0");
-    document.getElementById("sp_register").value = (Z80._register.sp).toString(16).toUpperCase().padStart(4,"0");
-    document.getElementById("div_register").value = (Timer._register._div).toString(16).toUpperCase().padStart(2,"0");
+    document.getElementById("af_register").value = ((Z80._register.a<<8)+Z80._register.f).toHex(4);
+    document.getElementById("bc_register").value = ((Z80._register.b<<8)+Z80._register.c).toHex(4);
+    document.getElementById("de_register").value = ((Z80._register.d<<8)+Z80._register.e).toHex(4);
+    document.getElementById("hl_register").value = ((Z80._register.h<<8)+Z80._register.l).toHex(4);
+    document.getElementById("pc_register").value = (Z80._register.pc).toHex(4);
+    document.getElementById("sp_register").value = (Z80._register.sp).toHex(4);
+    document.getElementById("div_register").value = (Timer._register._div).toHex(2);
 }
+
+Object.prototype.toHex = function (size) {    
+    return !size ? this.toString(16).toUpperCase() : this.toString(16).toUpperCase().padStart(size, "0");
+};
+
+Object.prototype.toBin = function () {    
+    return this.toString(2).toUpperCase().padStart(8, "0");
+};
