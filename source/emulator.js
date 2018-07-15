@@ -11,6 +11,16 @@ document.getElementById("updateBackgroundButton").addEventListener("click", func
     GPU.renderBackgroundTileMap();
 });
 
+document.getElementById("romFileSelect").addEventListener("change", function (e) {
+    if (e.target.files.length === 0) return;
+
+    let fileReader = new FileReader();
+    fileReader.onload = function () { 
+        Cartridge.load(new Uint8Array(this.result)); 
+    };    
+    fileReader.readAsArrayBuffer(this.files[0]);    
+});
+
 function updateRegisterDisplay() {
     document.getElementById("af_register").value = ((Z80._register.a<<8)+Z80._register.f).toHex(4);
     document.getElementById("bc_register").value = ((Z80._register.b<<8)+Z80._register.c).toHex(4);

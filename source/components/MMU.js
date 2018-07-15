@@ -30,42 +30,6 @@ MMU = {
         };
          
         loadBios.send();
-    
-        let loadRom = new XMLHttpRequest();
-        // loadRom.open('GET', '/roms/games/drmario.gb', true);        
-        // loadRom.open('GET', '/roms/games/mario.gb', true);        
-        loadRom.open('GET', '/roms/games/tetris.gb', true);
-        // loadRom.open('GET', '/roms/games/zelda.gb', true);        
-        // loadRom.open('GET', '/roms/games/Pokemon Blue.gb', true);
-        // loadRom.open('GET', '/roms/mooneye/acceptance/reti_timing.gb', true);
-        // loadRom.open('GET', '/roms/blargg/cpu_instrs.gb', true);
-        loadRom.responseType = 'arraybuffer';         
-        loadRom.onload = function(e) {
-            let responseArray = new Uint8Array(this.response); 
-        
-            for (let i = 0; i < responseArray.length; i++)
-                MMU._rom[i] = responseArray[i];
-
-            // Load header info.
-            let cartridgeType = MMU._rom[0x0147];
-            switch (cartridgeType) {
-                case 0:
-                case 1: 
-                case 2: 
-                case 3:
-                    MMU._mbcType = 1;
-                    break;
-                case 4:
-                case 5:
-                    MMU._mbcType = 2;
-                    break;
-                default:
-                    throw `MMU: Unknown cartridge type: ${cartridgeType.toString(16).toUpperCase().padStart(2,"0")}`;
-            }
-            console.log(`MMU: Cart type: ${cartridgeType.toString(16).toUpperCase().padStart(2,"0")}`);
-        };
-         
-        loadRom.send();
     },
 
     reset: function() {        
@@ -78,7 +42,7 @@ MMU = {
 
     readByte: function (address) {
         if (address < 0x0000 || address > 0xFFFF)
-            throw `Segfault read @ $${address.toString(16)}`;
+            throw `Segfault read @ $${address.toHex(4)}`;
 
         // ROM Bank 0 & BIOS
         if (address >= 0x0000 && address <=0x3FFF) { 
@@ -86,16 +50,15 @@ MMU = {
                 if (address < 0x0100)
                     return MMU._bios[address];
                 else
-                    return MMU._rom[address];                    
+                    return Cartridge.readByte(address);
             } else {
-                return MMU._rom[address];
+                return Cartridge.readByte(address);
             }
         }
 
         // ROM Bank 1 (Memory Bank Controlled)
         if (address >= 0x4000 && address <= 0x7FFF) { 
-            let offset = 0x4000 * MMU._romBank;
-            return MMU._rom[(address-0x4000) + offset];
+            return Cartridge.readByte(address);
         }
 
         // VRAM
@@ -104,9 +67,8 @@ MMU = {
         }
 
         // External RAM
-        if (address >= 0xA000 && address <= 0xBFFF) {
-            // TODO: Implement banking of external RAM?
-            return MMU._eram[address & 0x1FFF];
+        if (address >= 0xA000 && address <= 0xBFFF) {            
+            return Cartridge.readByte(address);
         }
 
         if (address >= 0xC000 && address <= 0xDFFF) { 
@@ -159,7 +121,7 @@ MMU = {
             return MMU._ie;
         }
 
-        console.log(`Warning: Read attempt @ $${address.toString(16)} / instr: $${Z80.opCode.toString(16)}`);
+        console.log(`Warning: Read attempt @ $${address.toHex(4)} / instr: $${Z80.opCode.toHex(2)}`);
         return 0xFF;
     },
     readWord: function (address) {
@@ -168,7 +130,7 @@ MMU = {
     },
     writeByte: function (address, byte) {            
         if (address < 0x0000 || address > 0xFFFF)
-            throw `Segfault write @ $${address.toString(16)} / value: ${byte.toString(16)}`;            
+            throw `Segfault write @ $${address.toHex(4)} / value: ${byte.toHex(2)}`;
 
         // ***** DEBUGGING *****
         if (byte > 255 || byte < 0) {
@@ -179,20 +141,7 @@ MMU = {
 
         // ROM Banking
         if (address >= 0x0000 && address <= 0x7FFF) {
-            if (address >= 0x2000 && address <= 0x3FFF) {
-                if (MMU._mbcType == 1 || MMU._mbcType == 2) {
-                    if (MMU._mbcType == 2) {
-                        MMU._romBank = byte & 0x0F;
-                        if (MMU._romBank == 0) MMU._romBank++;
-                        return;
-                    }
-
-                    let lowerFive = byte&0x1F;
-                    MMU._romBank &= 0xE0; // Turn off lower five bits.
-                    MMU._romBank |= lowerFive; // Set lower five bits.
-                    if (MMU._romBank == 0) MMU._romBank++;
-                }
-            }
+            Cartridge.writeByte(address, byte);
             return;
         }
 
@@ -204,9 +153,7 @@ MMU = {
 
         // External RAM
         if (address >= 0xA000 && address <= 0xBFFF) {
-            // TODO: Implement banking of external RAM?
-            // TODO: Game saves
-            MMU._eram[address & 0x1FFF] = byte;
+            Cartridge.writeByte(address, byte);
             return;
         }
 
@@ -285,7 +232,7 @@ MMU = {
             return;
         }
 
-        console.log(`Warning: Write attempt @ $${address.toString(16)}`);
+        console.log(`Warning: Write attempt @ $${address.toHex(4)} value: ${byte.toHex(2)}`);
     },
     writeWord: function (address, word) {
         MMU.writeByte(address, word&255); // LSB

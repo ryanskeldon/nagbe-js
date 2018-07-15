@@ -22,6 +22,15 @@ nagbe = {
                 Joypad.button_release(nagbe._buttons.indexOf(event.key));
             }
         }, false);
+    },    
+
+    dumpMemory: function (startAddress, size) {
+        for (let i = size-1; i > 0; i--) {
+            let word = `${MMU.readByte(startAddress+i).toHex(2)}`;i--;
+            let address = startAddress+i;
+            word += `${MMU.readByte(startAddress+i).toHex(2)}`;
+            console.log(`${(address).toHex(4)} ${word}`);
+        }
     }
 };
 

@@ -90,7 +90,7 @@ Z80 = {
             }
 
             try {            
-                Z80.step();                
+                Z80.step();
             } catch (error) {
                 console.log(error);
                 clearInterval(Z80._interval);
@@ -98,6 +98,12 @@ Z80 = {
                 break;
             }
         } while (Z80._clock.t < frameClock);
+
+        // Save RAM to storage if there's a battery in the cartridge.
+        if (Cartridge._memory.hasBattery && Cartridge._memory.ramIsDirty) {
+            localStorage.setItem(Cartridge._header.title, Cartridge._memory.ram);
+            Cartridge._memory.ramIsDirty = false;
+        }
     },
 
     step: function () {
@@ -111,12 +117,12 @@ Z80 = {
             
             if (!MMU._biosEnabled && Z80.verbose) traceLog.write("Z80", "$" + (Z80._register.pc-1).toString(16).toUpperCase().padStart(4,"0") + "\tOP: 0x" + Z80.opCode.toString(16).toUpperCase().padStart(2,"0"));
             
-            try {            
+            try {
                 Z80._map[Z80.opCode]();
             } catch (error) {
                 console.log("OpCode error @ $0x" + (Z80._register.pc-1).toString(16) + "\tOpcode 0x" + Z80.opCode.toString(16));
                 console.log(error);
-                traceLog.write("Z80", "OpCode error @ $0x" + (Z80._register.pc-1).toString(16) + "\tOpcode 0x" + Z80.opCode.toString(16));                
+                traceLog.write("Z80", "OpCode error @ $0x" + (Z80._register.pc-1).toString(16) + "\tOpcode 0x" + Z80.opCode.toString(16));
                 Z80._debug.reg_dump();
                 clearInterval(Z80._interval);
                 Z80._interval = null;            

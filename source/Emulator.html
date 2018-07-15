@@ -6,7 +6,12 @@
 
         <div>
             <button id="runButton">Run</button>
-            <button id="stepButton">Step</button>
+            <button id="stepButton">Step</button>                        
+        </div>
+
+        <div>
+            <input id="romFileSelect" type="file"><br />
+            <span>ROM: </span> <span id="romName">none</span>
         </div>
 
         <div>
@@ -33,6 +38,7 @@
     
     <script type="text/javascript" src="log.js" ></script>
     <script type="text/javascript" src="components/MMU.js" ></script>
+    <script type="text/javascript" src="components/cartridge.js" ></script>
     <script type="text/javascript" src="components/GPU.js" ></script>    
     <script type="text/javascript" src="components/ALU.js" ></script>    
     <script type="text/javascript" src="components/serial.js" ></script>    

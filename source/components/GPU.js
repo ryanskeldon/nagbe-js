@@ -170,7 +170,7 @@ GPU = {
     transferDMA: function () {
         let address = GPU._register._dma << 8;
 
-        for (let i = 0; i < 0xA0; i++)
+        for (let i = 0; i < 160; i++)
             MMU.writeByte(0xFE00+i, MMU.readByte(address+i), true);
     },
 
@@ -292,64 +292,64 @@ GPU = {
         }
 
         // Load sprites
-        let largeSprites = !!(GPU._register._lcdc&0x04); // Are sprites 8x16?
+        // let largeSprites = !!(GPU._register._lcdc&0x04); // Are sprites 8x16?
 
-        if (GPU._register._lcdc&0x02) {        
-            for (let spriteId = 0; spriteId < 40; spriteId++) {
-                let spriteAddress = 0xFE00 + (spriteId * 4);
-                let spriteY = MMU.readByte(spriteAddress) - 16; // Offset for display window.
-                let spriteX = MMU.readByte(spriteAddress+1) - 8; // Offset for display window.
-                let tileId = MMU.readByte(spriteAddress+2);
-                let attributes = MMU.readByte(spriteAddress+3);
+        // if (GPU._register._lcdc&0x02) {        
+        //     for (let spriteId = 0; spriteId < 40; spriteId++) {
+        //         let spriteAddress = 0xFE00 + (spriteId * 4);
+        //         let spriteY = MMU.readByte(spriteAddress) - 16; // Offset for display window.
+        //         let spriteX = MMU.readByte(spriteAddress+1) - 8; // Offset for display window.
+        //         let tileId = MMU.readByte(spriteAddress+2);
+        //         let attributes = MMU.readByte(spriteAddress+3);
 
-                let yFlip = !!(attributes&0x40);
-                let xFlip = !!(attributes&0x20);
+        //         let yFlip = !!(attributes&0x40);
+        //         let xFlip = !!(attributes&0x20);
 
-                let height = largeSprites ? 16 : 8;
+        //         let height = largeSprites ? 16 : 8;
                 
-                if ((ly < spriteY) || (ly > spriteY+height)) continue; // Not going to be rendered, skip sprite.
+        //         if ((ly < spriteY) || (ly > spriteY+height)) continue; // Not going to be rendered, skip sprite.
 
-                let line = ly - spriteY;
+        //         let line = ly - spriteY;
 
-                // Load color palette for background.
-                let bgPalette = attributes&0x10 ? GPU.readByte(0xFF49) : GPU.readByte(0xFF48);
+        //         // Load color palette for background.
+        //         let bgPalette = attributes&0x10 ? GPU.readByte(0xFF49) : GPU.readByte(0xFF48);
 
-                let color0 = GPU._colors[bgPalette&0x3];
-                let color1 = GPU._colors[(bgPalette>>2)&0x3];
-                let color2 = GPU._colors[(bgPalette>>4)&0x3];
-                let color3 = GPU._colors[(bgPalette>>6)&0x3]; 
+        //         let color0 = GPU._colors[bgPalette&0x3];
+        //         let color1 = GPU._colors[(bgPalette>>2)&0x3];
+        //         let color2 = GPU._colors[(bgPalette>>4)&0x3];
+        //         let color3 = GPU._colors[(bgPalette>>6)&0x3]; 
 
-                // TODO: set limit of sprites rendered for the current line. max 10
+        //         // TODO: set limit of sprites rendered for the current line. max 10
 
-                for (let tx = 0; tx < 8; tx++) {
-                    // Find tile pixel data for color.
-                    let tileAddress = 0x8000 + (tileId * 16) + (line * 2);
-                    let px = (sx+tx)%8; let py = (sy+ly)%8;                
+        //         for (let tx = 0; tx < 8; tx++) {
+        //             // Find tile pixel data for color.
+        //             let tileAddress = 0x8000 + (tileId * 16) + (line * 2);
+        //             let px = (sx+tx)%8; let py = (sy+ly)%8;                
 
-                    let pixelRow = py*2;
-                    let lb = GPU.readByte(tileAddress + pixelRow);
-                    let hb = GPU.readByte(tileAddress + pixelRow + 1);
+        //             let pixelRow = py*2;
+        //             let lb = GPU.readByte(tileAddress + pixelRow);
+        //             let hb = GPU.readByte(tileAddress + pixelRow + 1);
 
-                    let l = lb&(1<<(7-px))?1:0;
-                    let h = hb&(1<<(7-px))?1:0;
-                    let color = (h<<1)+l;
-                    let pixelColor = 0;
+        //             let l = lb&(1<<(7-px))?1:0;
+        //             let h = hb&(1<<(7-px))?1:0;
+        //             let color = (h<<1)+l;
+        //             let pixelColor = 0;
 
-                    //if (color === 0) continue; // Skip pixel if it's transparent.
+        //             //if (color === 0) continue; // Skip pixel if it's transparent.
 
-                    switch (color) {
-                        case 0: pixelColor = color0; break;
-                        case 1: pixelColor = color1; break;
-                        case 2: pixelColor = color2; break;
-                        case 3: pixelColor = color3; break;
-                    }
+        //             switch (color) {
+        //                 case 0: pixelColor = color0; break;
+        //                 case 1: pixelColor = color1; break;
+        //                 case 2: pixelColor = color2; break;
+        //                 case 3: pixelColor = color3; break;
+        //             }
 
-                    let pixel = spriteX + px;
+        //             let pixel = spriteX + px;
                     
-                    pixels[pixel] = pixelColor;
-                }
-            }
-        }
+        //             pixels[pixel] = pixelColor;
+        //         }
+        //     }
+        // }
 
         GPU._frameBuffer[ly] = pixels;
     },
