@@ -42,7 +42,7 @@ GPU = {
         obj0: 0, // 0xFF48 (r/w) OBJ 0 Palette
         obj1: 0, // 0xFF49 (r/w) OBJ 1 Palette
         wy:   0, // 0xFF4A (r/w) Window Y position
-        wb:   0, // 0xFF4B (r/w) Window X position
+        wx:   0, // 0xFF4B (r/w) Window X position
     },
 
     init: function () {
@@ -267,10 +267,12 @@ GPU = {
         
         let sx = this._register.scx; 
         let sy = this._register.scy;
+        let wx = this._register.wx - 7;
+        let wy = this._register.wy;
         let ly = this._register.ly;
 
         // Check if window is enabled.
-        let windowEnabled = !!(this._register.lcdc&0x20);
+        let windowEnabled = !!(this._register.lcdc&0x20) && wy <= ly;
         let tilemapRegion = 0;
         
         if (windowEnabled) {
@@ -306,11 +308,20 @@ GPU = {
         let color3 = this._colors[(bgPalette>>6)&0x3];  
 
         // Calculate which scanline we're on.
-        let yPos = sy + ly;
+        let yPos = 0;
+        if (!windowEnabled)
+            yPos = sy + ly;
+        else
+            yPos = ly - wy;
         
         // Generate background / window pixels
         for (let x = 0; x < 160; x++) {
             let xPos = sx + x;
+
+            if (windowEnabled && x >= wx) {
+                xPos = x - wx;
+            }
+
             let tx = (xPos/8)&255; let ty = (yPos/8)&255;
             let tileId = this.readByte(tilemapRegion + (32 * ty + tx));
 
