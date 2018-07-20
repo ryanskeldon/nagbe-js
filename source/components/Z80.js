@@ -18,19 +18,19 @@ Z80 = {
     _debug: {
         reg_dump: function () {
             traceLog.write("Z80", "--- DUMP--- ");
-            traceLog.write("Z80", "A: 0x" + Z80._register.a.toString(16).toUpperCase().padStart(2,"0"));
-            traceLog.write("Z80", "B: 0x" + Z80._register.b.toString(16).toUpperCase().padStart(2,"0"));
-            traceLog.write("Z80", "C: 0x" + Z80._register.c.toString(16).toUpperCase().padStart(2,"0"));
-            traceLog.write("Z80", "D: 0x" + Z80._register.d.toString(16).toUpperCase().padStart(2,"0"));
-            traceLog.write("Z80", "E: 0x" + Z80._register.e.toString(16).toUpperCase().padStart(2,"0"));
-            traceLog.write("Z80", "H: 0x" + Z80._register.h.toString(16).toUpperCase().padStart(2,"0"));
-            traceLog.write("Z80", "L: 0x" + Z80._register.l.toString(16).toUpperCase().padStart(2,"0"));
-            traceLog.write("Z80", "F: 0x" + Z80._register.f.toString(16).toUpperCase().padStart(2,"0"));
-            traceLog.write("Z80", "PC: 0x" + Z80._register.pc.toString(16).toUpperCase().padStart(4,"0"));
-            traceLog.write("Z80", "SP: 0x" + Z80._register.sp.toString(16).toUpperCase().padStart(4,"0"));
-            traceLog.write("Z80", "BC: 0x" + ((Z80._register.b<<8)+Z80._register.c).toString(16).toUpperCase().padStart(4,"0"));
-            traceLog.write("Z80", "DE: 0x" + ((Z80._register.d<<8)+Z80._register.e).toString(16).toUpperCase().padStart(4,"0"));
-            traceLog.write("Z80", "HL: 0x" + ((Z80._register.h<<8)+Z80._register.l).toString(16).toUpperCase().padStart(4,"0"));
+            traceLog.write("Z80", "A: 0x" + Z80._register.a.toHex(2));
+            traceLog.write("Z80", "B: 0x" + Z80._register.b.toHex(2));
+            traceLog.write("Z80", "C: 0x" + Z80._register.c.toHex(2));
+            traceLog.write("Z80", "D: 0x" + Z80._register.d.toHex(2));
+            traceLog.write("Z80", "E: 0x" + Z80._register.e.toHex(2));
+            traceLog.write("Z80", "H: 0x" + Z80._register.h.toHex(2));
+            traceLog.write("Z80", "L: 0x" + Z80._register.l.toHex(2));
+            traceLog.write("Z80", "F: 0x" + Z80._register.f.toHex(2));
+            traceLog.write("Z80", "PC: 0x" + Z80._register.pc.toHex(4));
+            traceLog.write("Z80", "SP: 0x" + Z80._register.sp.toHex(4));
+            traceLog.write("Z80", "BC: 0x" + ((Z80._register.b<<8)+Z80._register.c).toHex(4));
+            traceLog.write("Z80", "DE: 0x" + ((Z80._register.d<<8)+Z80._register.e).toHex(4));
+            traceLog.write("Z80", "HL: 0x" + ((Z80._register.h<<8)+Z80._register.l).toHex(4));
         }
     },
 
@@ -44,7 +44,7 @@ Z80 = {
         // Basic registers
         a: 0, b: 0, c: 0, d: 0, e: 0, h: 0, l: 0,
 
-        _ime: false, // Interrupt Master Enable
+        ime: false, // Interrupt Master Enable
 
         // Carry flags
         // Flag types:
@@ -131,12 +131,12 @@ Z80 = {
             
             if (Z80.pendingEnableInterrupts) {
                 if (Z80.pendingEnableInterrupts&0xF>0) Z80.pendingEnableInterrupts--;
-                else { Z80._ime = true; Z80.pendingEnableInterrupts = 0; }
+                else { Z80._register.ime = true; Z80.pendingEnableInterrupts = 0; }
             }
             
             if (Z80.pendingDisableInterrupts) {
                 if (Z80.pendingDisableInterrupts&0xF>0) Z80.pendingDisableInterrupts--;
-                else { Z80._ime = false; Z80.pendingDisableInterrupts = 0; }
+                else { Z80._register.ime = false; Z80.pendingDisableInterrupts = 0; }
             }
         }
             
@@ -150,7 +150,7 @@ Z80 = {
         if (!!stopAt) Z80.stopAt = stopAt;
 
         if (!Z80._interval) {
-            Z80._interval = setInterval(Z80.frame, 1);            
+            Z80._interval = setInterval(Z80.frame, 16);            
         } else {
             traceLog.write("Z80", "$0x" + (Z80._register.pc).toString(16));
             clearInterval(Z80._interval);
@@ -160,7 +160,7 @@ Z80 = {
     
     checkInterrupts: function () {
         // Check if interrupts are enabled.
-        if (!Z80._ime) return;
+        if (!Z80._register.ime) return;
 
         try {            
             if (!MMU.readByte(0xFFFF)) return; // Check if anything is allowed to interrupt.
@@ -179,7 +179,7 @@ Z80 = {
     },
 
     handleInterrupt: function (interrupt) {
-        Z80._ime = false; // Disable interrupt handling.  
+        Z80._register.ime = false; // Disable interrupt handling.  
         Z80._halted = false;      
 
         Z80._register.sp -= 2; // Push program counter to stack.
@@ -190,11 +190,11 @@ Z80 = {
         MMU.writeByte(0xFF0F, interrupts);
 
         switch (interrupt) {
-            case 0: Z80._register.pc = 0x40;                            break; // V-blank
-            case 1: Z80._register.pc = 0x48; console.log("lcdc int");   break; // LCD
-            case 2: Z80._register.pc = 0x50; console.log("timer int");  break; // Timer
-            case 3: Z80._register.pc = 0x58; console.log("serial int"); break; // Serial
-            case 4: Z80._register.pc = 0x60; console.log("joypad int"); break; // Joypad
+            case 0: Z80._register.pc = 0x40; break; // V-blank
+            case 1: Z80._register.pc = 0x48; break; // LCD
+            case 2: Z80._register.pc = 0x50; break; // Timer
+            case 3: Z80._register.pc = 0x58; break; // Serial
+            case 4: Z80._register.pc = 0x60; break; // Joypad
         }
 
         Z80._register.t = 20;
@@ -212,14 +212,10 @@ Z80 = {
         Z80._register.e = 0;
         Z80._register.h = 0;
         Z80._register.l = 0;
-
         Z80._register.f = 0;
-
         Z80._register.pc = 0;
         Z80._register.sp = 0;
-
         Z80._register.t = 0;
-
         Z80._clock.t = 0;
     },
 
@@ -885,7 +881,7 @@ Z80 = {
             Z80._register.l = result;
             Z80._register.t = 4;
         },
-        DEC_HL: function () { // 0x35
+        DEC_HLmem: function () { // 0x35
             let value = MMU.readByte((Z80._register.h<<8)+Z80._register.l);
             let result = (value-1)&255;
             if (result === 0) Z80.setZ(); else Z80.clearZ();
@@ -897,7 +893,7 @@ Z80 = {
 
         // Rotations 
         RLCA: function () { // 0x07
-            Z80.clearN(); Z80.clearH();
+            Z80.clearN(); Z80.clearH(); Z80.clearZ();
             let carryOut = Z80._register.a&0x80?1:0;
             if (carryOut) Z80.setC(); else Z80.clearC();            
             Z80._register.a = ((Z80._register.a<<1)+carryOut)&255;
@@ -913,7 +909,7 @@ Z80 = {
             Z80._register.t = 4;
         },
         RRCA: function () { // 0x0F
-            Z80.clearN(); Z80.clearH(); // NOTE: Should this clear Z?
+            Z80.clearN(); Z80.clearH(); Z80.clearZ();
             let carryOut = Z80._register.a&0x01?1:0;
             if (carryOut) Z80.setC(); else Z80.clearC();
             Z80._register.a = ((Z80._register.a>>1)+(carryOut<<7))&255;
@@ -949,7 +945,7 @@ Z80 = {
             let address = MMU.readWord(Z80._register.sp);
             Z80._register.sp+=2;
             Z80._register.pc = address;
-            Z80._ime = true;
+            Z80._register.ime = true;
             Z80._register.t = 8;
         },
 
@@ -1908,7 +1904,7 @@ Z80._map = [
 
     // 30 - 3F
     Z80._ops.JR_NC_n, Z80._ops.LD_SP_nn, Z80._ops.LDD_HLmem_A, Z80._ops.INC_SP, 
-    Z80._ops.INC_HLmem, Z80._ops.DEC_HL, Z80._ops.LD_HLmem_d8, Z80._ops.SCF, 
+    Z80._ops.INC_HLmem, Z80._ops.DEC_HLmem, Z80._ops.LD_HLmem_d8, Z80._ops.SCF, 
     Z80._ops.JR_C_n, Z80._ops.ADD_HL_SP, Z80._ops.LDD_A_HLmem, Z80._ops.DEC_SP, 
     Z80._ops.INC_A, Z80._ops.DEC_A, Z80._ops.LD_A_d8, Z80._ops.CCF, 
 

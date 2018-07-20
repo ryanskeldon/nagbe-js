@@ -11,6 +11,10 @@ document.getElementById("updateBackgroundButton").addEventListener("click", func
     GPU.renderBackgroundTileMap();
 });
 
+document.getElementById("updateTileMapButton").addEventListener("click", function () {
+    GPU.renderTileMap();
+});
+
 document.getElementById("romFileSelect").addEventListener("change", function (e) {
     if (e.target.files.length === 0) return;
 
@@ -18,6 +22,7 @@ document.getElementById("romFileSelect").addEventListener("change", function (e)
     fileReader.onload = function () { 
         Cartridge.load(new Uint8Array(this.result)); 
     };    
+    localStorage.setItem("rom_name", this.files[0].name);
     fileReader.readAsArrayBuffer(this.files[0]);    
 });
 

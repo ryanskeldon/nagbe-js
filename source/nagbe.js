@@ -1,9 +1,9 @@
 nagbe = {
     _buttons: [
-        "ArrowRight", // Right
-        "ArrowLeft", // Left
-        "ArrowUp", // Up
-        "ArrowDown", // Down
+        "l", // Right
+        "j", // Left
+        "i", // Up
+        "k", // Down
         "f", // A
         "d", // B
         "e", // Select

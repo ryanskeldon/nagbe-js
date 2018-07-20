@@ -114,7 +114,7 @@ Cartridge = {
 
         // Load "battery-backed" RAM for storage.
         if (this._memory.hasBattery) {
-            let ram = localStorage.getItem(this._header.title);
+            let ram = localStorage.getItem(this._header.title); // TODO: Use header checksum instead of title.
 
             if (ram) {
                 ram = ram.split(",");
@@ -133,10 +133,12 @@ Cartridge = {
                 // ROM Only
                 if (address >= 0x0000 && address <= 0x7FFF) return this._memory.rom[address];
                 throw `Cartridge: Unsupported read at $${address.toHex(4)}.`;
-            case 0x01:
+            case 0x01: 
+            case 0x02: 
+            case 0x03:
                 return this.MBC1_readByte(address);
             default:
-                throw `Cartridge: Unsupport MBC type: ${this._mbc.cartType.toHex(2)}`;
+                throw `Cartridge: Unsupported MBC type: ${this._mbc.cartType.toHex(2)}`;
         }        
     },
 
@@ -146,11 +148,13 @@ Cartridge = {
             case 0x00:
                 // ROM Only
                 if (address >= 0x0000 && address <= 0x7FFF) return; // Do nothing.
-            case 0x01:
+            case 0x01: 
+            case 0x02: 
+            case 0x03:
                 this.MBC1_writeByte(address, byte); 
                 return;
             default:
-                throw `Cartridge: Unsupport MBC type: ${this._mbc.cartType.toHex(2)}`;
+                throw `Cartridge: Unsupported MBC type: ${this._mbc.cartType.toHex(2)}`;
         }
     },
 
@@ -170,7 +174,7 @@ Cartridge = {
         // RAM
         if (address >= 0xA000 && address <= 0xBFFF) {
             let offset = 0x2000 * this._mbc.ramBank;
-            return this._memory.ram[((address-0x2000)+offset)&0x1FFF];
+            return this._memory.ram[(address&0x1FFF)+offset];
         }
     },
     MBC1_writeByte: function (address, byte) {

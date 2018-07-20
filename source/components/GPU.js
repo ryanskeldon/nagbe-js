@@ -10,13 +10,6 @@ GPU = {
         0x0f380f  // Black
     ],
 
-    _lcdModes: {
-        HBlank: 0,
-        VBlank: 1,
-        SearchOAM: 2,
-        Transfer: 3
-    },
-
     _clock: 0,
 
     // Background Map
@@ -38,175 +31,233 @@ GPU = {
 
     // Registers
     _register: {
-        _lcdc: 0, // 0xFF40 (r/w) LCD control
-        _stat: 0, // 0xFF41 (r/w) LCDC Status
-        _scy: 0,  // 0xFF42 (r/w) Scroll Y
-        _scx: 0,  // 0xFF43 (r/w) Scroll X TODO: Fill in full memory address
-        _ly: 0,   // 0xFF44 (r) LCDC Y-coordinate
-        _lyc: 0,  // 0xFF45 (r/w) LY Compare
-        _dma: 0,  // 0xFF46 (w) DM Transfer & Start Address
-        _bgp: 0,  // 0xFF47 (r/w) BG & Window palette
-        _obj0: 0, // 0xFF48 (r/w) OBJ 0 Palette
-        _obj1: 0, // 0xFF49 (r/w) OBJ 1 Palette
-        _wy: 0,   // 0xFF4A (r/w) Window Y position
-        _wb: 0,   // 0xFF4B (r/w) Window X position
+        lcdc: 0, // 0xFF40 (r/w) LCD control
+        stat: 0, // 0xFF41 (r/w) LCDC Status
+        scy:  0, // 0xFF42 (r/w) Scroll Y
+        scx:  0, // 0xFF43 (r/w) Scroll X TODO: Fill in full memory address
+        ly:   0, // 0xFF44 (r) LCDC Y-coordinate
+        lyc:  0, // 0xFF45 (r/w) LY Compare
+        dma:  0, // 0xFF46 (w) DM Transfer & Start Address
+        bgp:  0, // 0xFF47 (r/w) BG & Window palette
+        obj0: 0, // 0xFF48 (r/w) OBJ 0 Palette
+        obj1: 0, // 0xFF49 (r/w) OBJ 1 Palette
+        wy:   0, // 0xFF4A (r/w) Window Y position
+        wb:   0, // 0xFF4B (r/w) Window X position
     },
 
     init: function () {
         // Fill memory with random values to emulate realistic hardware.
-        for (var i = 0; i < 8192; i++) GPU._vram[i] = Math.floor(Math.random() * 256); // Reset Video RAM (8kB)       
-        for (var i = 0; i < 160; i++)  GPU._oam[i]  = Math.floor(Math.random() * 256); // Sprite Attribute Memory (OAM) (160B)
+        for (var i = 0; i < 8192; i++) this._vram[i] = Math.floor(Math.random() * 256); // Reset Video RAM (8kB)       
+        for (var i = 0; i < 160; i++)  this._oam[i]  = Math.floor(Math.random() * 256); // Sprite Attribute Memory (OAM) (160B)
 
         // Initialize background map.
         let backgroundMapElement = document.getElementById("backgroundMap");
-        GPU._bgMapCanvas = backgroundMapElement.getContext("2d");
-        GPU._bgMapScreen = GPU._bgMapCanvas.createImageData(256, 256);
+        this._bgMapCanvas = backgroundMapElement.getContext("2d");
+        this._bgMapScreen = this._bgMapCanvas.createImageData(256, 256);
 
         for (var i = 0; i < 256*256*4;) {
-            GPU._bgMapScreen.data[i] = 0xEF;
-            GPU._bgMapScreen.data[i+1] = 0xEF;
-            GPU._bgMapScreen.data[i+2] = 0xEF;
-            GPU._bgMapScreen.data[i+3] = 0xFF;
+            this._bgMapScreen.data[i] = 0xEF;
+            this._bgMapScreen.data[i+1] = 0xEF;
+            this._bgMapScreen.data[i+2] = 0xEF;
+            this._bgMapScreen.data[i+3] = 0xFF;
             i+=4;
         }
 
-        GPU._bgMapCanvas.putImageData(GPU._bgMapScreen, 0, 0);
+        this._bgMapCanvas.putImageData(this._bgMapScreen, 0, 0);
 
         // Initialize screen.
         backgroundMapElement = document.getElementById("screen");
-        GPU._screenCanvas = backgroundMapElement.getContext("2d");
-        GPU._screenData = GPU._screenCanvas.createImageData(160, 144);
+        this._screenCanvas = backgroundMapElement.getContext("2d");
+        this._screenData = this._screenCanvas.createImageData(160, 144);
 
         for (var i = 0; i < 160*144*4;) {
-            GPU._screenData.data[i] = 0xEF;
-            GPU._screenData.data[i+1] = 0xEF;
-            GPU._screenData.data[i+2] = 0xEF;
-            GPU._screenData.data[i+3] = 0xFF;
+            this._screenData.data[i] = 0xEF;
+            this._screenData.data[i+1] = 0xEF;
+            this._screenData.data[i+2] = 0xEF;
+            this._screenData.data[i+3] = 0xFF;
             i+=4;
         }
 
-        GPU._screenCanvas.putImageData(GPU._screenData, 0, 0);
+        this._screenCanvas.putImageData(this._screenData, 0, 0);
+
+        // Initialize tile map.
+        let tileMapElement = document.getElementById("tileMap");
+        this._tileMapCanvas = tileMapElement.getContext("2d");
+        this._tileMapData = this._tileMapCanvas.createImageData(128, 192);
+
+        for (var i = 0; i < 128*192*4;) {
+            this._tileMapData.data[i] = 0xEF;
+            this._tileMapData.data[i+1] = 0xEF;
+            this._tileMapData.data[i+2] = 0xEF;
+            this._tileMapData.data[i+3] = 0xFF;
+            i+=4;
+        }
+
+        this._tileMapCanvas.putImageData(this._tileMapData, 0, 0);
 
         // Initialize screen buffer
-        GPU._screenBuffer = document.createElement("canvas");
-        GPU._screenBuffer.width = 160; GPU._screenBuffer.height = 144;
-        GPU._screenBufferCanvas = GPU._screenBuffer.getContext("2d");
+        this._screenBuffer = document.createElement("canvas");
+        this._screenBuffer.width = 160; this._screenBuffer.height = 144;
+        this._screenBufferCanvas = this._screenBuffer.getContext("2d");
     },
 
     readByte: function (address) {
         if (address >= 0x8000 && address <= 0x9FFF) {
-            return GPU._vram[address & 0x1FFF];
+            return this._vram[address & 0x1FFF];
         }
 
         // Sprite Attribute Memory
         if (address >= 0xFE00 && address <= 0xFE9F) {
-            return GPU._oam[address & 0x7F];
+            return this._oam[address & 0x7F];
         }
 
         switch (address) {
-            case 0xFF40: return GPU._register._lcdc;
+            case 0xFF40: return this._register.lcdc;
             case 0xFF41: 
-                let stat = GPU._register._stat;                
+                let stat = this._register.stat;                
                 
                 // Bit 7 is unused and always returns 1.
                 stat |= 0x80; 
 
                 // Bits 0-2 return 0 when LCD is off.
-                if (!GPU.isLcdEnabled()) stat &= ~(0x07);
+                if (!this.isLcdEnabled()) stat &= ~(0x07);
 
                 return stat; 
-            case 0xFF42: return GPU._register._scy;
-            case 0xFF43: return GPU._register._scx;
+            case 0xFF42: return this._register.scy;
+            case 0xFF43: return this._register.scx;
             case 0xFF44: 
-                let ly = GPU._register._ly;
+                let ly = this._register.ly;
 
                 // When the LCD is off, LY is fixed at 0.
-                if (!GPU.isLcdEnabled()) ly = 0;
+                if (!this.isLcdEnabled()) ly = 0;
 
                 return ly;
-            case 0xFF45: return GPU._register._lyc;
-            case 0xFF47: return GPU._register._bgp;
-            case 0xFF48: return GPU._register._obj0;
-            case 0xFF49: return GPU._register._obj1;
-            case 0xFF4A: return GPU._register._wy;
-            case 0xFF4B: return GPU._register._wx;
+            case 0xFF45: return this._register.lyc;
+            case 0xFF46: return this._register.dma;
+            case 0xFF47: return this._register.bgp;
+            case 0xFF48: return this._register.obj0;
+            case 0xFF49: return this._register.obj1;
+            case 0xFF4A: return this._register.wy;
+            case 0xFF4B: return this._register.wx;
         }
 
         throw `GPU: Invalid read from $${address.toString(16)}`;
     },
 
-    writeByte: function (address, byte, isDma) {
+    writeByte: function (address, byte) {
         // Video RAM
         if (address >= 0x8000 && address <= 0x9FFF) {
-            GPU._vram[address & 0x1FFF] = byte;
+            this._vram[address & 0x1FFF] = byte;
             return;
         }
 
         // Sprite Attribute Memory
         if (address >= 0xFE00 && address <= 0xFE9F) {
-            GPU._oam[address & 0x7F] = byte;
+            this._oam[address & 0x7F] = byte;
             return;
         }
 
         // GPU Registers
         switch (address) {            
-            case 0xFF40: GPU._register._lcdc = byte; return;
-            case 0xFF41: GPU._register._stat = byte; return;
-            case 0xFF42: GPU._register._scy = byte; return;
-            case 0xFF43: GPU._register._scx = byte; return;                
-            case 0xFF44: GPU._register._ly = 0; return; // Note: any outside write to LY resets the value to 0;
-            case 0xFF45: GPU._register._lyc = byte; return;
-            case 0xFF46: GPU._register._dma = byte; GPU.transferDMA(); return;
-            case 0xFF47: GPU._register._bgp = byte; return;
-            case 0xFF48: GPU._register._obj0 = byte; return;
-            case 0xFF49: GPU._register._obj1 = byte; return;
-            case 0xFF4A: GPU._register._wy = byte; return;
-            case 0xFF4B: GPU._register._wx = byte; return;
+            case 0xFF40: this._register.lcdc = byte; return;
+            case 0xFF41: this._register.stat = byte; return;
+            case 0xFF42: this._register.scy = byte; return;
+            case 0xFF43: this._register.scx = byte; return;                
+            case 0xFF44: this._register.ly = 0; return; // Note: any outside write to LY resets the value to 0;
+            case 0xFF45: this._register.lyc = byte; return;
+            case 0xFF46: this._register.dma = byte; this.transferDMA(); return;
+            case 0xFF47: this._register.bgp = byte; return;
+            case 0xFF48: this._register.obj0 = byte; return;
+            case 0xFF49: this._register.obj1 = byte; return;
+            case 0xFF4A: this._register.wy = byte; return;
+            case 0xFF4B: this._register.wx = byte; return;
         }
 
         throw `GPU: Invalid write to $${address.toString(16)}`;
     },
 
     transferDMA: function () {
-        let address = GPU._register._dma << 8;
+        let address = this._register.dma << 8;
 
         for (let i = 0; i < 160; i++)
-            MMU.writeByte(0xFE00+i, MMU.readByte(address+i), true);
+            MMU.writeByte(0xFE00+i, MMU.readByte(address+i));
     },
 
     isLcdEnabled: function () {
-        return !!(GPU._register._lcdc&0x80);
+        return !!(this._register.lcdc&0x80);
     },
 
     getLcdMode: function () {
-        return GPU._register._lcdc&0x03;
+        return this._register.lcdc&0x03;
     },
     setLcdMode: function (mode) {
-        GPU._register._lcdc &= ~0x03; // Clear mode.
-        GPU._register._lcdc |= mode;  // Set mode.
+        this._register.lcdc &= ~0x03; // Clear mode.
+        this._register.lcdc |= mode;  // Set mode.
     },
 
     step: function () {
-        if (GPU.isLcdEnabled()) {
+        if (this.isLcdEnabled()) {
             // Add last instruction's clock time.
-            GPU._clock += Z80._register.t;
+            this._clock += Z80._register.t;
         } else {
+            this.setLcdMode(1);
             return;
         }
 
-        if (GPU._clock >= 456) {
-            if (GPU._register._ly < 144)
-                GPU.renderScanline();
+        // Set LCD status.
+        let currentMode = this.getLcdMode();
+        let mode = null;
+        let interruptRequested = false;
 
-            GPU._clock = 0;
-            GPU._register._ly++;
+        if (this._register.ly < 144) {
+            if (this._clock <= 80) {
+                // Mode 2
+                mode = 2;
+                interruptRequested = !!(this._register.stat&0x20);
+            } else if (this._clock >= 80 && this._clock < 252) {
+                // Mode 3
+                mode = 3;                
+            } else if (this._clock >= 252 && this._clock < 456) {
+                // Mode 0
+                mode = 0;
+                interruptRequested = !!(this._register.stat&0x08);
+            }
+        } else {
+            // Mode 1
+            mode = 1;
+            interruptRequested = !!(this._register.stat&0x10);
+        }
 
-            if (GPU._register._ly == 144) {
-                GPU.drawScreen();
+        // Request interrupt if modes changed and interrupt requested for LCD stat.
+        if (currentMode != mode && interruptRequested) {
+            Z80.requestInterrupt(1);
+        }
+
+        // Check for coincidence flag.
+        if (this._register.ly === this._register.lyc) {
+            // Set coincidence flag, lines match.
+            this._register.stat |= 0x04;
+
+            if (this._register.stat&0x40)
+                Z80.requestInterrupt(1);
+        } else {
+            // Reset coincidence flag, lines don't match.
+            this._register.stat &= ~0x04;
+        }
+
+        if (this._clock >= 456) {
+            if (this._register.ly < 144)
+                this.renderScanline();
+
+            this._clock = 0;
+            this._register.ly++;
+
+            if (this._register.ly == 144) {
+                this.drawScreen();
                 Z80.requestInterrupt(0);
             }
-            else if (GPU._register._ly > 153) {                
-                GPU._register._ly = 0;
+            else if (this._register.ly > 153) {                
+                this._register.ly = 0;
             }
         }
     },
@@ -214,22 +265,22 @@ GPU = {
     renderScanline: function () { 
         let pixels = [];        
         
-        let sx = GPU._register._scx; 
-        let sy = GPU._register._scy;
-        let ly = GPU._register._ly;
+        let sx = this._register.scx; 
+        let sy = this._register.scy;
+        let ly = this._register.ly;
 
         // Check if window is enabled.
-        let windowEnabled = !!(GPU._register._lcdc&0x20);
+        let windowEnabled = !!(this._register.lcdc&0x20);
         let tilemapRegion = 0;
         
         if (windowEnabled) {
-            if (GPU._register._lcdc & 0x40) {
+            if (this._register.lcdc & 0x40) {
                 tilemapRegion = 0x9C00; // 0x9C00 - 0x9FFF
             } else {
                 tilemapRegion = 0x9800; // 0x9800 - 0x9BFF
             }
         } else {
-            if (GPU._register._lcdc & 0x08) {
+            if (this._register.lcdc & 0x08) {
                 tilemapRegion = 0x9C00; // 0x9C00 - 0x9FFF
             } else {
                 tilemapRegion = 0x9800; // 0x9800 - 0x9BFF
@@ -239,7 +290,7 @@ GPU = {
         // Get tileset region.
         let tilesetRegion = 0;
         let unsignedTiles = true;
-        if (GPU._register._lcdc & 0x10) {
+        if (this._register.lcdc & 0x10) {
             tilesetRegion = 0x8000; // 0x8000 - 0x8FFF
         } else {
             tilesetRegion = 0x8800; // 0x8800 - 0x97FF
@@ -247,12 +298,12 @@ GPU = {
         }   
 
         // Load color palette for background.
-        let bgPalette = GPU.readByte(0xFF47);        
+        let bgPalette = this.readByte(0xFF47);        
 
-        let color0 = GPU._colors[bgPalette&0x3];
-        let color1 = GPU._colors[(bgPalette>>2)&0x3];
-        let color2 = GPU._colors[(bgPalette>>4)&0x3];
-        let color3 = GPU._colors[(bgPalette>>6)&0x3];  
+        let color0 = this._colors[bgPalette&0x3];
+        let color1 = this._colors[(bgPalette>>2)&0x3];
+        let color2 = this._colors[(bgPalette>>4)&0x3];
+        let color3 = this._colors[(bgPalette>>6)&0x3];  
 
         // Calculate which scanline we're on.
         let yPos = sy + ly;
@@ -261,7 +312,7 @@ GPU = {
         for (let x = 0; x < 160; x++) {
             let xPos = sx + x;
             let tx = (xPos/8)&255; let ty = (yPos/8)&255;
-            let tileId = GPU.readByte(tilemapRegion + (32 * ty + tx));
+            let tileId = this.readByte(tilemapRegion + (32 * ty + tx));
 
             if (!unsignedTiles) {
                 // Adjust for signed byte.
@@ -273,8 +324,8 @@ GPU = {
             let tileAddress = tilesetRegion + (tileId * 16);
             let px = (sx+x)%8; let py = (sy+ly)%8;
             let pixelRow = py*2;
-            let lb = GPU.readByte(tileAddress + pixelRow);
-            let hb = GPU.readByte(tileAddress + pixelRow + 1);
+            let lb = this.readByte(tileAddress + pixelRow);
+            let hb = this.readByte(tileAddress + pixelRow + 1);
 
             let l = lb&(1<<(7-px))?1:0;
             let h = hb&(1<<(7-px))?1:0;
@@ -292,74 +343,74 @@ GPU = {
         }
 
         // Load sprites
-        // let largeSprites = !!(GPU._register._lcdc&0x04); // Are sprites 8x16?
+        let largeSprites = !!(this._register.lcdc&0x04); // Are sprites 8x16?
 
-        // if (GPU._register._lcdc&0x02) {        
-        //     for (let spriteId = 0; spriteId < 40; spriteId++) {
-        //         let spriteAddress = 0xFE00 + (spriteId * 4);
-        //         let spriteY = MMU.readByte(spriteAddress) - 16; // Offset for display window.
-        //         let spriteX = MMU.readByte(spriteAddress+1) - 8; // Offset for display window.
-        //         let tileId = MMU.readByte(spriteAddress+2);
-        //         let attributes = MMU.readByte(spriteAddress+3);
+        if (this._register.lcdc&0x02) {        
+            for (let spriteId = 0; spriteId < 40; spriteId++) {
+                let spriteAddress = 0xFE00 + (spriteId * 4);
+                let spriteY = MMU.readByte(spriteAddress) - 16; // Offset for display window.
+                let spriteX = MMU.readByte(spriteAddress+1) - 8; // Offset for display window.
+                let tileId = MMU.readByte(spriteAddress+2);
+                let attributes = MMU.readByte(spriteAddress+3);
 
-        //         let yFlip = !!(attributes&0x40);
-        //         let xFlip = !!(attributes&0x20);
+                let yFlip = !!(attributes&0x40);
+                let xFlip = !!(attributes&0x20);
 
-        //         let height = largeSprites ? 16 : 8;
+                let height = largeSprites ? 16 : 8;
                 
-        //         if ((ly < spriteY) || (ly > spriteY+height)) continue; // Not going to be rendered, skip sprite.
+                if ((ly < spriteY) || (ly > spriteY+height)) continue; // Not going to be rendered, skip sprite.
 
-        //         let line = ly - spriteY;
+                let line = ly - spriteY;
 
-        //         // Load color palette for background.
-        //         let bgPalette = attributes&0x10 ? GPU.readByte(0xFF49) : GPU.readByte(0xFF48);
+                // Load color palette for background.
+                let bgPalette = attributes&0x10 ? this.readByte(0xFF49) : this.readByte(0xFF48);
 
-        //         let color0 = GPU._colors[bgPalette&0x3];
-        //         let color1 = GPU._colors[(bgPalette>>2)&0x3];
-        //         let color2 = GPU._colors[(bgPalette>>4)&0x3];
-        //         let color3 = GPU._colors[(bgPalette>>6)&0x3]; 
+                let color0 = this._colors[bgPalette&0x3];
+                let color1 = this._colors[(bgPalette>>2)&0x3];
+                let color2 = this._colors[(bgPalette>>4)&0x3];
+                let color3 = this._colors[(bgPalette>>6)&0x3]; 
 
-        //         // TODO: set limit of sprites rendered for the current line. max 10
+                // TODO: set limit of sprites rendered for the current line. max 10
 
-        //         for (let tx = 0; tx < 8; tx++) {
-        //             // Find tile pixel data for color.
-        //             let tileAddress = 0x8000 + (tileId * 16) + (line * 2);
-        //             let px = (sx+tx)%8; let py = (sy+ly)%8;                
+                for (let tx = 0; tx < 8; tx++) {
+                    // Find tile pixel data for color.
+                    let tileAddress = 0x8000 + (tileId * 16) + (line * 2);
+                    let px = (sx+tx)%8; let py = (sy+ly)%8;                
 
-        //             let pixelRow = py*2;
-        //             let lb = GPU.readByte(tileAddress + pixelRow);
-        //             let hb = GPU.readByte(tileAddress + pixelRow + 1);
+                    let pixelRow = py*2;
+                    let lb = this.readByte(tileAddress + pixelRow);
+                    let hb = this.readByte(tileAddress + pixelRow + 1);
 
-        //             let l = lb&(1<<(7-px))?1:0;
-        //             let h = hb&(1<<(7-px))?1:0;
-        //             let color = (h<<1)+l;
-        //             let pixelColor = 0;
+                    let l = lb&(1<<(7-px))?1:0;
+                    let h = hb&(1<<(7-px))?1:0;
+                    let color = (h<<1)+l;
+                    let pixelColor = 0;
 
-        //             //if (color === 0) continue; // Skip pixel if it's transparent.
+                    //if (color === 0) continue; // Skip pixel if it's transparent.
 
-        //             switch (color) {
-        //                 case 0: pixelColor = color0; break;
-        //                 case 1: pixelColor = color1; break;
-        //                 case 2: pixelColor = color2; break;
-        //                 case 3: pixelColor = color3; break;
-        //             }
+                    switch (color) {
+                        case 0: pixelColor = color0; break;
+                        case 1: pixelColor = color1; break;
+                        case 2: pixelColor = color2; break;
+                        case 3: pixelColor = color3; break;
+                    }
 
-        //             let pixel = spriteX + px;
+                    let pixel = spriteX + px;
                     
-        //             pixels[pixel] = pixelColor;
-        //         }
-        //     }
-        // }
+                    pixels[pixel] = pixelColor;
+                }
+            }
+        }
 
-        GPU._frameBuffer[ly] = pixels;
+        this._frameBuffer[ly] = pixels;
     },
 
     drawScreen: function() {
-        let screenData = GPU._screenCanvas.getImageData(0, 0, 160, 144);
+        let screenData = this._screenCanvas.getImageData(0, 0, 160, 144);
         
         for (let y = 0; y < 144; y++) {
             for (let x = 0; x < 160*4; x++) {
-                let pixel = GPU._frameBuffer[y][x];
+                let pixel = this._frameBuffer[y][x];
                 screenIndex = 160*4 * y + x*4;
 
                 screenData.data[screenIndex]   = (pixel>>16)&255;
@@ -369,22 +420,22 @@ GPU = {
             }
         }
 
-        GPU._screenCanvas.putImageData(screenData, 0, 0);
+        this._screenCanvas.putImageData(screenData, 0, 0);
     },
 
     renderBackgroundTileMap: function () {
         // Check if window is enabled.
-        let windowEnabled = !!(GPU._register._lcdc&0x20);
+        let windowEnabled = !!(this._register.lcdc&0x20);
         let tilemapRegion = 0;
         
         if (windowEnabled) {
-            if (GPU._register._lcdc & 0x40) {
+            if (this._register.lcdc & 0x40) {
                 tilemapRegion = 0x9C00; // 0x9C00 - 0x9FFF
             } else {
                 tilemapRegion = 0x9800; // 0x9800 - 0x9BFF
             }
         } else {
-            if (GPU._register._lcdc & 0x08) {
+            if (this._register.lcdc & 0x08) {
                 tilemapRegion = 0x9C00; // 0x9C00 - 0x9FFF
             } else {
                 tilemapRegion = 0x9800; // 0x9800 - 0x9BFF
@@ -394,7 +445,7 @@ GPU = {
         // Get tileset region.
         let tilesetRegion = 0;
         let unsignedTiles = true;
-        if (GPU._register._lcdc & 0x10) {
+        if (this._register.lcdc & 0x10) {
             tilesetRegion = 0x8000; // 0x8000 - 0x8FFF
         } else {
             tilesetRegion = 0x8800; // 0x8800 - 0x97FF
@@ -402,18 +453,18 @@ GPU = {
         }        
 
         // Load color palette for background.
-        let palette = GPU.readByte(0xFF47);        
+        let palette = this.readByte(0xFF47);        
 
-        let color0 = GPU._colors[palette&0x3];
-        let color1 = GPU._colors[(palette>>2)&0x3];
-        let color2 = GPU._colors[(palette>>4)&0x3];
-        let color3 = GPU._colors[(palette>>6)&0x3];        
+        let color0 = this._colors[palette&0x3];
+        let color1 = this._colors[(palette>>2)&0x3];
+        let color2 = this._colors[(palette>>4)&0x3];
+        let color3 = this._colors[(palette>>6)&0x3];        
 
         // Build map.
         for (let ty = 0; ty < 32; ty++) {
             for (let tx = 0; tx < 32; tx++) {
                 // Find tile.
-                let tileId = GPU.readByte(tilemapRegion + (32 * ty + tx));
+                let tileId = this.readByte(tilemapRegion + (32 * ty + tx));
 
                 if (!unsignedTiles) {
                     // Adjust for signed byte.
@@ -424,8 +475,8 @@ GPU = {
                 let tileAddress = tilesetRegion + (tileId * 16);
                 let address = 0;
                 for (let py = 0; py < 8; py++) {
-                    let lb = GPU.readByte(tileAddress + address++);
-                    let hb = GPU.readByte(tileAddress + address++);
+                    let lb = this.readByte(tileAddress + address++);
+                    let hb = this.readByte(tileAddress + address++);
 
                     for (let px = 0; px < 8; px++) {
                         let l = lb&(1<<(7-px))?1:0;
@@ -441,27 +492,83 @@ GPU = {
                         }
 
                         let index = 256 * ((ty*8)+py) + ((tx*8)+px);
-                        GPU._colorMap[index] = pixelColor;
+                        this._colorMap[index] = pixelColor;
                     }
                 }
             }
         }
 
-        let screenData = GPU._bgMapCanvas.getImageData(0, 0, 256, 256);
+        let screenData = this._bgMapCanvas.getImageData(0, 0, 256, 256);
 
         for (let y = 0; y < 256; y++){
             for (let x = 0; x < 256; x++){
                 bgIndex = 256 * y + x;
                 screenIndex = 256 * (y*4) + (x*4);
 
-                screenData.data[screenIndex]   = (GPU._colorMap[bgIndex]>>16)&255;
-                screenData.data[screenIndex+1] = (GPU._colorMap[bgIndex]>>8)&255;
-                screenData.data[screenIndex+2] = GPU._colorMap[bgIndex]&255;
+                screenData.data[screenIndex]   = (this._colorMap[bgIndex]>>16)&255;
+                screenData.data[screenIndex+1] = (this._colorMap[bgIndex]>>8)&255;
+                screenData.data[screenIndex+2] = this._colorMap[bgIndex]&255;
                 screenData.data[screenIndex+3] = 255;
             }
         }
 
-        GPU._bgMapCanvas.putImageData(screenData, 0, 0);
+        this._bgMapCanvas.putImageData(screenData, 0, 0);
+    },
+
+    renderTileMap: function () {
+        let palette = this.readByte(0xFF47);        
+
+        let color0 = this._colors[palette&0x3];
+        let color1 = this._colors[(palette>>2)&0x3];
+        let color2 = this._colors[(palette>>4)&0x3];
+        let color3 = this._colors[(palette>>6)&0x3]; 
+
+        this._tileMap = [];
+
+        let offset = 0;
+        let tileAddress = 0x8000;
+        for (let ty = 0; ty < 24; ty++) {
+            for (let tx = 0; tx < 16; tx++) {
+
+                for (let py = 0; py < 8; py++) {
+                    let lb = this.readByte(tileAddress + offset++);
+                    let hb = this.readByte(tileAddress + offset++);
+
+                    for (let px = 0; px < 8; px++) {
+                        let l = lb&(1<<(7-px))?1:0;
+                        let h = hb&(1<<(7-px))?1:0;
+                        let color = (h<<1)+l;
+                        let pixelColor = 0;
+
+                        switch (color) {
+                            case 0: pixelColor = color0; break;
+                            case 1: pixelColor = color1; break;
+                            case 2: pixelColor = color2; break;
+                            case 3: pixelColor = color3; break;
+                        }
+
+                        let index = 128 * ((ty*8)+py) + ((tx*8)+px);
+                        this._tileMap[index] = pixelColor;
+                    }
+                }
+            }
+        }
+
+        let tileData = this._tileMapCanvas.getImageData(0, 0, 128, 192);
+
+        for (let y = 0; y < 192; y++){
+            for (let x = 0; x < 128*4; x++) {
+                let pixelIndex = 128 * y + x;
+                let imageIndex = 128 * y * 4 + x * 4;
+
+                tileData.data[imageIndex]   = (this._tileMap[pixelIndex]>>16)&255;
+                tileData.data[imageIndex+1] = (this._tileMap[pixelIndex]>>8)&255;
+                tileData.data[imageIndex+2] = this._tileMap[pixelIndex]&255;
+                tileData.data[imageIndex+3] = 255;
+            }
+        }
+
+        this._tileMapCanvas.putImageData(tileData, 0, 0);
     }
 };
 
