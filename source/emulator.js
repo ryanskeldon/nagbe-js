@@ -7,14 +7,6 @@ document.getElementById("runButton").addEventListener("click", function () {
     Z80.run();
 });
 
-document.getElementById("updateBackgroundButton").addEventListener("click", function () {
-    GPU.renderBackgroundTileMap();
-});
-
-document.getElementById("updateTileMapButton").addEventListener("click", function () {
-    GPU.renderTileMap();
-});
-
 document.getElementById("romFileSelect").addEventListener("change", function (e) {
     if (e.target.files.length === 0) return;
 

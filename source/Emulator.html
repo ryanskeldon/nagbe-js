@@ -27,17 +27,25 @@
                     <tr><td>DIV</td><td><input type="text" id="div_register" size="4"></td></tr>
                 </tbody>
             </table>
-        </div>        
+        </div>  
         
         <div>
+            <textarea id="serialOut"></textarea>
+        </div>
+
+        <div>
+            <p><b>Sprite Map</b></p>
+            <canvas id="spriteMap" width="80" height="32"></canvas>
+        </div>
+        
+        <div>
+            <p><b>Tile Map</b></p>
             <canvas id="tileMap" width="128" height="192"></canvas>
-            <button id="updateTileMapButton">Update Tile Map</button>
         </div>
 
         <div>
             <p><b>Background Map</b></p>
             <canvas id="backgroundMap" width="256" height="256"></canvas>
-            <button id="updateBackgroundButton">Update Background</button>
         </div>
 
     </body>

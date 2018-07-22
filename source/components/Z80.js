@@ -104,6 +104,10 @@ Z80 = {
             localStorage.setItem(Cartridge._header.title, Cartridge._memory.ram);
             Cartridge._memory.ramIsDirty = false;
         }
+
+        GPU.renderTileMap();
+        GPU.renderBackgroundTileMap();
+        GPU.renderSpriteMap();
     },
 
     step: function () {

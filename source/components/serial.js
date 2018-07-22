@@ -12,7 +12,12 @@ Serial = {
     },
     writeByte: function (address, byte) {
         switch (address) {
-            case 0xFF01: Serial._register._SB = byte; break;
+            case 0xFF01: 
+                Serial._register._SB = byte;
+                let output = document.getElementById("serialOut").value;
+                output = output + String.fromCharCode(byte);
+                document.getElementById("serialOut").value = output;
+                break;
             case 0xFF02: Serial._register._SC = byte; break;
         }
     }
