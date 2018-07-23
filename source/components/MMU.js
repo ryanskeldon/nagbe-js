@@ -103,6 +103,11 @@ MMU = {
                 return MMU._if|0xE0;
             }
 
+            // Audio
+            if (address >= 0xFF10 && address <= 0xFF3F) {
+                return APU.readByte(address);
+            }
+
             // GPU
             if (address >= 0xFF40 && address <= 0xFF4B)
                 return GPU.readByte(address);
@@ -205,7 +210,7 @@ MMU = {
 
             // Audio
             if (address >= 0xFF10 && address <= 0xFF3F) {
-                // TODO: Implement sound?                
+                APU.writeByte(address, byte);
                 return;
             }
 
