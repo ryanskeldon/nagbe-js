@@ -1,8 +1,6 @@
 MMU = {
     // Memory regions.
     _bios:  [], // Boot instructions
-    _rom:   [], // Cartridge ROM
-    _eram:  [], // External RAM
     _wram:  [], // Working RAM
     _zram:  [], // Zero-page RAM
 
@@ -35,7 +33,6 @@ MMU = {
     reset: function() {        
         MMU._biosEnabled = true; // Enabled BIOS boot code.
         
-        for (var i = 0; i < 32768; i++) MMU._rom[i] = Math.floor(Math.random() * 256); // Reset cartridge ROM (32kB) 
         for (var i = 0; i < 8192; i++) MMU._wram[i] = Math.floor(Math.random() * 256);  // Reset Working RAM (8kB)       
         for (var i = 0; i < 128; i++) MMU._zram[i]  = Math.floor(Math.random() * 256);   // Reset Zero-page RAM (128B)
     },
@@ -72,11 +69,11 @@ MMU = {
         }
 
         if (address >= 0xC000 && address <= 0xDFFF) { 
-            return MMU._wram[address & 0x1FFF];
+            return MMU._wram[address - 0xC000];
         }
 
         if (address >= 0xE000 && address <= 0xFDFF) { 
-            return MMU._wram[address & 0x1FFF];
+            return MMU._wram[address - 0xE000];
         }
 
         // Sprite Attribute Table (OAM)
@@ -113,7 +110,7 @@ MMU = {
 
         // High RAM (stack)
         if (address >= 0xFF80 && address <= 0xFFFE) { 
-            return MMU._zram[address & 0x7F];
+            return MMU._zram[address - 0xFF80];
         }
 
         // Interrupt Enable Register
@@ -157,10 +154,14 @@ MMU = {
             return;
         }
 
-        // Working RAM and shadow RAM (?)
-        if (address >= 0xC000 && address <= 0xDFFF) { 
-            // TODO: Break this out into different arrays?
-            MMU._wram[address & 0x1FFF] = byte;
+        // Working RAM
+        if (address >= 0xC000 && address <= 0xDFFF) {             
+            MMU._wram[address - 0xC000] = byte;
+            return;
+        }
+
+        if (address >= 0xE000 && address <= 0xFDFF) { 
+            MMU._wram[address - 0xE000] = byte;
             return;
         }
 
@@ -222,7 +223,7 @@ MMU = {
 
         // Zero-page RAM
         if (address >= 0xFF80 && address <= 0xFFFE) { 
-            MMU._zram[address & 0x7F] = byte;
+            MMU._zram[address - 0xFF80] = byte;
             return;
         }
 

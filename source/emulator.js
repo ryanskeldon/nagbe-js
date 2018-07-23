@@ -25,7 +25,7 @@ function updateRegisterDisplay() {
     document.getElementById("hl_register").value = ((Z80._register.h<<8)+Z80._register.l).toHex(4);
     document.getElementById("pc_register").value = (Z80._register.pc).toHex(4);
     document.getElementById("sp_register").value = (Z80._register.sp).toHex(4);
-    document.getElementById("div_register").value = (Timer._register._div).toHex(2);
+    document.getElementById("div_register").value = (Timer._register.div).toHex(4);
 }
 
 Object.prototype.toHex = function (size) {    

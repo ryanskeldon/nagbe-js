@@ -118,12 +118,12 @@ GPU = {
 
     readByte: function (address) {
         if (address >= 0x8000 && address <= 0x9FFF) {
-            return this._vram[address & 0x1FFF];
+            return this._vram[address - 0x8000];
         }
 
         // Sprite Attribute Memory
         if (address >= 0xFE00 && address <= 0xFE9F) {
-            return this._oam[address & 0x7F];
+            return this._oam[address - 0xFE00];
         }
 
         switch (address) {
@@ -162,13 +162,13 @@ GPU = {
     writeByte: function (address, byte) {
         // Video RAM
         if (address >= 0x8000 && address <= 0x9FFF) {
-            this._vram[address & 0x1FFF] = byte;
+            this._vram[address - 0x8000] = byte;
             return;
         }
 
         // Sprite Attribute Memory
         if (address >= 0xFE00 && address <= 0xFE9F) {
-            this._oam[address & 0x7F] = byte;
+            this._oam[address - 0xFE00] = byte;
             return;
         }
 

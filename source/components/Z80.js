@@ -678,11 +678,9 @@ Z80 = {
             let n = MMU.readByte(Z80._register.pc++);
             if (n>127) n = -((~n+1)&255);
             let result = Z80._register.sp + n;
-            Z80.clearZ(); Z80.clearN();            
-            if (((Z80._register.sp ^ n ^ result)&0x100)==0x100) Z80.setC();
-            else Z80.clearC();
-            if (((Z80._register.sp ^ n ^ result)&0x10)==0x10) Z80.setH();
-            else Z80.clearH();
+            Z80.clearZ(); Z80.clearN();
+            if ((Z80._register.sp ^ n ^ result) & 0x10) Z80.setH(); else Z80.clearH();
+            if ((Z80._register.sp ^ n ^ result) & 0x100) Z80.setC(); else Z80.clearC();
             Z80._register.sp = result&0xFFFF;
             Z80._register.t = 16;
         },
