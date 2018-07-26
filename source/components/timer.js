@@ -2,13 +2,12 @@ Timer = {
     _clockSpeed: 4194304,
     _frequency: 4096,
     _counter: 0,
-    _divider: 0,
 
     _register: {
-        div: 0, // 0xFF04 (r/w) Divider
+        div:  0, // 0xFF04 (r/w) Divider 16-bit MSB is actual value
         tima: 0, // 0xFF05 (r/w) Timer counter
-        tma: 0, // 0xFF06 (r/w) Timer modulo
-        tac: 0, // 0xFF07 (r/w) Timer control
+        tma:  0, // 0xFF06 (r/w) Timer modulo
+        tac:  0, // 0xFF07 (r/w) Timer control
     },
 
     init: function () {
@@ -32,7 +31,6 @@ Timer = {
         switch (address) {
             case 0xFF04:
                 Timer._register.div = 0;
-                Timer._divider = 0;
                 return;
             case 0xFF05:
                 Timer._register.tima = byte;
@@ -56,11 +54,12 @@ Timer = {
         let newFrequency = Timer._register.tac&0x03;
 
         if (currentFrequency != newFrequency) {
+            console.log(`Frequency adjusted to MOD ${newFrequency}`);
             switch (newFrequency) {
-                case 0: Timer._frequency = 1024; break;
-                case 1: Timer._frequency = 16; break;
-                case 2: Timer._frequency = 64; break;
-                case 3: Timer._frequency = 256; break;
+                case 0: Timer._frequency = 4096; break;
+                case 1: Timer._frequency = 262144; break;
+                case 2: Timer._frequency = 65536; break;
+                case 3: Timer._frequency = 16386; break;
             }
         }
     },
@@ -75,15 +74,15 @@ Timer = {
         let interval = Timer._clockSpeed / Timer._frequency;
 
         if (Timer._counter >= interval) {
-            Timer._counter -= interval;
+            Timer._counter = 0;
 
             // Did timer overflow?
             if (Timer._register.tima == 0xFF) {
                 Timer._register.tima = Timer._register.tma;
-                // TODO: Only interrupt if requested.
                 Z80.requestInterrupt(2);
             } else {
                 Timer._register.tima++;
+                Timer._register.tima &= 255;
             }
         }
     }

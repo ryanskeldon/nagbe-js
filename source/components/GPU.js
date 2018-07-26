@@ -203,11 +203,11 @@ GPU = {
     },
 
     getLcdMode: function () {
-        return this._register.lcdc&0x03;
+        return this._register.stat&0x03;
     },
     setLcdMode: function (mode) {
-        this._register.lcdc &= ~0x03; // Clear mode.
-        this._register.lcdc |= mode;  // Set mode.
+        this._register.stat &= ~0x03; // Clear mode.
+        this._register.stat |= mode;  // Set mode.
     },
 
     step: function () {
@@ -242,6 +242,7 @@ GPU = {
             mode = 1;
             interruptRequested = !!(this._register.stat&0x10);
         }
+        this.setLcdMode(mode);
 
         // Request interrupt if modes changed and interrupt requested for LCD stat.
         if (currentMode != mode && interruptRequested) {
@@ -377,9 +378,7 @@ GPU = {
                 let height = largeSprites ? 16 : 8;
                 
                 if ((ly < sprite.y) || (ly > sprite.y+height)) continue; // Not going to be rendered, skip sprite.
-
-                let line = ly - sprite.y;
-
+                
                 // Load color palette for background.
                 let color0 = this._colors[sprite.palette&0x3];
                 let color1 = this._colors[(sprite.palette>>2)&0x3];
@@ -392,15 +391,8 @@ GPU = {
                     // Find tile pixel data for color.
                     let px = (sx+tx)%8; let py = (sy+ly)%8;
 
-                    if (sprite.xFlip) {
-                        px -= 7;
-                        px *= -1;
-                    }
-
-                    if (sprite.yFlip) {
-                        py -= (height-1);
-                        py *= -1;
-                    }
+                    if (sprite.xFlip) {}
+                    if (sprite.yFlip) {}
 
                     let color = sprite.pixels[py][px];
                     let pixelColor = 0;

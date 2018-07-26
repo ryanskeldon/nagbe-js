@@ -90,8 +90,8 @@ ALU = {
     ADD_HL_n: function (input) {
         let hl = (Z80._register.h<<8)+Z80._register.l;
         Z80.clearN();
+        if (((hl&0xFFF)+(input&0xFFF))&0x1000) Z80.setH(); else Z80.clearH();
         if (hl+input > 0xFFFF) Z80.setC(); else Z80.clearC();
-        if ((hl&0xFF)+(input&0xFF) > 0xFF) Z80.setH(); else Z80.clearH();
         hl += input;
         Z80._register.h = (hl>>8)&255;
         Z80._register.l = hl&255;

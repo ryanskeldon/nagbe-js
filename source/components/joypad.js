@@ -21,7 +21,7 @@ Joypad = {
         }
     },
 
-    button_press: function (id) {        
+    button_press: function (id) {
         Joypad._keys &= ~(1<<id);
         Z80.requestInterrupt(4);
     },

@@ -145,6 +145,7 @@ Z80 = {
         }
             
         Z80._clock.t += Z80._register.t;
+        Z80._clock.t &= 0xFFFFFFFF;
         Timer.update();
         GPU.step();
         Z80.checkInterrupts();
@@ -154,7 +155,7 @@ Z80 = {
         if (!!stopAt) Z80.stopAt = stopAt;
 
         if (!Z80._interval) {
-            Z80._interval = setInterval(Z80.frame, 1);            
+            Z80._interval = setInterval(Z80.frame, 1);
         } else {
             traceLog.write("Z80", "$0x" + (Z80._register.pc).toString(16));
             clearInterval(Z80._interval);
@@ -192,7 +193,7 @@ Z80 = {
         let interrupts = MMU.readByte(0xFF0F);
         interrupts &= ~(1<<interrupt); // Reset interrupt flag.
         MMU.writeByte(0xFF0F, interrupts);
-
+        
         switch (interrupt) {
             case 0: Z80._register.pc = 0x40; break; // V-blank
             case 1: Z80._register.pc = 0x48; break; // LCD
@@ -458,7 +459,7 @@ Z80 = {
         PUSH_HL: function () { // 0xE5 PUSH HL
             Z80._register.sp-=2; Z80._register.sp &= 0xFFFF; MMU.writeWord(Z80._register.sp, (Z80._register.h<<8)+Z80._register.l); Z80._register.t = 16; },
         POP_AF: function () { // 0xF1 POP AF
-            Z80._register.f = MMU.readByte(Z80._register.sp++); Z80._register.a = MMU.readByte(Z80._register.sp++); Z80._register.t = 12; },
+            Z80._register.f = MMU.readByte(Z80._register.sp++)&0xF0; Z80._register.a = MMU.readByte(Z80._register.sp++); Z80._register.t = 12; },
         POP_BC: function () { // 0xC1 POP BC
             Z80._register.c = MMU.readByte(Z80._register.sp++); Z80._register.b = MMU.readByte(Z80._register.sp++); Z80._register.t = 12; },
         POP_DE: function () { // 0xD1 POP DE
@@ -595,7 +596,7 @@ Z80 = {
         CALL_NC_nn: function () { // 0xD4
             ALU.CALL_cc_nn((Z80._register.f&Z80._flags.carry) == 0, 24, 12); },
         CALL_C_nn: function () { // 0xDC
-            ALU.CALL_cc_nn(Z80._register.f&Z80._flags.zero, 24, 12); },                    
+            ALU.CALL_cc_nn(Z80._register.f&Z80._flags.carry, 24, 12); },                    
             
         XOR_A: function () { // 0xAF            
             ALU.XOR_n(Z80._register.a, 4); },
@@ -952,25 +953,26 @@ Z80 = {
         },
 
         DAA: function () { // 0x27
-            // TODO: This is definitely not correct.
-            let a = Z80._register.a;     
             let correction = 0;
 
-            let flagN = Z80._register.f&Z80._flags.subtraction;
+            let flagN = !!(Z80._register.f&Z80._flags.subtraction);
+            let flagH = !!(Z80._register.f&Z80._flags.halfCarry);
+            let flagC = !!(Z80._register.f&Z80._flags.carry);
 
-            if (Z80._register.f&Z80._flags.halfCarry || (!flagN &&(Z80._register.a&0x0f)>9)) 
-                correction |= 0x06;
-            if (Z80._register.f&Z80._flags.carry || (!flagN && (Z80._register.a&0xf0)>9)) {
+            if (flagH || (!flagN && (Z80._register.a & 0xF) > 9)) {
+                correction = 6;
+            }
+
+            if (flagC || (!flagN && Z80._register.a > 0x99)) {
                 correction |= 0x60;
                 Z80.setC();
             }
 
-            a += flagN ? -correction : correction;
-
-            Z80._register.a = a&255;
+            Z80._register.a += flagN ? -correction : correction;
+            Z80._register.a &= 255;
             Z80.clearH();
+
             if (!Z80._register.a) Z80.setZ(); else Z80.clearZ();
-            console.log("DAA: " + Z80._register.a.toString(16));
             Z80._register.t = 4;
         },
 

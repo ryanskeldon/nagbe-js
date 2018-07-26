@@ -19,7 +19,8 @@ Cartridge = {
     _mbc: {
         cartType: 0,
         romBank: 1,
-        ramBank: 1,
+        totalRomBanks: 0,
+        ramBank: 0,
         mode: 0
     },
 
@@ -90,17 +91,32 @@ Cartridge = {
         // Read ROM size.
         this._header.romSize = this._memory.rom[0x0148];
 
+        switch (this._header.romSize) {
+            case 0x00: this._mbc.totalRomBanks = 1; break;
+            case 0x01: this._mbc.totalRomBanks = 4; break;
+            case 0x02: this._mbc.totalRomBanks = 8; break;
+            case 0x03: this._mbc.totalRomBanks = 16; break;
+            case 0x04: this._mbc.totalRomBanks = 32; break;
+            case 0x05: this._mbc.totalRomBanks = 64; break;
+            case 0x06: this._mbc.totalRomBanks = 128; break;
+            case 0x07: this._mbc.totalRomBanks = 256; break;
+            case 0x08: this._mbc.totalRomBanks = 512; break;
+            case 0x52: this._mbc.totalRomBanks = 72; break;
+            case 0x53: this._mbc.totalRomBanks = 80; break;
+            case 0x54: this._mbc.totalRomBanks = 96; break;
+        }
+
         // Read RAM size.
         this._header.ramSize = this._memory.rom[0x0149];
 
         // Initialize RAM space.
         let ramSize = 0;
         switch (this._header.ramSize) {
-            case 0x01: ramSize = 2000; break;
-            case 0x02: ramSize = 8000; break;
-            case 0x03: ramSize = 32000; break;
-            case 0x04: ramSize = 128000; break;
-            case 0x05: ramSize = 64000; break;
+            case 0x01: ramSize = 2048; break;
+            case 0x02: ramSize = 8192; break;
+            case 0x03: ramSize = 32768; break;
+            case 0x04: ramSize = 131072; break;
+            case 0x05: ramSize = 65536; break;
         }
 
         if (ramSize > 0) {
@@ -174,7 +190,7 @@ Cartridge = {
         // RAM
         if (address >= 0xA000 && address <= 0xBFFF) {
             let offset = 0x2000 * this._mbc.ramBank;
-            return this._memory.ram[(address&0x1FFF)+offset];
+            return this._memory.ram[(address - 0xA000)+offset];
         }
     },
     MBC1_writeByte: function (address, byte) {
@@ -190,6 +206,9 @@ Cartridge = {
             this._mbc.romBank &= 0xE0; // Turn off lower 5 bits.
             this._mbc.romBank |= romBank; // Set lower 5 bits.
             if (this._mbc.romBank === 0) this._mbc.romBank++;
+
+            if (this._mbc.romBank > this._mbc.totalRomBanks)
+                throw `Invalid ROM bank selected`;
             return;
         }
 

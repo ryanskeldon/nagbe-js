@@ -130,7 +130,9 @@ MMU = {
         // Read byte + next byte shifted by 1 byte.
         return (MMU.readByte(address+1)<<8) + MMU.readByte(address);
     },
-    writeByte: function (address, byte) {            
+    writeByte: function (address, byte) {
+        if (isNaN(byte))
+            throw `Ins $${(Z80._register.pc-1).toHex(4)} tried to write NaN to $${address.toHex(4)}`;
         if (address < 0x0000 || address > 0xFFFF)
             throw `Segfault write @ $${address.toHex(4)} / value: ${byte.toHex(2)}`;
 
@@ -160,7 +162,7 @@ MMU = {
         }
 
         // Working RAM
-        if (address >= 0xC000 && address <= 0xDFFF) {             
+        if (address >= 0xC000 && address <= 0xDFFF) {            
             MMU._wram[address - 0xC000] = byte;
             return;
         }
