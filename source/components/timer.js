@@ -54,7 +54,7 @@ Timer = {
         let newFrequency = Timer._register.tac&0x03;
 
         if (currentFrequency != newFrequency) {
-            console.log(`Frequency adjusted to MOD ${newFrequency}`);
+            // console.log(`Frequency adjusted to MOD ${newFrequency}`);
             switch (newFrequency) {
                 case 0: Timer._frequency = 4096; break;
                 case 1: Timer._frequency = 262144; break;
@@ -73,8 +73,8 @@ Timer = {
         Timer._counter += Z80._register.t;
         let interval = Timer._clockSpeed / Timer._frequency;
 
-        if (Timer._counter >= interval) {
-            Timer._counter = 0;
+        while (Timer._counter >= interval) {
+            Timer._counter -= interval;
 
             // Did timer overflow?
             if (Timer._register.tima == 0xFF) {

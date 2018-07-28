@@ -34,14 +34,12 @@ ALU = {
         Z80._register.t = time;
     },
     SBC_A_n: function (input, time) {
-        // TODO: This is most likely not correct.
-        let a = Z80._register.a;
-        let carry = Z80._register.f & Z80._flags.carry ? 1 : 0;
-        let result = a - (input + carry);
-        Z80.setN();                
-        if (result&255) Z80.clearZ(); else Z80.setZ();
-        if (a < (input+carry)) Z80.setC(); else Z80.clearC();        
-        if ((a ^ (input+carry) ^ result) & 0x10 != 0) Z80.setH(); else Z80.clearH();
+        let a = Z80._register.a;        
+        let result = a - input - (Z80._register.f & Z80._flags.carry ? 1 : 0);
+        Z80.setN();
+        if (result&255) Z80.clearZ(); else Z80.setZ();        
+        if (result&0x100) Z80.setC(); else Z80.clearC();        
+        if (((a ^ input ^ result) & 0x10) != 0) Z80.setH(); else Z80.clearH();
         Z80._register.a = result&255;
         Z80._register.t = time;
     },

@@ -4,10 +4,10 @@ GPU = {
     _oam: [],
 
     _colors: [
-        0x9bbc0f, // White
-        0x8bac0f, // Light Grey
-        0x306230, // Dark Grey
-        0x0f380f  // Black
+        0xe0f8d0, // White
+        0x88c070, // Light Grey
+        0x346856, // Dark Grey
+        0x081820  // Black
     ],
 
     _clock: 0,
@@ -235,7 +235,7 @@ GPU = {
             } else if (this._clock >= 252 && this._clock < 456) {
                 // Mode 0
                 mode = 0;
-                interruptRequested = !!(this._register.stat&0x08);
+                interruptRequested = !!(this._register.stat&0x08);                
             }
         } else {
             // Mode 1
@@ -269,11 +269,11 @@ GPU = {
             this._register.ly++;
 
             if (this._register.ly == 144) {
-                this.drawScreen();
                 Z80.requestInterrupt(0);
             }
-            else if (this._register.ly > 153) {                
+            else if (this._register.ly > 153) {
                 this._register.ly = 0;
+                this.drawScreen();
             }
         }
     },
@@ -370,14 +370,15 @@ GPU = {
         }
 
         // Load sprites
-        let largeSprites = !!(this._register.lcdc&0x04); // Are sprites 8x16?
-
         if (this._register.lcdc&0x02) {        
+            let largeSprites = !!(this._register.lcdc&0x04); // Are sprites 8x16?
+            let renderedSprites = 0;
+            
             for (let spriteId = 0; spriteId < 40; spriteId++) {
                 let sprite = this.getSprite(spriteId);
                 let height = largeSprites ? 16 : 8;
-                
-                if ((ly < sprite.y) || (ly > sprite.y+height)) continue; // Not going to be rendered, skip sprite.
+                    
+                if ((ly < sprite.y) || (ly >= sprite.y+height)) continue; // Not going to be rendered, skip sprite.
                 
                 // Load color palette for background.
                 let color0 = this._colors[sprite.palette&0x3];
@@ -385,14 +386,12 @@ GPU = {
                 let color2 = this._colors[(sprite.palette>>4)&0x3];
                 let color3 = this._colors[(sprite.palette>>6)&0x3]; 
 
-                // TODO: set limit of sprites rendered for the current line. max 10
-
                 for (let tx = 0; tx < 8; tx++) {
                     // Find tile pixel data for color.
                     let px = (sx+tx)%8; let py = (sy+ly)%8;
 
-                    if (sprite.xFlip) {}
                     if (sprite.yFlip) {}
+                    if (sprite.xFlip) {}
 
                     let color = sprite.pixels[py][px];
                     let pixelColor = 0;
@@ -410,6 +409,11 @@ GPU = {
                     
                     pixels[pixel] = pixelColor;
                 }
+
+                renderedSprites++;
+
+                // Limit 10 sprites per line.
+                if (renderedSprites == 10) break;
             }
         }
 

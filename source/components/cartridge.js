@@ -17,10 +17,11 @@ Cartridge = {
     },
     
     _mbc: {
-        cartType: 0,
+        type: 0,
         romBank: 1,
-        totalRomBanks: 0,
+        totalRomBanks: 1,
         ramBank: 0,
+        totalRamBanks: 0,
         mode: 0
     },
 
@@ -51,29 +52,29 @@ Cartridge = {
         this._header.cartridgeType = this._memory.rom[0x0147];
         switch (this._header.cartridgeType) {
             case 0x00: break; // ROM Only
-            case 0x01: this._mbc.cartType = 1; break;
-            case 0x02: this._mbc.cartType = 1; break;
-            case 0x03: this._mbc.cartType = 1; this._memory.hasBattery = true; break;
-            // case 0x05: this._mbc.cartType = 2; break;
-            // case 0x06: this._mbc.cartType = 2; this._memory.hasBattery = true; break;
+            case 0x01: this._mbc.type = 1; break;
+            case 0x02: this._mbc.type = 1; break;
+            case 0x03: this._mbc.type = 1; this._memory.hasBattery = true; break;
+            // case 0x05: this._mbc.type = 2; break;
+            // case 0x06: this._mbc.type = 2; this._memory.hasBattery = true; break;
             // case 0x08: break;
             // case 0x09: this._memory.hasBattery = true; break;
             // case 0x0B: break;
             // case 0x0C: break;            
             // case 0x0D: this._memory.hasBattery = true; break;
-            // case 0x0F: this._mbc.cartType = 3; this._memory.hasBattery = true; break;            
-            // case 0x10: this._mbc.cartType = 3; this._memory.hasBattery = true; break;
-            // case 0x11: this._mbc.cartType = 3; break;
-            // case 0x12: this._mbc.cartType = 3; break;
-            // case 0x13: this._mbc.cartType = 3; this._memory.hasBattery = true; break;
-            // case 0x19: this._mbc.cartType = 5; break;
-            // case 0x1A: this._mbc.cartType = 5; break;
-            // case 0x1B: this._mbc.cartType = 5; this._memory.hasBattery = true; break;
-            // case 0x1C: this._mbc.cartType = 5; break;
-            // case 0x1D: this._mbc.cartType = 5; break;
-            // case 0x1E: this._mbc.cartType = 5; this._memory.hasBattery = true; break;
-            // case 0x20: this._mbc.cartType = 6; break;
-            // case 0x22: this._mbc.cartType = 7; this._memory.hasBattery = true; break;
+            // case 0x0F: this._mbc.type = 3; this._memory.hasBattery = true; break;            
+            // case 0x10: this._mbc.type = 3; this._memory.hasBattery = true; break;
+            // case 0x11: this._mbc.type = 3; break;
+            // case 0x12: this._mbc.type = 3; break;
+            // case 0x13: this._mbc.type = 3; this._memory.hasBattery = true; break;
+            // case 0x19: this._mbc.type = 5; break;
+            // case 0x1A: this._mbc.type = 5; break;
+            // case 0x1B: this._mbc.type = 5; this._memory.hasBattery = true; break;
+            // case 0x1C: this._mbc.type = 5; break;
+            // case 0x1D: this._mbc.type = 5; break;
+            // case 0x1E: this._mbc.type = 5; this._memory.hasBattery = true; break;
+            // case 0x20: this._mbc.type = 6; break;
+            // case 0x22: this._mbc.type = 7; this._memory.hasBattery = true; break;
             // case 0xFC: break;
             // case 0xFD: break;
             // case 0xFE: break;
@@ -119,6 +120,7 @@ Cartridge = {
             case 0x05: ramSize = 65536; break;
         }
 
+        ramSize = 65536;
         if (ramSize > 0) {
             for (let i = 0; i < ramSize; i++) {
                 this._memory.ram[i] = Math.floor(Math.random() * 256);
@@ -144,33 +146,29 @@ Cartridge = {
 
     readByte: function (address) {
         // Redirect reads to MBC.
-        switch (this._mbc.cartType) {
+        switch (this._mbc.type) {
             case 0x00:
                 // ROM Only
-                if (address >= 0x0000 && address <= 0x7FFF) return this._memory.rom[address];
+                if (address >= 0x0000 && address <= 0x7FFF) return this._memory.rom[address];                
                 throw `Cartridge: Unsupported read at $${address.toHex(4)}.`;
-            case 0x01: 
-            case 0x02: 
-            case 0x03:
-                return this.MBC1_readByte(address);
+            case 0x01: return this.MBC1_readByte(address);
+            case 0x02: return this.MBC1_readByte(address);
+            case 0x03: return this.MBC1_readByte(address);
             default:
-                throw `Cartridge: Unsupported MBC type: ${this._mbc.cartType.toHex(2)}`;
+                throw `Cartridge: Unsupported MBC type: ${this._mbc.type.toHex(2)}`;
         }        
     },
 
     writeByte: function (address, byte) {
         // Redirect writes to MBC.
-        switch (this._mbc.cartType) {
-            case 0x00:
-                // ROM Only
-                if (address >= 0x0000 && address <= 0x7FFF) return; // Do nothing.
-            case 0x01: 
-            case 0x02: 
-            case 0x03:
-                this.MBC1_writeByte(address, byte); 
-                return;
+        switch (this._mbc.type) {
+            case 0x00: 
+                if (address >= 0x0000 && address <= 0x7FFF) return; // ROM only
+            case 0x01: this.MBC1_writeByte(address, byte); return;
+            case 0x02: this.MBC1_writeByte(address, byte); return;
+            case 0x03: this.MBC1_writeByte(address, byte); return;
             default:
-                throw `Cartridge: Unsupported MBC type: ${this._mbc.cartType.toHex(2)}`;
+                throw `Cartridge: Unsupported MBC type: ${this._mbc.type.toHex(2)}`;
         }
     },
 
@@ -205,10 +203,10 @@ Cartridge = {
             let romBank = byte & 0x1F; // Mask for lower 5 bits.
             this._mbc.romBank &= 0xE0; // Turn off lower 5 bits.
             this._mbc.romBank |= romBank; // Set lower 5 bits.
-            if (this._mbc.romBank === 0) this._mbc.romBank++;
+            if (this._mbc.romBank === 0) this._mbc.romBank++;            
 
             if (this._mbc.romBank > this._mbc.totalRomBanks)
-                throw `Invalid ROM bank selected`;
+                throw `Invalid ROM bank selected: ${this._mbc.romBank}`;
             return;
         }
 

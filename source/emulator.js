@@ -3,6 +3,11 @@ document.getElementById("stepButton").addEventListener("click", function () {
     updateRegisterDisplay();
 });
 
+document.getElementById("frameButton").addEventListener("click", function () {
+    Z80.frame();
+    updateRegisterDisplay();
+});
+
 document.getElementById("runButton").addEventListener("click", function () {
     Z80.run();
 });
