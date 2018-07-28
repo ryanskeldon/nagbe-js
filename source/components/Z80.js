@@ -105,9 +105,9 @@ Z80 = {
             Cartridge._memory.ramIsDirty = false;
         }
 
-        // GPU.renderTileMap();
-        // GPU.renderBackgroundTileMap();
-        // GPU.renderSpriteMap();
+        GPU.renderTileMap();
+        GPU.renderBackgroundTileMap();
+        GPU.renderSpriteMap();
     },
 
     step: function () {
@@ -157,7 +157,7 @@ Z80 = {
         if (!!stopAt) Z80.stopAt = stopAt;
 
         if (!Z80._interval) {
-            Z80._interval = setInterval(Z80.frame, 1);
+            Z80._interval = setInterval(Z80.frame, 16);
         } else {
             traceLog.write("Z80", "$0x" + (Z80._register.pc).toString(16));
             clearInterval(Z80._interval);

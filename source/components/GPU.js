@@ -371,49 +371,56 @@ GPU = {
 
         // Load sprites
         if (this._register.lcdc&0x02) {        
-            let largeSprites = !!(this._register.lcdc&0x04); // Are sprites 8x16?
             let renderedSprites = 0;
             
             for (let spriteId = 0; spriteId < 40; spriteId++) {
-                let sprite = this.getSprite(spriteId);
-                let height = largeSprites ? 16 : 8;
-                    
-                if ((ly < sprite.y) || (ly >= sprite.y+height)) continue; // Not going to be rendered, skip sprite.
+                let height = this._register.lcdc&0x04 ? 16 : 8;
+                let sprite = this.getSprite(spriteId, height);
                 
-                // Load color palette for background.
-                let color0 = this._colors[sprite.palette&0x3];
-                let color1 = this._colors[(sprite.palette>>2)&0x3];
-                let color2 = this._colors[(sprite.palette>>4)&0x3];
-                let color3 = this._colors[(sprite.palette>>6)&0x3]; 
+                if (ly >= sprite.y && ly < (sprite.y+height)) {
+                    // Load color palette for background.
+                    let color0 = this._colors[sprite.palette&0x3];
+                    let color1 = this._colors[(sprite.palette>>2)&0x3];
+                    let color2 = this._colors[(sprite.palette>>4)&0x3];
+                    let color3 = this._colors[(sprite.palette>>6)&0x3]; 
 
-                for (let tx = 0; tx < 8; tx++) {
-                    // Find tile pixel data for color.
-                    let px = (sx+tx)%8; let py = (sy+ly)%8;
+                    let py = ly - sprite.y;
 
-                    if (sprite.yFlip) {}
-                    if (sprite.xFlip) {}
-
-                    let color = sprite.pixels[py][px];
-                    let pixelColor = 0;
-
-                    if (color === 0) continue; // Skip pixel if it's transparent.
-
-                    switch (color) {
-                        case 0: pixelColor = color0; break;
-                        case 1: pixelColor = color1; break;
-                        case 2: pixelColor = color2; break;
-                        case 3: pixelColor = color3; break;
+                    if (sprite.yFlip) {
+                        py -= height;
+                        py *= -1;
                     }
 
-                    let pixel = sprite.x + px;
-                    
-                    pixels[pixel] = pixelColor;
+                    for (let tx = 0; tx < 8; tx++) {
+                        // Find tile pixel data for color.
+                        let px = tx;
+                        if (sprite.xFlip) {
+                            px -= 7;
+                            px *= -1;
+                        }
+
+                        let color = sprite.pixels[py%height][px%8];
+                        let pixelColor = 0;
+
+                        if (color === 0) continue; // Skip pixel if it's transparent.
+
+                        switch (color) {
+                            case 0: pixelColor = color0; break;
+                            case 1: pixelColor = color1; break;
+                            case 2: pixelColor = color2; break;
+                            case 3: pixelColor = color3; break;
+                        }
+
+                        let pixel = sprite.x + tx;
+                        
+                        pixels[pixel] = pixelColor;
+                    }
+
+                    renderedSprites++;
+
+                    // Limit 10 sprites per line.
+                    if (renderedSprites == 10) break;
                 }
-
-                renderedSprites++;
-
-                // Limit 10 sprites per line.
-                if (renderedSprites == 10) break;
             }
         }
 
@@ -438,7 +445,7 @@ GPU = {
         this._screenCanvas.putImageData(screenData, 0, 0);
     },
 
-    getSprite: function (spriteId) {
+    getSprite: function (spriteId, height) {
         let spriteAddress = 0xFE00 + (spriteId * 4);
         let spriteY = this.readByte(spriteAddress) - 16; // Offset for display window.
         let spriteX = this.readByte(spriteAddress+1) - 8; // Offset for display window.
@@ -448,7 +455,7 @@ GPU = {
         let pixels = [];
         let tileAddress = 0x8000 + (tileId * 16);
 
-        for (let y = 0; y < 8; y++) {
+        for (let y = 0; y < height; y++) {
             pixels[y] = [];
 
             let lb = this.readByte(tileAddress + (y*2));
@@ -573,7 +580,7 @@ GPU = {
         for (let sY = 0; sY < 4; sY++) {
             for (let sX = 0; sX < 10; sX++) {
                 let spriteId = 10 * sY + sX;
-                let sprite = this.getSprite(spriteId);
+                let sprite = this.getSprite(spriteId, 8);
 
                 let color0 = this._colors[sprite.palette&0x3];
                 let color1 = this._colors[(sprite.palette>>2)&0x3];
@@ -590,8 +597,7 @@ GPU = {
                             case 2: pixelColor = color2; break;
                             case 3: pixelColor = color3; break;
                         }
-
-                        //let index = 128 * ((ty*8)+py) + ((tx*8)+px);
+                        
                         let pixel = 80 * ((sY*8)+y) + ((sX*8)+x);
                         spriteMap[pixel] = pixelColor;
                     }                    
