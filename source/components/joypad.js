@@ -12,6 +12,8 @@ Joypad = {
                     return (Joypad._keys>>4)&0xF;
                 if (Joypad._register._p1 == 0x20)
                     return Joypad._keys&0x0F;
+                default:
+                    return 0;
         }
     },
     writeByte: function (address, byte) {

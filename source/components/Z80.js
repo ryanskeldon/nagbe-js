@@ -106,9 +106,9 @@ Z80 = {
             Cartridge._memory.ramIsDirty = false;
         }
 
-        GPU.renderTileMap();
-        GPU.renderBackgroundTileMap();
-        GPU.renderSpriteMap();
+        // GPU.renderTileMap();
+        // GPU.renderBackgroundTileMap();
+        // GPU.renderSpriteMap();
     },
 
     step: function () {

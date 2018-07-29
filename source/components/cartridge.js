@@ -26,6 +26,17 @@ Cartridge = {
         mode: 0
     },
 
+    _rtc: {
+        exists: false,
+        mapped: false, // Values: false or byte of register below.
+        latched: false,
+        seconds: 0,   // 0x08
+        minutes: 0,   // 0x09
+        hours: 0,     // 0x0A
+        days_low: 0,  // 0x0B
+        days_high: 0, // 0x0C
+    },
+
     init: function () {
         // Check if a ROM was previously loaded.
         var file = localStorage.getItem('rom');
@@ -67,7 +78,7 @@ Cartridge = {
             // case 0x10: this._mbc.type = 3; this._memory.hasBattery = true; break;
             // case 0x11: this._mbc.type = 3; break;
             // case 0x12: this._mbc.type = 3; break;
-            // case 0x13: this._mbc.type = 3; this._memory.hasBattery = true; break;
+            case 0x13: this._mbc.type = 3; this._memory.hasRam = true; this._rtc.exists = true; this._memory.hasBattery = true; break;
             // case 0x19: this._mbc.type = 5; break;
             // case 0x1A: this._mbc.type = 5; break;
             // case 0x1B: this._mbc.type = 5; this._memory.hasBattery = true; break;
@@ -156,6 +167,7 @@ Cartridge = {
             case 0x01: return this.MBC1_readByte(address);
             case 0x02: return this.MBC1_readByte(address);
             case 0x03: return this.MBC1_readByte(address);
+            case 0x13: return this.MBC3_readByte(address);
             default:
                 throw `Cartridge: Unsupported MBC type: ${this._mbc.type.toHex(2)}`;
         }        
@@ -169,6 +181,7 @@ Cartridge = {
             case 0x01: this.MBC1_writeByte(address, byte); return;
             case 0x02: this.MBC1_writeByte(address, byte); return;
             case 0x03: this.MBC1_writeByte(address, byte); return;
+            case 0x13: this.MBC3_writeByte(address, byte); return;
             default:
                 throw `Cartridge: Unsupported MBC type: ${this._mbc.type.toHex(2)}`;
         }
@@ -239,6 +252,103 @@ Cartridge = {
                 this._memory.ram[address-0xA000] = byte;
                 return;    
             }
+
+            let offset = this._memory.ramBank * 0x2000;
+            this._memory.ram[(address-0xA000)+offset] = byte;
+
+            return;
+        }
+    },
+
+    // Memory Bank Controller Type 3
+    MBC3_readByte: function (address) {
+        // ROM Bank 0
+        if (address >= 0x0000 && address <= 0x3FFF) {
+            return this._memory.rom[address];
+        }
+
+        // ROM Bank 1 (Memory Bank Controlled)
+        if (address >= 0x4000 && address <= 0x7FFF) {
+            let offset = 0x4000 * this._mbc.romBank;
+            return this._memory.rom[(address-0x4000)+offset];
+        }
+
+        // RAM
+        if (address >= 0xA000 && address <= 0xBFFF) {
+            // RTC registers
+            if (this._rtc.mapped !== false) {
+                // Return RTC register.
+                switch (this._rtc.mapped) {
+                    case 0x08: return this._rtc.seconds;
+                    case 0x09: return this._rtc.minutes;
+                    case 0x0A: return this._rtc.hours;
+                    case 0x0B: return this._rtc.days_low;
+                    case 0x0C: return this._rtc.days_high;
+                }
+            }
+
+            // RAM
+            let offset = 0x2000 * this._mbc.ramBank;
+            return this._memory.ram[(address-0xA000)+offset];
+        }
+    },
+    MBC3_writeByte: function (address, byte) {
+        // RAM & RTC Enable
+        if (address >= 0x0000 && address <= 0x1FFF) {
+            this._memory.ramEnabled = byte === 0x0A;
+            return;
+        }
+
+        // ROM Banking
+        if (address >= 0x2000 && address <= 0x3FFF) {
+            let romBank = byte & 0x7F; // Mask for lower 7 bits.
+            this._mbc.romBank &= 0x80; // Turn off lower 7 bits.
+            this._mbc.romBank |= romBank; // Set lower 7 bits.
+            if (this._mbc.romBank === 0) this._mbc.romBank++;
+
+            if (this._mbc.romBank > this._mbc.totalRomBanks)
+                throw `Invalid ROM bank selected: ${this._mbc.romBank}`;
+            return;
+        }
+
+        // RAM & RTC Banking
+        if (address >= 0x4000 && address <= 0x5FFF) {
+            if (byte >= 0x00 && byte <= 0x03) { // RAM bank select
+                this._rtc.mapped = false;
+                let romBank = byte;
+                this._mbc.romBank = romBank;
+                return;
+            }
+
+            if (byte >= 0x08 && byte <= 0x0C) {
+                this._rtc.mapped = byte;
+                return;
+            }
+        }
+
+        // RTC Latching
+        if (address >= 0x6000 && address <= 0x7FFF) {
+            this._rtc.latched = byte === 0x01; // TODO: Is this right?
+            return;
+        }
+
+        if (address >= 0xA000 && address <= 0xBFFF) {
+            if (!this._memory.ramEnabled) return; // RAM disabled.
+
+            // RTC registers
+            if (this._rtc.mapped !== false) {
+                // Return RTC register.
+                switch (this._rtc.mapped) {
+                    case 0x08: this._rtc.seconds = byte; return;
+                    case 0x09: this._rtc.minutes = byte; return;
+                    case 0x0A: this._rtc.hours = byte; return;
+                    case 0x0B: this._rtc.days_low = byte; return;
+                    case 0x0C: this._rtc.days_high = byte; return;
+                }
+            }
+
+            // Mark for persistance at the end of the next frame.
+            if (this._memory.hasBattery) this._memory.ramIsDirty = true;
 
             let offset = this._memory.ramBank * 0x2000;
             this._memory.ram[(address-0xA000)+offset] = byte;
