@@ -101,7 +101,8 @@ Z80 = {
 
         // Save RAM to storage if there's a battery in the cartridge.
         if (Cartridge._memory.hasBattery && Cartridge._memory.ramIsDirty) {
-            localStorage.setItem(Cartridge._header.title, Cartridge._memory.ram);
+            console.log(`Cart: saving ram`);
+            localStorage.setItem(Cartridge._header.title, Cartridge._memory.ram);            
             Cartridge._memory.ramIsDirty = false;
         }
 
@@ -157,7 +158,7 @@ Z80 = {
         if (!!stopAt) Z80.stopAt = stopAt;
 
         if (!Z80._interval) {
-            Z80._interval = setInterval(Z80.frame, 16);
+            Z80._interval = setInterval(Z80.frame, 1);
         } else {
             traceLog.write("Z80", "$0x" + (Z80._register.pc).toString(16));
             clearInterval(Z80._interval);

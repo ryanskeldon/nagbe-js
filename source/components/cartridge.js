@@ -3,7 +3,8 @@ Cartridge = {
         rom: [],
         ram: [],
         hasBattery: false,
-        ramIsDirty: false,
+        hasRam: false,
+        ramIsDirty: false,        
         ramEnabled: false
     },
 
@@ -53,8 +54,8 @@ Cartridge = {
         switch (this._header.cartridgeType) {
             case 0x00: break; // ROM Only
             case 0x01: this._mbc.type = 1; break;
-            case 0x02: this._mbc.type = 1; break;
-            case 0x03: this._mbc.type = 1; this._memory.hasBattery = true; break;
+            case 0x02: this._mbc.type = 1; this._memory.hasRam = true; break;
+            case 0x03: this._mbc.type = 1; this._memory.hasRam = true; this._memory.hasBattery = true; break;
             // case 0x05: this._mbc.type = 2; break;
             // case 0x06: this._mbc.type = 2; this._memory.hasBattery = true; break;
             // case 0x08: break;
@@ -113,6 +114,7 @@ Cartridge = {
         // Initialize RAM space.
         let ramSize = 0;
         switch (this._header.ramSize) {
+            case 0x00: ramSize = 0; break;
             case 0x01: ramSize = 2048; break;
             case 0x02: ramSize = 8192; break;
             case 0x03: ramSize = 32768; break;
@@ -120,10 +122,9 @@ Cartridge = {
             case 0x05: ramSize = 65536; break;
         }
 
-        ramSize = 65536;
         if (ramSize > 0) {
             for (let i = 0; i < ramSize; i++) {
-                this._memory.ram[i] = Math.floor(Math.random() * 256);
+                this._memory.ram[i] = 0; //Math.floor(Math.random() * 256);
             }
         }
         
@@ -135,10 +136,11 @@ Cartridge = {
             let ram = localStorage.getItem(this._header.title); // TODO: Use header checksum instead of title.
 
             if (ram) {
+                console.log(`Cart: ram found`);
                 ram = ram.split(",");
-                this._memory.ram = file.map(value => { return parseInt(value); });
+                this._memory.ram = ram.map(value => { return parseInt(value); });
             }
-        }        
+        }
 
         // Dump header info.
         console.log(this._header);
@@ -188,7 +190,7 @@ Cartridge = {
         // RAM
         if (address >= 0xA000 && address <= 0xBFFF) {
             let offset = 0x2000 * this._mbc.ramBank;
-            return this._memory.ram[(address - 0xA000)+offset];
+            return this._memory.ram[(address-0xA000)+offset];
         }
     },
     MBC1_writeByte: function (address, byte) {
@@ -230,16 +232,17 @@ Cartridge = {
         if (address >= 0xA000 && address <= 0xBFFF) {
             if (!this._memory.ramEnabled) return; // RAM disabled.
 
+            // Mark for persistance at the end of the next frame.
+            if (this._memory.hasBattery) this._memory.ramIsDirty = true;
+
             if (this._mbc.mode === 0) { // ROM mode, only write to bank 0x00 of RAM.
-                this._memory.ram[address & 0x1FFF] = byte;
+                this._memory.ram[address-0xA000] = byte;
                 return;    
             }
 
             let offset = this._memory.ramBank * 0x2000;
-            this._memory.ram[(address&0x1FFF)+offset] = byte;
+            this._memory.ram[(address-0xA000)+offset] = byte;
 
-            // Mark for persistance at the end of the next frame.
-            if (this._memory.hasBattery) this._memory.ramIsDirty = true;
             return;
         }
     }

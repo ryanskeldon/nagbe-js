@@ -214,6 +214,7 @@ GPU = {
         if (this.isLcdEnabled()) {
             // Add last instruction's clock time.
             this._clock += Z80._register.t;
+            this._clock &= 0xFFFFFFFF;
         } else {
             this.setLcdMode(1);
             return;
@@ -326,13 +327,13 @@ GPU = {
         // Calculate which scanline we're on.
         let yPos = 0;
         if (!windowEnabled)
-            yPos = sy + ly;
+            yPos = (sy + ly)%256;
         else
             yPos = ly - wy;
         
         // Generate background / window pixels
         for (let x = 0; x < 160; x++) {
-            let xPos = sx + x;
+            let xPos = (sx + x)%256;
 
             if (windowEnabled && x >= wx) {
                 xPos = x - wx;
@@ -411,7 +412,7 @@ GPU = {
                             case 3: pixelColor = color3; break;
                         }
 
-                        let pixel = sprite.x + tx;
+                        let pixel = sprite.x + tx;                        
                         
                         pixels[pixel] = pixelColor;
                     }
@@ -450,7 +451,9 @@ GPU = {
         let spriteY = this.readByte(spriteAddress) - 16; // Offset for display window.
         let spriteX = this.readByte(spriteAddress+1) - 8; // Offset for display window.
         let tileId = this.readByte(spriteAddress+2);
-        let attributes = this.readByte(spriteAddress+3);        
+        let attributes = this.readByte(spriteAddress+3);
+        
+        // TODO: Get sprite priority.
 
         let pixels = [];
         let tileAddress = 0x8000 + (tileId * 16);
@@ -597,7 +600,7 @@ GPU = {
                             case 2: pixelColor = color2; break;
                             case 3: pixelColor = color3; break;
                         }
-                        
+
                         let pixel = 80 * ((sY*8)+y) + ((sX*8)+x);
                         spriteMap[pixel] = pixelColor;
                     }                    
