@@ -74,10 +74,10 @@ Cartridge = {
             // case 0x0B: break;
             // case 0x0C: break;            
             // case 0x0D: this._memory.hasBattery = true; break;
-            // case 0x0F: this._mbc.type = 3; this._memory.hasBattery = true; break;            
-            // case 0x10: this._mbc.type = 3; this._memory.hasBattery = true; break;
-            // case 0x11: this._mbc.type = 3; break;
-            // case 0x12: this._mbc.type = 3; break;
+            case 0x0F: this._mbc.type = 3; this._memory.hasBattery = true; break;            
+            case 0x10: this._mbc.type = 3; this._memory.hasBattery = true; break;
+            case 0x11: this._mbc.type = 3; break;
+            case 0x12: this._mbc.type = 3; break;
             case 0x13: this._mbc.type = 3; this._memory.hasRam = true; this._rtc.exists = true; this._memory.hasBattery = true; break;
             // case 0x19: this._mbc.type = 5; break;
             // case 0x1A: this._mbc.type = 5; break;
@@ -135,7 +135,7 @@ Cartridge = {
 
         if (ramSize > 0) {
             for (let i = 0; i < ramSize; i++) {
-                this._memory.ram[i] = 0; //Math.floor(Math.random() * 256);
+                this._memory.ram[i] = Math.floor(Math.random() * 256);
             }
         }
         
@@ -181,6 +181,10 @@ Cartridge = {
             case 0x01: this.MBC1_writeByte(address, byte); return;
             case 0x02: this.MBC1_writeByte(address, byte); return;
             case 0x03: this.MBC1_writeByte(address, byte); return;
+            case 0x0F: this.MBC3_writeByte(address, byte); return;
+            case 0x10: this.MBC3_writeByte(address, byte); return;
+            case 0x11: this.MBC3_writeByte(address, byte); return;
+            case 0x12: this.MBC3_writeByte(address, byte); return;
             case 0x13: this.MBC3_writeByte(address, byte); return;
             default:
                 throw `Cartridge: Unsupported MBC type: ${this._mbc.type.toHex(2)}`;
@@ -295,6 +299,7 @@ Cartridge = {
     MBC3_writeByte: function (address, byte) {
         // RAM & RTC Enable
         if (address >= 0x0000 && address <= 0x1FFF) {
+            console.log("RAM/RTC enabled " + byte);
             this._memory.ramEnabled = byte === 0x0A;
             return;
         }
@@ -321,6 +326,7 @@ Cartridge = {
             }
 
             if (byte >= 0x08 && byte <= 0x0C) {
+                console.log("RTC mapped " + byte);
                 this._rtc.mapped = byte;
                 return;
             }
@@ -328,6 +334,7 @@ Cartridge = {
 
         // RTC Latching
         if (address >= 0x6000 && address <= 0x7FFF) {
+            console.log("RTC latched " + byte);
             this._rtc.latched = byte === 0x01; // TODO: Is this right?
             return;
         }

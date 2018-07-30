@@ -350,7 +350,14 @@ GPU = {
 
             // Find tile pixel data for color.
             let tileAddress = tilesetRegion + (tileId * 16);
-            let px = (sx+x)%8; let py = (sy+ly)%8;
+            let px = 0; let py = 0;
+            if (windowEnabled) {
+                px = (x-wx)%8;
+                py = (ly-wy)%8;
+            } else {
+                px = (sx+x)%8; 
+                py = (sy+ly)%8;
+            }
             let pixelRow = py*2;
             let lb = this.readByte(tileAddress + pixelRow);
             let hb = this.readByte(tileAddress + pixelRow + 1);

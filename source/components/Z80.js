@@ -102,7 +102,7 @@ Z80 = {
         // Save RAM to storage if there's a battery in the cartridge.
         if (Cartridge._memory.hasBattery && Cartridge._memory.ramIsDirty) {
             console.log(`Cart: saving ram`);
-            localStorage.setItem(Cartridge._header.title, Cartridge._memory.ram);            
+            localStorage.setItem(Cartridge._header.title, Cartridge._memory.ram);
             Cartridge._memory.ramIsDirty = false;
         }
 
