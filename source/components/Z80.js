@@ -79,7 +79,9 @@ Z80 = {
     stopAt: null,
 
     frame: function () {
-        let frameClock = Z80._clock.t + 70224;
+        let normalSpeed = 70224;
+        let mode = 1;
+        let frameClock = Z80._clock.t + (normalSpeed * mode);
 
         do {
             if (Z80._register.pc == Z80.stopAt && !MMU._biosEnabled) {
@@ -158,7 +160,7 @@ Z80 = {
         if (!!stopAt) Z80.stopAt = stopAt;
 
         if (!Z80._interval) {
-            Z80._interval = setInterval(Z80.frame, 1);
+            Z80._interval = setInterval(Z80.frame, 16);
         } else {
             traceLog.write("Z80", "$0x" + (Z80._register.pc).toString(16));
             clearInterval(Z80._interval);
