@@ -3,7 +3,21 @@ GPU = {
     _vram: [],
     _oam: [],
 
-    _colors: [
+    _bgColors: [
+        0xe0f8d0, // White
+        0x88c070, // Light Grey
+        0x346856, // Dark Grey
+        0x081820  // Black
+    ],
+
+    _obj0Colors: [
+        0xe0f8d0, // White
+        0x88c070, // Light Grey
+        0x346856, // Dark Grey
+        0x081820  // Black
+    ],
+
+    _obj1Colors: [
         0xe0f8d0, // White
         0x88c070, // Light Grey
         0x346856, // Dark Grey
@@ -319,10 +333,10 @@ GPU = {
         // Load color palette for background.
         let bgPalette = this.readByte(0xFF47);        
 
-        let color0 = this._colors[bgPalette&0x3];
-        let color1 = this._colors[(bgPalette>>2)&0x3];
-        let color2 = this._colors[(bgPalette>>4)&0x3];
-        let color3 = this._colors[(bgPalette>>6)&0x3];  
+        let color0 = this._bgColors[bgPalette&0x3];
+        let color1 = this._bgColors[(bgPalette>>2)&0x3];
+        let color2 = this._bgColors[(bgPalette>>4)&0x3];
+        let color3 = this._bgColors[(bgPalette>>6)&0x3];  
 
         // Calculate which scanline we're on.
         let yPos = 0;
@@ -387,10 +401,11 @@ GPU = {
                 
                 if (ly >= sprite.y && ly < (sprite.y+height)) {
                     // Load color palette for background.
-                    let color0 = this._colors[sprite.palette&0x3];
-                    let color1 = this._colors[(sprite.palette>>2)&0x3];
-                    let color2 = this._colors[(sprite.palette>>4)&0x3];
-                    let color3 = this._colors[(sprite.palette>>6)&0x3]; 
+                    let palette = sprite.paletteId == 0 ? this._obj0Colors : this._obj1Colors;
+                    let color0 = palette[sprite.palette&0x3];
+                    let color1 = palette[(sprite.palette>>2)&0x3];
+                    let color2 = palette[(sprite.palette>>4)&0x3];
+                    let color3 = palette[(sprite.palette>>6)&0x3]; 
 
                     let py = ly - sprite.y;
 
@@ -411,6 +426,7 @@ GPU = {
                         let pixelColor = 0;
 
                         if (color === 0) continue; // Skip pixel if it's transparent.
+                        if (sprite.priority == 1) continue;
 
                         switch (color) {
                             case 0: pixelColor = color0; break;
@@ -486,9 +502,20 @@ GPU = {
             x: spriteX,
             y: spriteY,
             xFlip: !!(attributes&0x20),
-            yFlip: !!(attributes&0x40),
+            yFlip: !!(attributes&0x40),            
             pixels: pixels,
-            palette: attributes&0x10 ? this.readByte(0xFF49) : this.readByte(0xFF48)
+            palette: attributes&0x10 ? this.readByte(0xFF49) : this.readByte(0xFF48),
+            paletteId: attributes&0x10,
+            priority: attributes&0x80
+        }
+    },
+
+    updatePalette: function () {
+        switch (Cartridge._header.checksum) {
+            case 0x3C: this.palette_3C(); break;
+            case 0x46: this.palette_46(); break;
+            case 0x61: this.palette_61(); break;
+            case 0x70: this.palette_70(); break;
         }
     },
 
@@ -524,10 +551,10 @@ GPU = {
         // Load color palette for background.
         let palette = this.readByte(0xFF47);        
 
-        let color0 = this._colors[palette&0x3];
-        let color1 = this._colors[(palette>>2)&0x3];
-        let color2 = this._colors[(palette>>4)&0x3];
-        let color3 = this._colors[(palette>>6)&0x3];        
+        let color0 = this._bgColors[palette&0x3];
+        let color1 = this._bgColors[(palette>>2)&0x3];
+        let color2 = this._bgColors[(palette>>4)&0x3];
+        let color3 = this._bgColors[(palette>>6)&0x3];        
 
         // Build map.
         for (let ty = 0; ty < 32; ty++) {
@@ -592,10 +619,10 @@ GPU = {
                 let spriteId = 10 * sY + sX;
                 let sprite = this.getSprite(spriteId, 8);
 
-                let color0 = this._colors[sprite.palette&0x3];
-                let color1 = this._colors[(sprite.palette>>2)&0x3];
-                let color2 = this._colors[(sprite.palette>>4)&0x3];
-                let color3 = this._colors[(sprite.palette>>6)&0x3]; 
+                let color0 = this._bgColors[sprite.palette&0x3];
+                let color1 = this._bgColors[(sprite.palette>>2)&0x3];
+                let color2 = this._bgColors[(sprite.palette>>4)&0x3];
+                let color3 = this._bgColors[(sprite.palette>>6)&0x3]; 
 
                 for (let y = 0; y < 8; y++) {
                     for (let x = 0; x < 8; x++){
@@ -635,10 +662,10 @@ GPU = {
     renderTileMap: function () {
         let palette = this.readByte(0xFF47);        
 
-        let color0 = this._colors[palette&0x3];
-        let color1 = this._colors[(palette>>2)&0x3];
-        let color2 = this._colors[(palette>>4)&0x3];
-        let color3 = this._colors[(palette>>6)&0x3]; 
+        let color0 = this._bgColors[palette&0x3];
+        let color1 = this._bgColors[(palette>>2)&0x3];
+        let color2 = this._bgColors[(palette>>4)&0x3];
+        let color3 = this._bgColors[(palette>>6)&0x3]; 
 
         this._tileMap = [];
 
@@ -688,5 +715,29 @@ GPU = {
         this._tileMapCanvas.putImageData(tileData, 0, 0);
     }
 };
+
+GPU.palette_3C = function () {
+    GPU._bgColors = [0xFFFFFF, 0x63A5FF, 0x0000FF, 0x000000];
+    GPU._obj0Colors = [0xFFFFFF, 0x63A5FF, 0x0000FF, 0x000000];
+    GPU._obj1Colors = [0xFFFFFF, 0xFF8484, 0x943A3A, 0x000000];
+}
+
+GPU.palette_46 = function () {
+    GPU._bgColors = [0xB5B5FF, 0xFFFF94, 0xAD5A42, 0x000000];
+    GPU._obj0Colors = [0x000000, 0xFFFFFF, 0xFF8484, 0x943A3A];
+    GPU._obj1Colors = [0x000000, 0xFFFFFF, 0xFF8484, 0x943A3A];
+}
+
+GPU.palette_61 = function () {
+    GPU._bgColors = [0xFFFFFF, 0x63A5FF, 0x0000FF, 0x000000];
+    GPU._obj0Colors = [0xFFFFFF, 0xFF8484, 0x943A3A, 0x000000];
+    GPU._obj1Colors = [0xFFFFFF, 0x63A5FF, 0x0000FF, 0x000000];
+}
+
+GPU.palette_70 = function () {
+    GPU._bgColors = [0xFFFFFF, 0xFF8484, 0x943A3A, 0x000000];
+    GPU._obj0Colors = [0xFFFFFF, 0x00FF00, 0x318400, 0x004A00];
+    GPU._obj1Colors = [0xFFFFFF, 0x63A5FF, 0x0000FF, 0x000000];
+}
 
 GPU.init();

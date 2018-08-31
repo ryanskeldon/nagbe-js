@@ -100,6 +100,7 @@ Z80 = {
                 break;
             }
         } while (Z80._clock.t < frameClock);
+		Z80._clock.t = 0;
 
         // Save RAM to storage if there's a battery in the cartridge.
         if (Cartridge._memory.hasBattery && Cartridge._memory.ramIsDirty) {

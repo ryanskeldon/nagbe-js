@@ -224,6 +224,7 @@ MMU = {
 
             if (address === 0xFF50 && byte === 1) {
                 MMU._biosEnabled = false;
+                GPU.updatePalette();
                 return;
             }
         }

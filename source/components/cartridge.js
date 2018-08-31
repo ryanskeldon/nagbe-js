@@ -53,10 +53,12 @@ Cartridge = {
 
         // Read ROM title.
         let romTitle = "";
+        this._header.checksum = 0
         for (let i = 0x134; i <= 0x142; i++){
+            this._header.checksum = (this._header.checksum + this._memory.rom[i])&255;
             if (this._memory.rom[i] === 0x00) continue;            
             romTitle += String.fromCharCode(this._memory.rom[i]);
-        }
+        }        
         this._header.title = romTitle;
         document.getElementById("romName").innerText = romTitle;
 
