@@ -1,27 +1,29 @@
+document.addEventListener("DOMContentLoaded", function() {
+    window.nagbe = new nagbe();
+
+    document.getElementById("romFileSelect").addEventListener("change", function (e) {
+        if (e.target.files.length === 0) return;
+    
+        window.nagbe.loadFile(this.files[0]);
+    });
+});
+
+
 document.getElementById("stepButton").addEventListener("click", function () {
-    Z80.step();
-    updateRegisterDisplay();
+    // Z80.step();
+    // updateRegisterDisplay();
 });
 
 document.getElementById("frameButton").addEventListener("click", function () {
-    Z80.frame();
-    updateRegisterDisplay();
+    // Z80.frame();
+    // updateRegisterDisplay();
 });
 
 document.getElementById("runButton").addEventListener("click", function () {
-    Z80.run();
+    // Z80.run();
 });
 
-document.getElementById("romFileSelect").addEventListener("change", function (e) {
-    if (e.target.files.length === 0) return;
 
-    let fileReader = new FileReader();
-    fileReader.onload = function () { 
-        Cartridge.load(new Uint8Array(this.result)); 
-    };    
-    localStorage.setItem("rom_name", this.files[0].name);
-    fileReader.readAsArrayBuffer(this.files[0]);    
-});
 
 function updateRegisterDisplay() {
     document.getElementById("af_register").value = ((Z80._register.a<<8)+Z80._register.f).toHex(4);

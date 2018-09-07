@@ -1,18 +1,125 @@
-MMU = {
+"use strict";
+
+class MMU {
+    constructor(system) {
+        this.system = system; // Reference to the emulator system.
+
+        this.wram = []; // Working RAM
+        this.zram = []; // Zero-page RAM
+
+        // Initialize RAM
+        for (var i = 0; i < 32768; i++) this.wram[i] = Math.floor(Math.random() * 256); // Reset Working RAM (32KB)
+        for (var i = 0; i < 128; i++) this.zram[i]  = Math.floor(Math.random() * 256);  // Reset Zero-page RAM (128B)
+
+        // Start on WRAM bank 1
+        this.wramBank = 1;
+
+        // Registers
+        this.register = {
+            if: 0, // $FF0F Interrupt Flag (R/W)
+            ie: 0, // $FFFF Interrupt Enable (R/W)
+    
+            // Color GB Only Registers
+            key1: 0, // $FF4D Prepare Speed Switch
+            tp: 0, // $FF56 Infrared Communications Port
+            svbk: 0 // $FF70 WRAM Bank
+        }        
+    }
+
+    readByte(address) {
+        if (address < 0x0000 || address > 0xFFFF)
+            throw `Segfault read @ $${address.toHex(4)}`;
+
+        // ROM Banks
+        if (address >= 0x0000 && address <= 0x7FFF)
+            return this.system.cartridge.readByte(address);
+
+        // VRAM
+        if (address >= 0x8000 && address <= 0x9FFF)
+            return this.system.gpu.readByte(address);
+
+        // External RAM
+        if (address >= 0xA000 && address <= 0xBFFF)
+            return this.system.cartridge.readByte(address);
+
+        // WRAM Bank 0
+        if (address >= 0xC000 && address <= 0xCFFF)
+            return this.wram[address - 0xC000];
+        
+        // WRAM Switchable Banks 1-7
+        if (address >= 0xD000 && address <= 0xDFFF)
+            return this.wram[(address-0xC000)+(this.wramBank * 0x1000)] = byte;
+
+        // WRAM Echo
+        if (address >= 0xE000 && address <= 0xFDFF)
+            throw `WRAM Echo region read error, not implemented`;
+            // return this.wram[address - 0xE000];
+
+        // Sprite Attribute Table (OAM)
+        if (address >= 0xFE00 && address <= 0xFE9F)
+            return this.system.gpu.readByte(address);
+
+        // I/O Ports
+        if (address >= 0xFF00 && address <= 0xFF7F) {
+            // Joypad
+            if (address == 0xFF00)
+                return this.system.joypad.readByte(address);
+
+            // Serial
+            if (address >= 0xFF01 && address <= 0xFF02)
+                return this.system.serial.readByte(address);
+
+            // Timer
+            if (address >= 0xFF04 && address <= 0xFF07)
+                return this.system.timer.readByte(address);
+
+            // Interrupt Flag
+            if (address === 0xFF0F)
+                return this.register.if|0xE0;
+
+            // Audio
+            if (address >= 0xFF10 && address <= 0xFF3F)
+                return this.system.apu.readByte(address);
+
+            // GPU
+            if (address >= 0xFF40 && address <= 0xFF4B)
+                return this.system.gpu.readByte(address);
+        }
+
+         // High RAM (stack)
+         if (address >= 0xFF80 && address <= 0xFFFE) { 
+            return this.zram[address - 0xFF80];
+        }
+
+        // Interrupt Enable Register
+        if (address === 0xFFFF) { 
+            return this.register.ie;
+        }
+
+        console.log(`Warning: Read attempt @ $${address.toHex(4)} / instr: $${this.system.cpu.instructionCode.toHex(2)}`);
+        return 0xFF;
+    }
+
+    readWord(address) {
+        // Read byte + next byte shifted by 1 byte.
+        return (this.readByte(address+1)<<8) + this.readByte(address);
+    }
+
+    writeByte(address, byte) {
+
+    }
+
+    writeWord(address, word) {
+        this.writeByte(address, word&255); // LSB
+        this.writeByte(address+1, word>>8); // MSB
+    }
+}
+
+var oldMMU = {
     // Memory regions.
-    _bios:  [], // Boot instructions
     _wram:  [], // Working RAM
     _zram:  [], // Zero-page RAM
 
-    // Registers
-    _ie: 0, // Interrupt Enable (R/W)
-    _if: 0, // Interrupt Flag (R/W)
-
-    _biosEnabled: true,
-    
-    // Memory Bank Controller    
-    _mbcType: 0,
-    _romBank: 1,
 
     init: function() {
         MMU.reset();
@@ -244,9 +351,6 @@ MMU = {
         console.log(`Warning: Write attempt @ $${address.toHex(4)} value: ${byte.toHex(2)}`);
     },
     writeWord: function (address, word) {
-        MMU.writeByte(address, word&255); // LSB
-        MMU.writeByte(address+1, word>>8); // MSB        
+    
     }
 };
-
-MMU.init();

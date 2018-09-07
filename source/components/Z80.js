@@ -246,30 +246,6 @@ Z80 = {
             Z80._register.l = MMU.readByte(Z80._register.pc++); Z80._register.t = 8; },
 
         // LD r1, r2
-        LD_A_A: function () { // 0x7F LD A, A
-            Z80._register.a = Z80._register.a; Z80._register.t = 4; },
-        LD_A_B: function () { // 0x78 LD A, B
-            Z80._register.a = Z80._register.b; Z80._register.t = 4; },
-        LD_A_C: function () { // 0x79 LD A, C
-            Z80._register.a = Z80._register.c; Z80._register.t = 4; },
-        LD_A_D: function () { // 0x7A LD A, D
-            Z80._register.a = Z80._register.d; Z80._register.t = 4; },
-        LD_A_E: function () { // 0x7B LD A, E
-            Z80._register.a = Z80._register.e; Z80._register.t = 4; },
-        LD_A_H: function () { // 0x7C LD A, H
-            Z80._register.a = Z80._register.h; Z80._register.t = 4; },
-        LD_A_L: function () { // 0x7D LD A, L
-            Z80._register.a = Z80._register.l; Z80._register.t = 4; },
-        LD_A_BCmem: function () { // 0x0A LD A, (BC)
-            Z80._register.a = MMU.readByte((Z80._register.b<<8)+Z80._register.c); Z80._register.t = 8; },
-        LD_A_DEmem: function () { // 0x1A LD A, (DE)
-            Z80._register.a = MMU.readByte((Z80._register.d<<8)+Z80._register.e); Z80._register.t = 8; },
-        LD_A_HLmem: function () { // 0x7E LD A, (HL)
-            Z80._register.a = MMU.readByte((Z80._register.h<<8)+Z80._register.l); Z80._register.t = 8; },
-        LD_A_d16mem: function () { // 0xFA LD A, (nn)
-            Z80._register.a = MMU.readByte(MMU.readWord(Z80._register.pc)); Z80._register.pc+=2; Z80._register.t = 16; },    
-        LD_A_d8: function () { // 0x3E LD A, n
-            Z80._register.a = MMU.readByte(Z80._register.pc++); Z80._register.t = 8; },
     
         LD_B_B: function () { // 0x40 LD B, B
             Z80._register.b = Z80._register.b; Z80._register.t = 4; },

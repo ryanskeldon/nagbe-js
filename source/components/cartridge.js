@@ -1,89 +1,59 @@
-Cartridge = {
-    _memory: {
-        rom: [],
-        ram: [],
-        hasBattery: false,
-        hasRam: false,
-        ramIsDirty: false,        
-        ramEnabled: false
-    },
-
-    _header: {
-        title:          null, // 0x0134 -> 0x0142
-        isColorGB:      null, // 0x0143 Note: Color GB = 0x80, anything else is not Color GB.
-        isSuperGameboy: null, // 0x0146 Note: GB = 0x00, SGB = 0x03
-        cartridgeType:  null, // 0x0147
-        romSize:        null, // 0x0148
-        ramSize:        null, // 0x0149
-    },
-    
-    _mbc: {
-        type: 0,
-        romBank: 1,
-        totalRomBanks: 1,
-        ramBank: 0,
-        totalRamBanks: 0,
-        mode: 0
-    },
-
-    _rtc: {
-        exists: false,
-        enabled: false,
-        latched: false,
-        seconds: 0,   // 0x08
-        minutes: 0,   // 0x09
-        hours: 0,     // 0x0A
-        days_low: 0,  // 0x0B
-        days_high: 0, // 0x0C
-    },
-
-    init: function () {
-        // Check if a ROM was previously loaded.
-        var file = localStorage.getItem('rom');
-
-        if (file) { // Transform stored data into number array.
-            file = file.split(",");
-            let rom = file.map(value => { return parseInt(value); });
-            this.load(rom);
-        }
-    },
-
-    load: function (file) {
-        this._memory.rom = file;
+class Cartridge {
+    /* Header 
+        $0134->$0142 Cartridge title.
+        $0143 Color GB flag. A value of 0x80 means GBC, anything else is not GBC.
+        $0144->$0145 New Licensee Code.
+        $0146 Super GB flag. A value of 0x03 means SGB, anything else is not SGB.
+        $0147 Cartridge type
+        $0148 ROM size
+        $0149 RAM size
+        $014A Destination Code
+        $014B Old Licensee Code
+        $014C Mask ROM Version Number
+        $014D Header Checksum
+        $014E->$014F Global Checksum
+    */
+    constructor(rom) {
+        // Save raw ROM bytes.
+        this.rom = rom;        
 
         // Read ROM title.
-        let romTitle = "";
-        this._header.checksum = 0
+        this.title = "";
         for (let i = 0x134; i <= 0x142; i++){
-            this._header.checksum = (this._header.checksum + this._memory.rom[i])&255;
-            if (this._memory.rom[i] === 0x00) continue;            
-            romTitle += String.fromCharCode(this._memory.rom[i]);
+            if (this.rom[i] === 0x00) continue;            
+            this.title += String.fromCharCode(this.rom[i]);
         }        
-        this._header.title = romTitle;
-        document.getElementById("romName").innerText = romTitle;
 
-        // Read cartridge type.
-        this._header.cartridgeType = this._memory.rom[0x0147];
-        switch (this._header.cartridgeType) {
-            case 0x00: this._mbc.type = 0; break; // ROM Only
-            case 0x01: this._mbc.type = 1; break;
-            case 0x02: this._mbc.type = 1; this._memory.hasRam = true; break;
-            case 0x03: this._mbc.type = 1; this._memory.hasRam = true; this._memory.hasBattery = true; break;
-            // case 0x05: this._mbc.type = 2; break;
-            // case 0x06: this._mbc.type = 2; this._memory.hasBattery = true; break;
+        // Read Color GB flag.
+        this.colorGameboyFlag = this.rom[0x0143] == 0x80;
+
+        // Read Super GB flag.
+        this.superGameboyFlag = this.rom[0x0146] == 0x03;
+
+        // Read cartridge type, determine memory bank controller and other cartridge properties.
+        this.cartridgeType = this.rom[0x0147];
+        this.hasRam = false;
+        this.hasBattery = false;
+        switch (this.cartridgeType) {
+            case 0x00: this.mbc = null; break;
+            case 0x01: this.mbc = new MBC1(this); break;
+            case 0x02: this.mbc = new MBC1(this); this.hasRam = true; break;
+            case 0x03: this.mbc = new MBC1(this); this.hasRam = true; this.hasBattery = true; break;
+            // case 0x05: this.mbc = new MBC2(this); break;
+            // case 0x06: this.mbc = new MBC2(this); this.hasBattery = true; break;
             // case 0x08: break;
-            // case 0x09: this._memory.hasBattery = true; break;
-            // case 0x0B: break;
-            // case 0x0C: break;            
-            // case 0x0D: this._memory.hasBattery = true; break;
-            case 0x0F: this._mbc.type = 3; this._memory.hasBattery = true; break;            
-            case 0x10: this._mbc.type = 3; this._memory.hasBattery = true; break;
-            case 0x11: this._mbc.type = 3; break;
-            case 0x12: this._mbc.type = 3; break;
-            case 0x13: this._mbc.type = 3; this._memory.hasRam = true; this._rtc.exists = true; this._memory.hasBattery = true; break;
+            // case 0x09: this.hasBattery = true; break;
+            // case 0x0B: break; // MMM01
+            // case 0x0C: break; // MMM01+RAM
+            // case 0x0D: break; // MMM01+RAM+BATTERY
+            // case 0x0F: this.mbc = new MBC3(this); this.hasBattery = true; break;
+            // case 0x10: this.mbc = new MBC3(this); this.hasBattery = true; break;
+            // case 0x11: this.mbc = new MBC3(this); break;
+            // case 0x12: this.mbc = new MBC3(this); this.hasRam = true; break;
+            // case 0x13: this.mbc = new MBC3(this); this.hasRam = true; this.rtcExists = true; this.hasBattery = true; break;
             // case 0x19: this._mbc.type = 5; break;
             // case 0x1A: this._mbc.type = 5; break;
-            // case 0x1B: this._mbc.type = 5; this._memory.hasBattery = true; break;
+            case 0x1B: this.mbc = new MBC5(this); this.hasRam = true; this.hasBattery = true; break;
             // case 0x1C: this._mbc.type = 5; break;
             // case 0x1D: this._mbc.type = 5; break;
             // case 0x1E: this._mbc.type = 5; this._memory.hasBattery = true; break;
@@ -92,245 +62,86 @@ Cartridge = {
             // case 0xFC: break;
             // case 0xFD: break;
             // case 0xFE: break;
-            // case 0xFF: this._memory.hasBattery = true; break;            
+            // case 0xFF: this._memory.hasBattery = true; break; 
             default:
-                throw `Cartridge: Unsupported cartridge type: ${this._header.cartridgeType.toHex(2)}`;
+                throw `Cartridge: Unsupported cartridge type: ${this.cartridgeType.toHex(2)}`;
         }
 
-        // Read ColorGB value.
-        this._header.isColorGB = this._memory.rom[0x0143] == 0x80;
-
-        // Read SuperGameboy value.        
-        this._header.isSuperGameboy = this._memory.rom[0x0146] == 0x03;
-
         // Read ROM size.
-        this._header.romSize = this._memory.rom[0x0148];
+        this.romSize = this.rom[0x0148];
 
-        switch (this._header.romSize) {
-            case 0x00: this._mbc.totalRomBanks = 1; break;
-            case 0x01: this._mbc.totalRomBanks = 4; break;
-            case 0x02: this._mbc.totalRomBanks = 8; break;
-            case 0x03: this._mbc.totalRomBanks = 16; break;
-            case 0x04: this._mbc.totalRomBanks = 32; break;
-            case 0x05: this._mbc.totalRomBanks = 64; break;
-            case 0x06: this._mbc.totalRomBanks = 128; break;
-            case 0x07: this._mbc.totalRomBanks = 256; break;
-            case 0x08: this._mbc.totalRomBanks = 512; break;
-            case 0x52: this._mbc.totalRomBanks = 72; break;
-            case 0x53: this._mbc.totalRomBanks = 80; break;
-            case 0x54: this._mbc.totalRomBanks = 96; break;
+        // Determine total ROM banks.
+        switch (this.romSize) {
+            case 0x00: this.totalRomBanks = 1; break;
+            case 0x01: this.totalRomBanks = 4; break;
+            case 0x02: this.totalRomBanks = 8; break;
+            case 0x03: this.totalRomBanks = 16; break;
+            case 0x04: this.totalRomBanks = 32; break;
+            case 0x05: this.totalRomBanks = 64; break;
+            case 0x06: this.totalRomBanks = 128; break;
+            case 0x07: this.totalRomBanks = 256; break;
+            case 0x08: this.totalRomBanks = 512; break;
+            case 0x52: this.totalRomBanks = 72; break;
+            case 0x53: this.totalRomBanks = 80; break;
+            case 0x54: this.totalRomBanks = 96; break;
         }
 
         // Read RAM size.
-        this._header.ramSize = this._memory.rom[0x0149];
+        this.ramSize = this.rom[0x0149];
 
         // Initialize RAM space.
-        let ramSize = 0;
-        switch (this._header.ramSize) {
-            case 0x00: ramSize = 0; this._mbc.totalRamBanks = 0; break;
-            case 0x01: ramSize = 2048; this._mbc.totalRamBanks = 1; break;
-            case 0x02: ramSize = 8192; this._mbc.totalRamBanks = 1; break;
-            case 0x03: ramSize = 32768; this._mbc.totalRamBanks = 4; break;
-            case 0x04: ramSize = 131072; this._mbc.totalRamBanks = 16; break;
-            case 0x05: ramSize = 65536; this._mbc.totalRamBanks = 8; break;
+        let totalRam = 0;
+        switch (this.ramSize) {
+            case 0x00: totalRam = 0; this.totalRamBanks = 0; break;
+            case 0x01: totalRam = 2048; this.totalRamBanks = 1; break;
+            case 0x02: totalRam = 8192; this.totalRamBanks = 1; break;
+            case 0x03: totalRam = 32768; this.totalRamBanks = 4; break;
+            case 0x04: totalRam = 131072; this.totalRamBanks = 16; break;
+            case 0x05: totalRam = 65536; this.totalRamBanks = 8; break;
         }
 
-        if (ramSize > 0) {
-            for (let i = 0; i < ramSize; i++) {
-                this._memory.ram[i] = Math.floor(Math.random() * 256);
+        if (totalRam > 0) {
+            this.ram = [];
+            for (let i = 0; i < totalRam; i++) {
+                this.ram[i] = Math.floor(Math.random() * 256);
+            }
+        }
+
+        // Load "battery-backed" RAM for storage.
+        if (this.hasBattery) {
+            let ram = localStorage.getItem(`RAM-${this.title}-${this.globalChecksum}`);
+
+            if (ram) {
+                console.log(`Cartridge RAM found in local storage.`);
+                ram = ram.split(",");
+                this.ram = ram.map(value => { return parseInt(value); });
             }
         }
         
-        // Save ROM data to local storage.
-        localStorage.setItem("rom", file);
+        // Read header checksum.
+        this.headerChecksum = this.rom[0x014D];
 
-        // Load "battery-backed" RAM for storage.
-        if (this._memory.hasBattery) {
-            let ram = localStorage.getItem(this._header.title); // TODO: Use header checksum instead of title.
+        // Read global checksum.
+        this.globalChecksum = this.rom[0x014E] + this.rom[0x014F];
 
-            if (ram) {
-                console.log(`Cart: ram found`);
-                ram = ram.split(",");
-                this._memory.ram = ram.map(value => { return parseInt(value); });
-            }
+        console.log(this);
+    }
+
+    readByte(address) {
+        if (this.mbc == null) { // ROM Only
+            if (address >= 0x0000 && address <= 0x7FFF) 
+                return this.rom[address];
+
+            throw `Cartridge: Unsupported read at $${address.toHex(4)}.`;
         }
 
-        // Dump header info.
-        console.log(this._header);
-    },
+        return this.mbc.readByte(address);
+    }
 
-    readByte: function (address) {        
-        // Redirect reads to MBC.
-        switch (this._mbc.type) {
-            case 0:
-                // ROM Only
-                if (address >= 0x0000 && address <= 0x7FFF) return this._memory.rom[address];                
-                throw `Cartridge: Unsupported read at $${address.toHex(4)}.`;
-            case 1: return this.MBC1_readByte(address);
-            case 3: return this.MBC3_readByte(address);
-            default:
-                throw `Cartridge: Unsupported MBC type: ${this._mbc.type.toHex(2)}`;
-        }        
-    },
+    writeByte(address, byte) {
+        if (this.mbc == null)
+            if (address >= 0x0000 && address <= 0x7FFF) return; // ROM only
 
-    writeByte: function (address, byte) {
-        // Redirect writes to MBC.
-        switch (this._mbc.type) {
-            case 0: 
-                if (address >= 0x0000 && address <= 0x7FFF) return; // ROM only
-            case 1: this.MBC1_writeByte(address, byte); return;
-            case 3: this.MBC3_writeByte(address, byte); return;
-            default:
-                throw `Cartridge: Unsupported MBC type: ${this._mbc.type.toHex(2)}`;
-        }
-    },
-
-    // Memory Bank Controller Type 1
-    MBC1_readByte: function (address) {
-        // ROM Bank 0
-        if (address >= 0x0000 && address <= 0x3FFF) {
-            return this._memory.rom[address];
-        }
-
-        // ROM Bank 1 (Memory Bank Controlled)
-        if (address >= 0x4000 && address <= 0x7FFF) {
-            let offset = 0x4000 * this._mbc.romBank;
-            return this._memory.rom[(address-0x4000)+offset];
-        }
-
-        // RAM
-        if (address >= 0xA000 && address <= 0xBFFF) {            
-            let offset = 0x2000 * this._mbc.ramBank;
-            return this._memory.ram[(address-0xA000)+offset];
-        }
-    },
-    MBC1_writeByte: function (address, byte) {
-        // RAM Enable
-        if (address >= 0x0000 && address <= 0x1FFF) {
-            this._memory.ramEnabled = byte === 0x0A;
-            return;
-        }
-
-        // ROM Banking
-        if (address >= 0x2000 && address <= 0x3FFF) {
-            let romBank = byte & 0x1F; // Mask for lower 5 bits.
-            this._mbc.romBank &= 0xE0; // Turn off lower 5 bits.
-            this._mbc.romBank |= romBank; // Set lower 5 bits.
-            if (this._mbc.romBank === 0) this._mbc.romBank++;            
-
-            if (this._mbc.romBank > this._mbc.totalRomBanks)
-                throw `Invalid ROM bank selected: ${this._mbc.romBank}`;
-            return;
-        }
-
-        // RAM Banking
-        if (address >= 0x4000 && address <= 0x5FFF) {
-            if (this._mbc.mode === 0) { // ROM Banking
-                let romBank = (byte<<6);
-                this._mbc.romBank = romBank + (this._mbc.romBank&0x1F);
-            } else if (this._mbc.mode === 1) { // RAM Banking
-                this._mbc.ramBank = byte & 0x03;
-            }
-            return;
-        }
-
-        // ROM/RAM Mode Select
-        if (address >= 0x6000 && address <= 0x7FFF) {
-            this._mbc.mode = byte & 0x01;
-            return;
-        }
-
-        if (address >= 0xA000 && address <= 0xBFFF) {
-            if (!this._memory.ramEnabled) return; // RAM disabled.
-
-            // Mark for persistance at the end of the next frame.
-            if (this._memory.hasBattery) this._memory.ramIsDirty = true;
-
-            if (this._mbc.mode === 0) { // ROM mode, only write to bank 0x00 of RAM.
-                this._memory.ram[address-0xA000] = byte;
-                return;    
-            }
-
-            let offset = this._memory.ramBank * 0x2000;
-            this._memory.ram[(address-0xA000)+offset] = byte;
-
-            return;
-        }
-    },
-
-    // Memory Bank Controller Type 3
-    MBC3_readByte: function (address) {
-            // ROM Bank 0
-            if (address >= 0x0000 && address <= 0x3FFF) {
-                return this._memory.rom[address];
-            }
-    
-            // ROM Bank 1 (Memory Bank Controlled)
-            if (address >= 0x4000 && address <= 0x7FFF) {
-                let offset = 0x4000 * this._mbc.romBank;
-                return this._memory.rom[(address-0x4000)+offset];
-            }
-    
-            // RAM
-            if (address >= 0xA000 && address <= 0xBFFF) {
-                let offset = 0x2000 * this._mbc.ramBank;
-                return this._memory.ram[(address-0xA000)+offset];
-            }
-    },
-    MBC3_writeByte: function (address, byte) {  
-            // RAM & RTC Enable
-            if (address >= 0x0000 && address <= 0x1FFF) {
-                this._memory.ramEnabled = byte === 0x0A;
-                this._rtc.enabled = byte === 0x0A;
-                return;
-            }
-    
-            // ROM Banking
-            if (address >= 0x2000 && address <= 0x3FFF) {
-                let romBank = byte & 0x7F; // Mask for lower 7 bits.
-                this._mbc.romBank &= 0x80; // Turn off lower 7 bits.
-                this._mbc.romBank |= romBank; // Set lower 7 bits.
-                if (this._mbc.romBank === 0) this._mbc.romBank++;            
-    
-                if (this._mbc.romBank > this._mbc.totalRomBanks)
-                    throw `Invalid ROM bank selected: ${this._mbc.romBank}`;
-                return;
-            }
-    
-            // RAM Banking
-            if (address >= 0x4000 && address <= 0x5FFF) {
-                // if (this._mbc.mode === 0) { // ROM Banking
-                //     let romBank = (byte<<6);
-                //     this._mbc.romBank = romBank + (this._mbc.romBank&0x1F);
-                // } else if (this._mbc.mode === 1) { // RAM Banking
-                // }
-                if (byte < 4) this._mbc.ramBank = byte;
-                return;
-            }
-    
-            // ROM/RAM Mode Select
-            if (address >= 0x6000 && address <= 0x7FFF) {
-                this._mbc.mode = byte & 0x01;
-                return;
-            }
-    
-            if (address >= 0xA000 && address <= 0xBFFF) {
-                if (!this._memory.ramEnabled) return; // RAM disabled.
-    
-                // Mark for persistance at the end of the next frame.
-                if (this._memory.hasBattery) this._memory.ramIsDirty = true;
-    
-                if (this._mbc.mode === 0) { // ROM mode, only write to bank 0x00 of RAM.
-                    this._memory.ram[address-0xA000] = byte;
-                    return;    
-                }
-    
-                let offset = this._memory.ramBank * 0x2000;
-                this._memory.ram[(address-0xA000)+offset] = byte;
-    
-                return;
-            }     
+        this.mbc.writeByte(address, byte);
     }
 }
-
-Cartridge.init();
