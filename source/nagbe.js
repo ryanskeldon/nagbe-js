@@ -3,6 +3,8 @@ class nagbe {
         this.clockSpeed = 4194304; // Hz, double speed for GBC mode.
         this.clockMultiplier = 1; // Default to 1x multiplier for DMG clock speed.
 
+        this.runSpeed = 16;
+
         // Load any previously saved ROMs.
         let rom = localStorage.getItem(`ROM`);
 
@@ -30,6 +32,11 @@ class nagbe {
         // Initialize components.
         this.cpu = new LR35902(this);
         this.mmu = new MMU(this);
+        this.gpu = new GPU(this);
+        this.serial = new Serial(this);
+        this.apu = new APU(this);
+        this.timer = new Timer(this);
+        this.joypad = new Joypad(this);
 
         // Set starting register values.
         if (this.cartridge.colorGameboyFlag) 
@@ -48,7 +55,7 @@ class nagbe {
         this.cpu.register.sp = 0xFFFE;
 
         if (!this.frameInterval) {
-            this.frameInterval = setInterval(() => { this.frame(); }, 1);
+            this.frameInterval = setInterval(() => { this.frame(); }, this.runSpeed);
         } else {
             //traceLog.write("Z80", "$0x" + (Z80._register.pc).toString(16));
             clearInterval(this.frameInterval);
@@ -67,14 +74,15 @@ class nagbe {
 
         do {
             try {
-                // Step emulator
-                this.step();
+                this.checkInterrupts();
+                this.cpu.step();
             } catch (error) {
                 console.log(error);
                 this.stop();
-                break;
+                throw error;
             }
         } while (this.cpuClock < frameClockLimit);
+        console.log("frame");
 
         // Frame complete, reset CPU clock.
         this.cpuClock = 0;
@@ -86,8 +94,53 @@ class nagbe {
         }
     }
 
-    step() {
-        this.cpu.step();
+    consumeClockCycles(cycles) {        
+        this.cpuClock += cycles;
+        
+        this.gpu.step(cycles);
+        this.timer.tick(cycles);
+    }
+
+    requestInterrupt(id) {
+        this.mmu.writeByte(0xFF0F, this.mmu.readByte(0xFF0F)|(1<<id));
+    }
+
+    checkInterrupts() {
+        // Check if interrupts are enabled.
+        if (!this.cpu.ime) return;
+
+        if (!this.mmu.readByte(0xFFFF)) return; // Check if anything is allowed to interrupt.
+        let interrupts = this.mmu.readByte(0xFF0F); // Get active interrupt flags.
+        if (!interrupts) return; // Leave if nothing to handle.
+
+        for (let i = 0; i < 5; i++) {
+            // Check if the IE flag is set for the given interrupt.
+            if (interrupts&(1<<i) && this.mmu.readByte(0xFFFF)&(1<<i)) {
+                this.handleInterrupt(i);
+            }
+        }
+    }
+
+    handleInterrupt(interrupt) {
+        this.cpu.ime = false; // Disable interrupt handling.
+        this.cpu.halt = false;
+
+        this.cpu.register.sp -= 2; // Push program counter to stack.
+        this.mmu.writeWord(this.cpu.register.sp, this.cpu.register.pc);
+
+        let interrupts = this.mmu.readByte(0xFF0F);
+        interrupts &= ~(1<<interrupt); // Reset interrupt flag.
+        this.mmu.writeByte(0xFF0F, interrupts);
+        
+        switch (interrupt) {
+            case 0: this.cpu.register.pc = 0x40; break; // V-blank
+            case 1: this.cpu.register.pc = 0x48; break; // LCD
+            case 2: this.cpu.register.pc = 0x50; break; // Timer
+            case 3: this.cpu.register.pc = 0x58; break; // Serial
+            case 4: this.cpu.register.pc = 0x60; break; // Joypad
+        }
+
+        this.consumeClockCycles(20);
     }
 
     // _buttons: [

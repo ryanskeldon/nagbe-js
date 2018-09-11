@@ -1,34 +1,41 @@
-Joypad = {
-    _register: {
-        _p1: 0 // 0xFF00 (r/w)        
-    },
-    
-    _keys: 0xFF,
+"use strict";
 
-    readByte: function (address) {
+class Joypad {
+    constructor(system) {
+        this.system = system;
+
+        this.register = {
+            p1: 0 // $FF00 P1
+        }
+
+        this.keys = 0xFF;
+    }
+
+    readByte(address) {
         switch (address) {
             case 0xFF00:                
-                if (Joypad._register._p1 == 0x10)
-                    return (Joypad._keys>>4)&0xF;
-                if (Joypad._register._p1 == 0x20)
-                    return Joypad._keys&0x0F;
+                if (this.register.p1 == 0x10)
+                    return (this.keys>>4)&0xF;
+                if (this.register.p1 == 0x20)
+                    return this.keys&0x0F;
                 default:
                     return 0;
         }
-    },
-    writeByte: function (address, byte) {
+    }
+
+    writeByte(address, byte) {
         switch (address) {
             case 0xFF00:
-                Joypad._register._p1 = byte & 0x30;
+                this.register.p1 = byte&0x30;
         }
-    },
+    }
 
-    button_press: function (id) {
-        Joypad._keys &= ~(1<<id);
-        Z80.requestInterrupt(4);
-    },
+    buttonPressed(id) {
+        this.keys &= ~(1<<id);
+        this.system.requestInterrupt(4);        
+    }
 
-    button_release: function (id) {
-        Joypad._keys |= (1<<id);
-    },
-};
+    buttonReleased(id) {
+        this.keys |= (1<<id);
+    }
+}

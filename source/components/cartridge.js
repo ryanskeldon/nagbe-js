@@ -128,20 +128,38 @@ class Cartridge {
     }
 
     readByte(address) {
-        if (this.mbc == null) { // ROM Only
-            if (address >= 0x0000 && address <= 0x7FFF) 
-                return this.rom[address];
-
-            throw `Cartridge: Unsupported read at $${address.toHex(4)}.`;
+        // ROM
+        if (address >= 0x0000 && address <= 0x7FFF) {
+            if (this.mbc === null) return this.rom[address];
+            
+            return this.mbc.readByte(address, byte);
         }
 
-        return this.mbc.readByte(address);
+        // RAM
+        if (address >= 0xA000 && address <= 0xBFFF) {
+            if (!this.hasRam) return 0xFF;
+
+            return this.mbc.readByte(address, byte);
+        }
+
+        throw `Cartridge: Unsupported read at $${address.toHex(4)}.`;
     }
 
     writeByte(address, byte) {
-        if (this.mbc == null)
-            if (address >= 0x0000 && address <= 0x7FFF) return; // ROM only
+        // ROM
+        if (address >= 0x0000 && address <= 0x7FFF) {
+            if (this.mbc === null) return; // ROM is read-only
+            
+            this.mbc.writeByte(address, byte);
+            return;
+        }
 
-        this.mbc.writeByte(address, byte);
+        // RAM
+        if (address >= 0xA000 && address <= 0xBFFF) {
+            if (!this.hasRam) return; // No RAM to write to.
+
+            this.mbc.writeByte(address, byte);
+            return;
+        }
     }
 }

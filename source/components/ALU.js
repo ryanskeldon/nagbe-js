@@ -43,27 +43,6 @@ ALU = {
         Z80._register.a = result&255;
         Z80._register.t = time;
     },
-    OR_n: function (input, time) {
-        Z80._register.a |= input;
-        Z80._register.a &= 255;
-        if (!Z80._register.a) Z80.setZ(); else Z80.clearZ();
-        Z80.clearN(); Z80.clearH(); Z80.clearC();
-        Z80._register.t = time;
-    },
-    XOR_n: function (input, time) {         
-        Z80._register.a ^= input;
-        Z80._register.a &= 255;
-        if (!Z80._register.a) Z80.setZ(); else Z80.clearZ();
-        Z80.clearN(); Z80.clearH(); Z80.clearC();
-        Z80._register.t = time;
-    },
-    AND_n: function (input, time) {
-        Z80._register.a &= input;
-        Z80._register.a &= 255;
-        if (!Z80._register.a) Z80.setZ(); else Z80.clearZ();
-        Z80.clearN(); Z80.setH(); Z80.clearC();
-        Z80._register.t = time;
-    },
     CALL_cc_nn: function (condition, trueTime, falseTime) {
         let address = MMU.readWord(Z80._register.pc);
         Z80._register.pc+=2;

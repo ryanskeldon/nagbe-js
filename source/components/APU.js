@@ -1,7 +1,9 @@
 "use strict";
 
-class apu {
-    constructor() {
+class APU {
+    constructor(system) {
+        this.system = system;
+
         // FF30 - FF3F Wave pattern RAM, 32 4-bit samples
         this.waveRam = []; 
         
@@ -43,9 +45,8 @@ class apu {
     }
     
     readByte(address) {
-        if (address >= 0xFF30 && address <= 0xFF3F) {
-            return this.waveRam[address - 0xFF30];
-        }
+        if (address >= 0xFF30 && address <= 0xFF3F)
+            return this.waveRam[address-0xFF30];
 
         switch (address) {
             case 0xFF10: return this.register.nr10;
@@ -74,7 +75,7 @@ class apu {
 
     writeByte(address, byte) {
         if (address >= 0xFF30 && address <= 0xFF3F) {
-            this.waveRam[address - 0xFF30] = byte;
+            this.waveRam[address-0xFF30] = byte;
             return;
         }
 
