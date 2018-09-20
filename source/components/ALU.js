@@ -1,14 +1,4 @@
 ALU = {
-    ADD_A_n: function (input, time) {
-        let a = Z80._register.a;                                                        
-        Z80._register.a += input;
-        if (Z80._register.a > 255) Z80.setC(); else Z80.clearC();
-        Z80._register.a &= 255;                               
-        Z80.clearN();                          
-        if (Z80._register.a==0) Z80.setZ(); else Z80.clearZ();
-        if (((a&0xf)+(input& 0xf)) > 0xf) Z80.setH(); else Z80.clearH();
-        Z80._register.t = time;                                                            
-    },
     ADC_A_n: function (input, time) {
         let a = Z80._register.a;
         let carry = Z80._register.f & Z80._flags.carry ? 1 : 0;

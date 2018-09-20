@@ -10,8 +10,8 @@ document.addEventListener("DOMContentLoaded", function() {
 
 
 document.getElementById("stepButton").addEventListener("click", function () {
-    // Z80.step();
-    // updateRegisterDisplay();
+    window.nagbe.step();
+    updateRegisterDisplay();
 });
 
 document.getElementById("frameButton").addEventListener("click", function () {
@@ -20,19 +20,21 @@ document.getElementById("frameButton").addEventListener("click", function () {
 });
 
 document.getElementById("runButton").addEventListener("click", function () {
-    // Z80.run();
+    window.nagbe.start();
 });
 
 
 
 function updateRegisterDisplay() {
-    document.getElementById("af_register").value = ((Z80._register.a<<8)+Z80._register.f).toHex(4);
-    document.getElementById("bc_register").value = ((Z80._register.b<<8)+Z80._register.c).toHex(4);
-    document.getElementById("de_register").value = ((Z80._register.d<<8)+Z80._register.e).toHex(4);
-    document.getElementById("hl_register").value = ((Z80._register.h<<8)+Z80._register.l).toHex(4);
-    document.getElementById("pc_register").value = (Z80._register.pc).toHex(4);
-    document.getElementById("sp_register").value = (Z80._register.sp).toHex(4);
-    document.getElementById("div_register").value = (Timer._register.div).toHex(4);
+    const cpu = window.nagbe.cpu;
+    
+    document.getElementById("af_register").value = ((cpu.register.a<<8)+cpu.register.f).toHex(4);
+    document.getElementById("bc_register").value = ((cpu.register.b<<8)+cpu.register.c).toHex(4);
+    document.getElementById("de_register").value = ((cpu.register.d<<8)+cpu.register.e).toHex(4);
+    document.getElementById("hl_register").value = ((cpu.register.h<<8)+cpu.register.l).toHex(4);
+    document.getElementById("pc_register").value = (cpu.register.pc).toHex(4);
+    document.getElementById("sp_register").value = (cpu.register.sp).toHex(4);
+    // document.getElementById("div_register").value = (Timer._register.div).toHex(4);
 }
 
 Object.prototype.toHex = function (size) {    

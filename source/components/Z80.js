@@ -138,81 +138,7 @@ Z80 = {
     _ops: {
     
 
-        LD_C_B: function () { // 0x48 LD C, B
-            Z80._register.c = Z80._register.b; Z80._register.t = 4; },
-        LD_C_C: function () { // 0x49 LD C, C
-            Z80._register.c = Z80._register.c; Z80._register.t = 4; },
-        LD_C_D: function () { // 0x4A LD C, D
-            Z80._register.c = Z80._register.d; Z80._register.t = 4; },
-        LD_C_E: function () { // 0x4B LD C, E
-            Z80._register.c = Z80._register.e; Z80._register.t = 4; },
-        LD_C_H: function () { // 0x4C LD C, H
-            Z80._register.c = Z80._register.h; Z80._register.t = 4; },
-        LD_C_L: function () { // 0x4D LD C, L
-            Z80._register.c = Z80._register.l; Z80._register.t = 4; },
-        LD_C_HLmem: function () { // 0x4E LD C, (HL)
-            Z80._register.c = MMU.readByte((Z80._register.h<<8)+Z80._register.l); Z80._register.t = 8; },
-
-        LD_D_B: function () { // 0x50 LD D, B
-            Z80._register.d = Z80._register.b; Z80._register.t = 4; },
-        LD_D_C: function () { // 0x51 LD D, C
-            Z80._register.d = Z80._register.c; Z80._register.t = 4; },
-        LD_D_D: function () { // 0x52 LD D, D
-            Z80._register.d = Z80._register.d; Z80._register.t = 4; },
-        LD_D_E: function () { // 0x53 LD D, E
-            Z80._register.d = Z80._register.e; Z80._register.t = 4; },
-        LD_D_H: function () { // 0x54 LD D, H
-            Z80._register.d = Z80._register.h; Z80._register.t = 4; },
-        LD_D_L: function () { // 0x55 LD D, L
-            Z80._register.d = Z80._register.l; Z80._register.t = 4; },
-        LD_D_HLmem: function () { // 0x56 LD D, (HL)
-            Z80._register.d = MMU.readByte((Z80._register.h<<8)+Z80._register.l); Z80._register.t = 8; },
-
-        LD_E_B: function () { // 0x58 LD E, B
-            Z80._register.e = Z80._register.b; Z80._register.t = 4; },
-        LD_E_C: function () { // 0x59 LD E, C
-            Z80._register.e = Z80._register.c; Z80._register.t = 4; },
-        LD_E_D: function () { // 0x5A LD E, D
-            Z80._register.e = Z80._register.d; Z80._register.t = 4; },
-        LD_E_E: function () { // 0x5B LD E, E
-            Z80._register.e = Z80._register.e; Z80._register.t = 4; },
-        LD_E_H: function () { // 0x5C LD E, H
-            Z80._register.e = Z80._register.h; Z80._register.t = 4; },
-        LD_E_L: function () { // 0x5E LD E, L
-            Z80._register.e = Z80._register.l; Z80._register.t = 4; },
-        LD_E_HLmem: function () { // 0x5E LD E, (HL)
-            Z80._register.e = MMU.readByte((Z80._register.h<<8)+Z80._register.l); Z80._register.t = 8; },
-
-        LD_H_B: function () { // 0x60 LD H, B
-            Z80._register.h = Z80._register.b; Z80._register.t = 4; },
-        LD_H_C: function () { // 0x61 LD H, C
-            Z80._register.h = Z80._register.c; Z80._register.t = 4; },
-        LD_H_D: function () { // 0x62 LD H, D
-            Z80._register.h = Z80._register.d; Z80._register.t = 4; },
-        LD_H_E: function () { // 0x63 LD H, E
-            Z80._register.h = Z80._register.e; Z80._register.t = 4; },
-        LD_H_H: function () { // 0x64 LD H, H
-            Z80._register.h = Z80._register.h; Z80._register.t = 4; },
-        LD_H_L: function () { // 0x65 LD H, L
-            Z80._register.h = Z80._register.l; Z80._register.t = 4; },
-        LD_H_HLmem: function () { // 0x66 LD H, (HL)
-            Z80._register.h = MMU.readByte((Z80._register.h<<8)+Z80._register.l); Z80._register.t = 8; },
-
-        LD_L_B: function () { // 0x68 LD L, B
-            Z80._register.l = Z80._register.b; Z80._register.t = 4; },
-        LD_L_C: function () { // 0x69 LD L, C
-            Z80._register.l = Z80._register.c; Z80._register.t = 4; },
-        LD_L_D: function () { // 0x6A LD L, D
-            Z80._register.l = Z80._register.d; Z80._register.t = 4; },
-        LD_L_E: function () { // 0x6B LD L, E
-            Z80._register.l = Z80._register.e; Z80._register.t = 4; },
-        LD_L_H: function () { // 0x6C LD L, H
-            Z80._register.l = Z80._register.h; Z80._register.t = 4; },
-        LD_L_L: function () { // 0x6D LD L, L
-            Z80._register.l = Z80._register.l; Z80._register.t = 4; },
-        LD_L_HLmem: function () { // 0x6E LD L, (HL)
-            Z80._register.l = MMU.readByte((Z80._register.h<<8)+Z80._register.l); Z80._register.t = 8; },
-
+      
         LD_HLmem_B: function () { // 0x70 LD (HL), B
             MMU.writeByte((Z80._register.h<<8)+Z80._register.l, Z80._register.b); Z80._register.t = 8; },
         LD_HLmem_C: function () { // 0x71 LD (HL), C
@@ -269,40 +195,6 @@ Z80 = {
         },
         LD_d16mem_SP: function () { // 0x08 LD (nn), SP
             let address = MMU.readWord(Z80._register.pc); Z80._register.pc+=2; MMU.writeWord(address, Z80._register.sp); Z80._register.t = 20; },
-        PUSH_AF: function () { // 0xF5 PUSH AF
-            Z80._register.sp-=2; Z80._register.sp &= 0xFFFF; MMU.writeWord(Z80._register.sp, (Z80._register.a<<8)+Z80._register.f); Z80._register.t = 16; },    
-        PUSH_BC: function () { // 0xC5 PUSH BC
-            Z80._register.sp-=2; Z80._register.sp &= 0xFFFF; MMU.writeWord(Z80._register.sp, (Z80._register.b<<8)+Z80._register.c); Z80._register.t = 16; },
-        PUSH_DE: function () { // 0xD5 PUSH DE
-            Z80._register.sp-=2; Z80._register.sp &= 0xFFFF; MMU.writeWord(Z80._register.sp, (Z80._register.d<<8)+Z80._register.e); Z80._register.t = 16; },        
-        PUSH_HL: function () { // 0xE5 PUSH HL
-            Z80._register.sp-=2; Z80._register.sp &= 0xFFFF; MMU.writeWord(Z80._register.sp, (Z80._register.h<<8)+Z80._register.l); Z80._register.t = 16; },
-        POP_AF: function () { // 0xF1 POP AF
-            Z80._register.f = MMU.readByte(Z80._register.sp++)&0xF0; Z80._register.a = MMU.readByte(Z80._register.sp++); Z80._register.t = 12; },
-        POP_BC: function () { // 0xC1 POP BC
-            Z80._register.c = MMU.readByte(Z80._register.sp++); Z80._register.b = MMU.readByte(Z80._register.sp++); Z80._register.t = 12; },
-        POP_DE: function () { // 0xD1 POP DE
-            Z80._register.e = MMU.readByte(Z80._register.sp++); Z80._register.d = MMU.readByte(Z80._register.sp++); Z80._register.t = 12; },
-        POP_HL: function () { // 0xE1 POP HL
-            Z80._register.l = MMU.readByte(Z80._register.sp++); Z80._register.h = MMU.readByte(Z80._register.sp++); Z80._register.t = 12; },
-        ADD_A_A: function () { // 0x87
-            ALU.ADD_A_n(Z80._register.a, 4); },
-        ADD_A_B: function () { // 0x80
-            ALU.ADD_A_n(Z80._register.b, 4); },
-        ADD_A_C: function () { // 0x81
-            ALU.ADD_A_n(Z80._register.c, 4); },
-        ADD_A_D: function () { // 0x82
-            ALU.ADD_A_n(Z80._register.d, 4); },
-        ADD_A_E: function () { // 0x83
-            ALU.ADD_A_n(Z80._register.e, 4); },
-        ADD_A_H: function () { // 0x84
-            ALU.ADD_A_n(Z80._register.h, 4); },
-        ADD_A_L: function () { // 0x85
-            ALU.ADD_A_n(Z80._register.l, 4); },
-        ADD_A_HLmem: function () { // 0x86
-            ALU.ADD_A_n(MMU.readByte((Z80._register.h<<8)+Z80._register.l), 8); },
-        ADD_A_d8: function () { // 0xC6
-            ALU.ADD_A_n(MMU.readByte(Z80._register.pc++), 8); },
 
         ADC_A_A: function () { // 0x8F ADC A, A
             ALU.ADC_A_n(Z80._register.a, 4); },
@@ -372,56 +264,12 @@ Z80 = {
             ALU.CALL_cc_nn((Z80._register.f&Z80._flags.carry) == 0, 24, 12); },
         CALL_C_nn: function () { // 0xDC
             ALU.CALL_cc_nn(Z80._register.f&Z80._flags.carry, 24, 12); },                    
-            
-        XOR_A: function () { // 0xAF            
-            ALU.XOR_n(Z80._register.a, 4); },
-        XOR_B: function () { // 0xA8            
-            ALU.XOR_n(Z80._register.b, 4); },
-        XOR_C: function () { // 0xA9            
-            ALU.XOR_n(Z80._register.c, 4); },
-        XOR_D: function () { // 0xAA            
-            ALU.XOR_n(Z80._register.d, 4); },
-        XOR_E: function () { // 0xAB            
-            ALU.XOR_n(Z80._register.e, 4); },
-        XOR_H: function () { // 0xAC            
-            ALU.XOR_n(Z80._register.h, 4); },
-        XOR_L: function () { // 0xAD            
-            ALU.XOR_n(Z80._register.l, 4); },
-        XOR_HLmem: function () { // 0xAE            
-            ALU.XOR_n(MMU.readByte((Z80._register.h<<8)+Z80._register.l), 8); },
-        XOR_d8: function () { // 0xEE
-            ALU.XOR_n(MMU.readByte(Z80._register.pc++), 8); },
+     
     
         JP_HLmem: function () { // 0xE9
             Z80._register.pc = (Z80._register.h<<8)+Z80._register.l; Z80._register.t = 4; },
 
 
-        RET_NZ: function () { // 0xC0
-            Z80._ops.RET_cc(!(Z80._register.f&Z80._flags.zero), 20, 8); },
-        RET_Z: function () { // 0xC8
-            Z80._ops.RET_cc(Z80._register.f&Z80._flags.zero, 20, 8); },
-        RET_NC: function () { // 0xD0
-            Z80._ops.RET_cc(!(Z80._register.f&Z80._flags.carry), 20, 8); },
-        RET_C: function () { // 0xD8
-            Z80._ops.RET_cc(Z80._register.f&Z80._flags.carry, 20, 8); },
-                        
-        RET_cc: function (condition, trueTime, falseTime) {
-            if (condition) {                
-                Z80._register.pc = MMU.readWord(Z80._register.sp); Z80._register.sp+=2;
-                Z80._register.t = trueTime;
-            } else {
-                Z80._register.t = falseTime;
-            }
-        },
-
-        ADD_HL_BC: function () { // 0x09
-            ALU.ADD_HL_n((Z80._register.b<<8)+Z80._register.c); },
-        ADD_HL_DE: function () { // 0x19
-            ALU.ADD_HL_n((Z80._register.d<<8)+Z80._register.e); },
-        ADD_HL_HL: function () { // 0x29
-            ALU.ADD_HL_n((Z80._register.h<<8)+Z80._register.l); },
-        ADD_HL_SP: function () { // 0x39
-            ALU.ADD_HL_n(Z80._register.sp); },
 
         ADD_SP_n: function () { // 0xE8
             let n = MMU.readByte(Z80._register.pc++);
@@ -476,16 +324,6 @@ Z80 = {
         },
       
 
-        INC_BC: function () { // 0x03 INC BC
-            Z80._register.c = (Z80._register.c+1)&255; if (Z80._register.c == 0) Z80._register.b = (Z80._register.b+1)&255; Z80._register.t = 8; },
-        INC_DE: function () { // 0x13 INC DE
-            Z80._register.e = (Z80._register.e+1)&255; if (Z80._register.e == 0) Z80._register.d = (Z80._register.d+1)&255; Z80._register.t = 8; },
-        INC_HL: function () { // 0x23 INC HL
-            Z80._register.l = (Z80._register.l+1)&255; if (Z80._register.l == 0) Z80._register.h = (Z80._register.h+1)&255; Z80._register.t = 8; },
-        INC_SP: function () { // 0x33 INC SP
-            Z80._register.sp = (Z80._register.sp+1)&0xFFFF; Z80._register.t = 8; },
-
-        
         // Rotations 
         RLCA: function () { // 0x07
             Z80.clearN(); Z80.clearH(); Z80.clearZ();
@@ -529,14 +367,6 @@ Z80 = {
             Z80._halted = true; Z80._register.t = 4; },
         STOP: function () { // 0x10
             Z80._stopped = true; Z80._register.pc++; Z80._register.t = 4; },
-
-        RETI: function () { // 0xD9
-            let address = MMU.readWord(Z80._register.sp);
-            Z80._register.sp+=2;
-            Z80._register.pc = address;
-            Z80._register.ime = true;
-            Z80._register.t = 16;
-        },
 
         // RLC n
         RLC_A: function () { // CB 0x07

@@ -4,7 +4,6 @@ class LR35902 {
     constructor(system) {
         this.system = system; // Reference to the emulator system.        
 
-        // Create registers.
         this.register = {
             // 8-bit registers
             a: 0, f: 0, b: 0, c: 0, d: 0, e: 0, h: 0, l: 0,
@@ -32,7 +31,7 @@ class LR35902 {
         } else {
             let programCounter = this.register.pc++;
             this.instructionCode = this.system.mmu.readByte(programCounter);
-            //console.log(`PC: $${programCounter.toHex(4)} / INS: 0x${this.instructionCode.toHex(2)}`);
+            console.log(`PC: $${programCounter.toHex(4)} / INS: 0x${this.instructionCode.toHex(2)}`);
             let instruction = this.decodeInstruction(this.instructionCode);
             instruction();
         }
@@ -53,6 +52,10 @@ class LR35902 {
             //*****************************************************************
             // Main Instructions
             //*****************************************************************
+            case 0x87: case 0x80: case 0x81: case 0x82: case 0x83: case 0x84: case 0x85: case 0x86: case 0xC6: 
+                return () => { this.ADD() };
+            case 0x09: case 0x19: case 0x29: case 0x39: 
+                return () => { this.ADD_HL_n() };
             case 0xA7: case 0xA0: case 0xA1: case 0xA2: case 0xA3: case 0xA4: case 0xA5: case 0xA6: case 0xE6: 
                 return () => { this.AND() };
             case 0xCD:
@@ -73,14 +76,28 @@ class LR35902 {
                 return () => { this.EI() };
             case 0x3C: case 0x04: case 0x0C: case 0x14: case 0x1C: case 0x24: case 0x2C: case 0x34: 
                 return () => { this.INC() };
+            case 0x03: case 0x13: case 0x23: case 0x33: 
+                return () => { this.INC_nn() };
             case 0xC3:
                 return () => { this.JP_nn() };
+            case 0xE9:
+                return () => { this.JP_HLmem() };
             case 0x20: case 0x28: case 0x30: case 0x38: 
                 return () => { this.JR_cc_n() };
             case 0x7F: case 0x78: case 0x79: case 0x7A: case 0x7B: case 0x7C: case 0x7D: case 0x0A: case 0x1A: case 0x7E: case 0x3E: case 0xFA:            
                 return () => { this.LD_A_n() };
             case 0x40: case 0x41: case 0x42: case 0x43: case 0x44: case 0x45: case 0x46:
                 return () => { this.LD_B_n() };
+            case 0x48: case 0x49: case 0x4A: case 0x4B: case 0x4C: case 0x4D: case 0x4E:
+                return () => { this.LD_C_n() };
+            case 0x50: case 0x51: case 0x52: case 0x53: case 0x54: case 0x55: case 0x56:
+                return () => { this.LD_D_n() };
+            case 0x58: case 0x59: case 0x5A: case 0x5B: case 0x5C: case 0x5D: case 0x5E:
+                return () => { this.LD_E_n() };
+            case 0x60: case 0x61: case 0x62: case 0x63: case 0x64: case 0x65: case 0x66:
+                return () => { this.LD_H_n() };
+            case 0x68: case 0x69: case 0x6A: case 0x6B: case 0x6C: case 0x6D: case 0x6E:
+                return () => { this.LD_L_n() };
             case 0x70: case 0x71: case 0x72: case 0x73: case 0x74: case 0x75: case 0x36:
                 return () => { this.LD_HLmem_n() };
             case 0x7F: case 0x47: case 0x4F: case 0x57: case 0x5F: case 0x67: case 0x6F: case 0x02: case 0x12: case 0x77: case 0xEA: 
@@ -107,8 +124,16 @@ class LR35902 {
                 return () => { this.NOP() };
             case 0xB7: case 0xB0: case 0xB1: case 0xB2: case 0xB3: case 0xB4: case 0xB5: case 0xB6: case 0xF6: 
                 return () => { this.OR() };
+            case 0xF1: case 0xC1: case 0xD1: case 0xE1: 
+                return () => { this.POP() };
+            case 0xF5: case 0xC5: case 0xD5: case 0xE5: 
+                return () => { this.PUSH() };
             case 0xC9:
                 return () => { this.RET() };
+            case 0xC0: case 0xC8: case 0xD0: case 0xD8: 
+                return () => { this.RET_cc() };
+            case 0xD9:
+                return () => { this.RETI() };
             case 0xC7: case 0xCF: case 0xD7: case 0xDF: case 0xE7: case 0xEF: case 0xF7: case 0xFF: 
                 return () => { this.RST() };
             case 0xAF: case 0xA8: case 0xA9: case 0xAA: case 0xAB: case 0xAC: case 0xAD: case 0xAE: case 0xEE:
@@ -141,10 +166,72 @@ class LR35902 {
     getBC() { return (this.register.b<<8)+this.register.c; }
     getDE() { return (this.register.d<<8)+this.register.e; }
     getHL() { return (this.register.h<<8)+this.register.l; }
+    setAF(value) { this.register.a = (value>>8)&0xFF; this.register.f = value&0xFF; }
+    setBC(value) { this.register.b = (value>>8)&0xFF; this.register.c = value&0xFF; }
+    setDE(value) { this.register.d = (value>>8)&0xFF; this.register.e = value&0xFF; }
+    setHL(value) { this.register.h = (value>>8)&0xFF; this.register.l = value&0xFF; }
 
     //*************************************************************************
     // Main Instructions
     //*************************************************************************
+    ADD() {
+        let value = null;
+        let cycles = null;
+
+        switch (this.instructionCode) {
+            case 0x87: // ADD A, A
+                value = this.register.a; cycles = 4; break;
+            case 0x80: // ADD A, B
+                value = this.register.b; cycles = 4; break;
+            case 0x81: // ADD A, C
+                value = this.register.c; cycles = 4; break;
+            case 0x82: // ADD A, D
+                value = this.register.d; cycles = 4; break;
+            case 0x83: // ADD A, E
+                value = this.register.e; cycles = 4; break;
+            case 0x84: // ADD A, H
+                value = this.register.h; cycles = 4; break;
+            case 0x85: // ADD A, L
+                value = this.register.l; cycles = 4; break;
+            case 0x86: // ADD A, (HL)
+                value = this.system.readByte(this.getHL()); cycles = 8; break;
+            case 0xC6: // ADD A, #
+                value = this.system.readByte(this.register.pc++); cycles = 8; break;
+        }
+
+        let a = this.register.a;
+        this.register.a += value;
+        if (this.register.a > 255) this.setC(); else this.clearC();
+        this.register.a &= 0xFF;
+        this.clearN();
+        if (this.register.a === 0) this.setZ(); else this.clearZ();
+        if (((a&0xF)+(value&0xF))>0xF) this.setH(); else this.clearH();
+        this.system.consumeClockCycles(cycles);
+    }
+
+    ADD_HL_n() {
+        let value = null;
+
+        switch (this.instructionCode) {
+            case 0x09: // ADD HL, BC
+                value = this.getBC(); break;
+            case 0x19: // ADD HL, DE
+                value = this.getDE(); break;
+            case 0x29: // ADD HL, HL
+                value = this.getHL(); break;
+            case 0x39: // ADD HL, SP
+                value = this.register.sp; break;
+        }
+
+        let hl = this.getHL();
+        this.clearN();
+        if (((hl&0xFFF)+(value&0xFFF))&0x1000) this.setH(); else this.clearH();
+        if (hl+value>0xFFFF) this.setC(); else this.clearC();
+        hl += value;
+        this.setHL(hl);
+        this.system.consumeClockCycles(8);
+    }
+
     AND() {
         let value = null;
         let cycles = null;
@@ -328,9 +415,29 @@ class LR35902 {
         this.system.consumeClockCycles(cycles);
     }
 
+    INC_nn() {
+        switch (this.instructionCode) {
+            case 0x03: // INC BC
+                this.register.c = (this.register.c+1)&0xFF; if (this.register.c === 0) this.register.b = (this.register.b+1)&0xFF; break;
+            case 0x13: // INC DE
+                this.register.e = (this.register.e+1)&0xFF; if (this.register.e === 0) this.register.d = (this.register.d+1)&0xFF; break;
+            case 0x23: // INC HL
+                this.register.l = (this.register.l+1)&0xFF; if (this.register.l === 0) this.register.h = (this.register.h+1)&0xFF; break;
+            case 0x33: // INC SP
+                this.register.sp = (this.register.sp+1)&0xFFFF; break;
+        }
+
+        this.system.consumeClockCycles(8);
+    }
+
     JP_nn() {
         this.register.pc = this.system.mmu.readWord(this.register.pc);
         this.system.consumeClockCycles(16);
+    }
+
+    JP_HLmem() {
+        this.register.pc = this.getHL();
+        this.system.consumeClockCycles(4);
     }
 
     JR_cc_n() { // If the following condition is true then add n to current address and jump to it.
@@ -414,6 +521,131 @@ class LR35902 {
         }
 
         this.register.b = value;
+        this.system.consumeClockCycles(cycles);
+    }
+
+    LD_C_n() {
+        let value = null;
+        let cycles = null;
+
+        switch(this.instructionCode) {
+            case 0x48: // LD C, B
+                value = this.register.b; cycles = 4; break;
+            case 0x49: // LD C, C
+                value = this.register.c; cycles = 4; break;
+            case 0x4A: // LD C, D
+                value = this.register.d; cycles = 4; break;
+            case 0x4B: // LD C, E
+                value = this.register.e; cycles = 4; break;
+            case 0x4C: // LD C, H
+                value = this.register.h; cycles = 4; break;
+            case 0x4D: // LD C, L
+                value = this.register.l; cycles = 4; break;
+            case 0x4E: // LD C, (HL)
+                value = this.system.mmu.readByte(this.getHL()); cycles = 8; break;
+        }
+
+        this.register.c = value;
+        this.system.consumeClockCycles(cycles);
+    }
+
+    LD_D_n() {
+        let value = null;
+        let cycles = null;
+
+        switch(this.instructionCode) {
+            case 0x50: // LD D, B
+                value = this.register.b; cycles = 4; break;
+            case 0x51: // LD D, C
+                value = this.register.c; cycles = 4; break;
+            case 0x52: // LD D, D
+                value = this.register.d; cycles = 4; break;
+            case 0x53: // LD D, E
+                value = this.register.e; cycles = 4; break;
+            case 0x54: // LD D, H
+                value = this.register.h; cycles = 4; break;
+            case 0x55: // LD D, L
+                value = this.register.l; cycles = 4; break;
+            case 0x56: // LD D, (HL)
+                value = this.system.mmu.readByte(this.getHL()); cycles = 8; break;
+        }
+
+        this.register.d = value;
+        this.system.consumeClockCycles(cycles);
+    }
+
+    LD_E_n() {
+        let value = null;
+        let cycles = null;
+
+        switch(this.instructionCode) {
+            case 0x58: // LD E, B
+                value = this.register.b; cycles = 4; break;
+            case 0x59: // LD E, C
+                value = this.register.c; cycles = 4; break;
+            case 0x5A: // LD E, D
+                value = this.register.d; cycles = 4; break;
+            case 0x5B: // LD E, E
+                value = this.register.e; cycles = 4; break;
+            case 0x5C: // LD E, H
+                value = this.register.h; cycles = 4; break;
+            case 0x5D: // LD E, L
+                value = this.register.l; cycles = 4; break;
+            case 0x5E: // LD E, (HL)
+                value = this.system.mmu.readByte(this.getHL()); cycles = 8; break;
+        }
+
+        this.register.e = value;
+        this.system.consumeClockCycles(cycles);
+    }
+
+    LD_H_n() {
+        let value = null;
+        let cycles = null;
+
+        switch(this.instructionCode) {
+            case 0x60: // LD H, B
+                value = this.register.b; cycles = 4; break;
+            case 0x61: // LD H, C
+                value = this.register.c; cycles = 4; break;
+            case 0x62: // LD H, D
+                value = this.register.d; cycles = 4; break;
+            case 0x63: // LD H, E
+                value = this.register.e; cycles = 4; break;
+            case 0x64: // LD H, H
+                value = this.register.h; cycles = 4; break;
+            case 0x65: // LD H, L
+                value = this.register.l; cycles = 4; break;
+            case 0x66: // LD H, (HL)
+                value = this.system.mmu.readByte(this.getHL()); cycles = 8; break;
+        }
+
+        this.register.h = value;
+        this.system.consumeClockCycles(cycles);
+    }
+
+    LD_L_n() {
+        let value = null;
+        let cycles = null;
+
+        switch(this.instructionCode) {
+            case 0x68: // LD L, B
+                value = this.register.b; cycles = 4; break;
+            case 0x69: // LD L, C
+                value = this.register.c; cycles = 4; break;
+            case 0x6A: // LD L, D
+                value = this.register.d; cycles = 4; break;
+            case 0x6B: // LD L, E
+                value = this.register.e; cycles = 4; break;
+            case 0x6C: // LD L, H
+                value = this.register.h; cycles = 4; break;
+            case 0x6D: // LD L, L
+                value = this.register.l; cycles = 4; break;
+            case 0x6E: // LD L, (HL)
+                value = this.system.mmu.readByte(this.getHL()); cycles = 8; break;
+        }
+
+        this.register.l = value;
         this.system.consumeClockCycles(cycles);
     }
 
@@ -584,6 +816,24 @@ class LR35902 {
         this.system.consumeClockCycles(cycles);
     }
 
+    POP() {
+        let word = this.system.mmu.readWord(this.register.sp);
+        this.register.sp+=2;
+
+        switch (this.instructionCode) {
+            case 0xF1: // POP AF
+                this.setAF(word); break;
+            case 0xC1: // POP BC
+                this.setBC(word); break;
+            case 0xD1: // POP DE
+                this.setDE(word); break;
+            case 0xE1: // POP HL
+                this.setHL(word); break;
+        }
+
+        this.system.consumeClockCycles(12);
+    }
+
     PUSH() {
         let value = null;
 
@@ -609,6 +859,37 @@ class LR35902 {
         this.system.consumeClockCycles(16);
     }
 
+    RET_cc() {
+        let condition = null;
+
+        switch (this.instructionCode) {
+            case 0xC0: // RET NZ
+                condition = !(this.register.f&0x80); break;
+            case 0xC8: // RET Z
+                condition = this.register.f&0x80; break;
+            case 0xD0: // RET NC
+                condition = !(this.register.f&0x10); break;
+            case 0xD8: // RET C
+                condition = this.register.f&0x10; break;
+        }
+
+        if (condition) {
+            this.register.pc = this.system.mmu.readWord(this.register.sp);
+            this.register.sp+=2;
+            this.system.consumeClockCycles(20);
+        } else {
+            this.system.consumeClockCycles(8);
+        }
+    }
+
+    RETI() {
+        let address = this.system.mmu.readWord(this.register.sp);
+        this.register.sp+=2;
+        this.register.pc = address;
+        this.ime = true;
+        this.system.consumeClockCycles(16);
+    }
+
     RST() { // Push present address onto stack. Jump to address $0000 + n.
         let offset = null;
 
@@ -620,7 +901,7 @@ class LR35902 {
             case 0xE7: offset = 0x20; break;
             case 0xEF: offset = 0x28; break;
             case 0xF7: offset = 0x30; break;
-            case 0xFF: offset = 0x38; break;
+            case 0xFF: offset = 0x38; throw `Reset 38 Hit. Stopping execution.`; break;
         }
 
         this.register.sp-=2;

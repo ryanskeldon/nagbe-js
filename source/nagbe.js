@@ -3,7 +3,7 @@ class nagbe {
         this.clockSpeed = 4194304; // Hz, double speed for GBC mode.
         this.clockMultiplier = 1; // Default to 1x multiplier for DMG clock speed.
 
-        this.runSpeed = 16;
+        this.frameIntervalDelay = 16; // 1/60s = ~16ms
 
         // Load any previously saved ROMs.
         let rom = localStorage.getItem(`ROM`);
@@ -23,7 +23,7 @@ class nagbe {
         fileReader.readAsArrayBuffer(file);
     }
 
-    start() {
+    start(runToInstruction) {
         if (!this.cartridge) {
             console.error(`No cartridge loaded!`);
             return;
@@ -39,25 +39,25 @@ class nagbe {
         this.joypad = new Joypad(this);
 
         // Set starting register values.
-        if (this.cartridge.colorGameboyFlag) 
-            this.cpu.register.a = 0x11;
-        else
-            this.cpu.register.a = 0x01;
-
-        this.cpu.register.f = 0xB0;
-        this.cpu.register.b = 0x00;
-        this.cpu.register.c = 0x13;
-        this.cpu.register.d = 0x00;
-        this.cpu.register.e = 0xD8;
-        this.cpu.register.h = 0x01;
-        this.cpu.register.l = 0x4D;
-        this.cpu.register.pc = 0x100;
-        this.cpu.register.sp = 0xFFFE;
+        if (this.cartridge.colorGameboyFlag) {
+            this.cpu.setAF(0x1180);
+            this.cpu.setBC(0x0000);
+            this.cpu.setDE(0xFF56);
+            this.cpu.setHL(0x000D);
+        }
+        else {
+            this.cpu.setAF(0x01B0);
+            this.cpu.setBC(0x0013);
+            this.cpu.setDE(0x00D8);
+            this.cpu.setHL(0x014D);
+        }           
+        
+        this.cpu.register.pc = 0x0100;
+        this.cpu.register.sp = 0xFFFE;        
 
         if (!this.frameInterval) {
-            this.frameInterval = setInterval(() => { this.frame(); }, this.runSpeed);
-        } else {
-            //traceLog.write("Z80", "$0x" + (Z80._register.pc).toString(16));
+            this.frameInterval = setInterval(() => { this.frame(runToInstruction); }, this.frameIntervalDelay);
+        } else {            
             clearInterval(this.frameInterval);
             this.frameInterval = null;
         }
@@ -68,21 +68,30 @@ class nagbe {
         this.frameInterval = null;
     }
 
-    frame() {
+    resume(runToInstruction) {
+        if (!this.frameInterval)
+            this.frameInterval = setInterval(() => { this.frame(runToInstruction); }, this.frameIntervalDelay);
+    }
+
+    frame(runToInstruction) {
         let baseFrameCycleLimit = 70224;
         let frameClockLimit = this.cpuClock + (baseFrameCycleLimit * this.clockMultiplier);
 
         do {
+            if (runToInstruction && this.cpu.register.pc === runToInstruction) {
+                this.stop();
+                console.log(`DEBUG: Stop address reached: ${runToInstruction.toHex(4)}`);
+                break;
+            }
+
             try {
-                this.checkInterrupts();
-                this.cpu.step();
+                this.step();
             } catch (error) {
                 console.log(error);
                 this.stop();
                 throw error;
             }
         } while (this.cpuClock < frameClockLimit);
-        console.log("frame");
 
         // Frame complete, reset CPU clock.
         this.cpuClock = 0;
@@ -92,6 +101,11 @@ class nagbe {
             // TODO: Save RAM to local storage.
             this.cartridge.ramIsDirty = false;
         }
+    }
+
+    step() {
+        this.checkInterrupts();
+        this.cpu.step();
     }
 
     consumeClockCycles(cycles) {        
@@ -142,29 +156,4 @@ class nagbe {
 
         this.consumeClockCycles(20);
     }
-
-    // _buttons: [
-    //     "l", // Right
-    //     "j", // Left
-    //     "i", // Up
-    //     "k", // Down
-    //     "f", // A
-    //     "d", // B
-    //     "e", // Select
-    //     "r", // Start
-    // ],
-
-    // init: function () {
-    //     document.getElementById("screen").addEventListener("keydown", function (event) {
-    //         if (nagbe._buttons.includes(event.key)) {
-    //             Joypad.button_press(nagbe._buttons.indexOf(event.key));
-    //         }
-    //     }, false);
-
-    //     document.getElementById("screen").addEventListener("keyup", function (event) {
-    //         if (nagbe._buttons.includes(event.key)) {
-    //             Joypad.button_release(nagbe._buttons.indexOf(event.key));
-    //         }
-    //     }, false);
-    // },    
 }
