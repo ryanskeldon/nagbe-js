@@ -1,28 +1,4 @@
 ALU = {
-    ADC_A_n: function (input, time) {
-        let a = Z80._register.a;
-        let carry = Z80._register.f & Z80._flags.carry ? 1 : 0;
-        let result = a + input + carry;
-
-        Z80.clearN();
-        if (result > 255) Z80.setC(); else Z80.clearC();
-        result &= 255;        
-        if (result===0) Z80.setZ(); else Z80.clearZ();
-
-        if ((a ^ input ^ result)&0x10) Z80.setH(); else Z80.clearH();
-        Z80._register.a = result;
-        Z80._register.t = time;
-    },
-    SUB_n: function (input, time) {
-        let a = Z80._register.a;
-        Z80._register.a -= input;
-        Z80.setN();        
-        if (Z80._register.a < 0) Z80.setC(); else Z80.clearC();
-        Z80._register.a &= 255;
-        if (!Z80._register.a) Z80.setZ(); else Z80.clearZ();
-        if ((Z80._register.a ^ input ^ a) & 0x10) Z80.setH(); else Z80.clearH();
-        Z80._register.t = time;
-    },
     SBC_A_n: function (input, time) {
         let a = Z80._register.a;        
         let result = a - input - (Z80._register.f & Z80._flags.carry ? 1 : 0);
@@ -32,19 +8,6 @@ ALU = {
         if (((a ^ input ^ result) & 0x10) != 0) Z80.setH(); else Z80.clearH();
         Z80._register.a = result&255;
         Z80._register.t = time;
-    },
-    CALL_cc_nn: function (condition, trueTime, falseTime) {
-        let address = MMU.readWord(Z80._register.pc);
-        Z80._register.pc+=2;
-
-        if (condition) {
-            Z80._register.sp-=2;
-            MMU.writeWord(Z80._register.sp, Z80._register.pc);
-            Z80._register.pc = address;
-            Z80._register.t = trueTime;
-        } else {
-            Z80._register.t = falseTime;
-        }
     },
     JR_cc_n: function (condition, trueTime, falseTime) {
         let move = MMU.readByte(Z80._register.pc++);
