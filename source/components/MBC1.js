@@ -10,16 +10,15 @@ class MBC1 {
             return this.cartridge.rom[address];
         }
 
-        // ROM Bank 1 (Memory Bank Controlled)
+        // ROM Bank 1+ (Memory Bank Controlled)
         if (address >= 0x4000 && address <= 0x7FFF) {
-            let offset = 0x4000 * this.romBank;
-            return this.cartridge.rom[(address-0x4000)+offset];
+            return this.cartridge.rom[(address-0x4000)+(0x4000*this.romBank)];
         }
 
         // RAM
-        if (address >= 0xA000 && address <= 0xBFFF) {            
-            let offset = 0x2000 * this.ramBank;
-            return this.cartridge.ram[(address-0xA000)+offset];
+        if (address >= 0xA000 && address <= 0xBFFF) {
+            if (!this.cartridge.hasRam) throw `Cartridge doesn't have RAM`;
+            return this.cartridge.ram[(address-0xA000)+(0x2000*this.ramBank)];
         }
     }
 

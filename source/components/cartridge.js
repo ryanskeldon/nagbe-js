@@ -37,9 +37,9 @@ class Cartridge {
         this.hasBattery = false;
         switch (this.cartridgeType) {
             case 0x00: break;
-            // case 0x01: this.mbc = new MBC1(this); break;
-            // case 0x02: this.mbc = new MBC1(this); this.hasRam = true; break;
-            // case 0x03: this.mbc = new MBC1(this); this.hasRam = true; this.hasBattery = true; break;
+            case 0x01: this.mbc = new MBC1(this); break;
+            case 0x02: this.mbc = new MBC1(this); this.hasRam = true; break;
+            case 0x03: this.mbc = new MBC1(this); this.hasRam = true; this.hasBattery = true; break;
             // case 0x05: this.mbc = new MBC2(this); break;
             // case 0x06: this.mbc = new MBC2(this); this.hasBattery = true; break;
             // case 0x08: break;
@@ -133,7 +133,7 @@ class Cartridge {
         if (address >= 0x0000 && address <= 0x7FFF) {
             if (this.mbc === null) return this.rom[address];
             
-            return this.mbc.readByte(address, byte);
+            return this.mbc.readByte(address);
         }
 
         // RAM

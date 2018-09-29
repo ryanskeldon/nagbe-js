@@ -166,99 +166,12 @@ Z80 = {
 
 
 
-        // Rotations 
-        RLA: function () { // 0x17
-            let a = Z80._register.a;
-            let carryOut = Z80._register.a&0x80?1:0;
-            let carryIn = Z80._register.f & Z80._flags.carry ? 1 : 0; 
-            Z80._register.a = ((a<<1)+carryIn)&255;
-            if (carryOut) Z80.setC(); else Z80.clearC();
-            Z80.clearZ(); Z80.clearN(); Z80.clearH();
-            Z80._register.t = 4;
-        },
-        RRCA: function () { // 0x0F
-            Z80.clearN(); Z80.clearH(); Z80.clearZ();
-            let carryOut = Z80._register.a&0x01?1:0;
-            if (carryOut) Z80.setC(); else Z80.clearC();
-            Z80._register.a = ((Z80._register.a>>1)+(carryOut<<7))&255;
-            Z80._register.t = 4;
-        },
+     
         RRA: function () { // 0x1F
-            let carryIn = Z80._register.f & Z80._flags.carry ? 1 : 0;
-            let carryOut = Z80._register.a & 0x01 ? 1 : 0;
-            Z80._register.a = ((Z80._register.a>>1)+(carryIn<<7))&255;
-            if (carryOut) Z80.setC(); else Z80.clearC();
-            Z80.clearZ(); Z80.clearN(); Z80.clearH();
-            Z80._register.t = 4;
+
         },
 
-        // RLC n
-        RLC_A: function () { // CB 0x07
-            Z80.clearN(); Z80.clearH();
-            let carryOut = Z80._register.a&0x80?1:0;
-            if (carryOut) Z80.setC(); else Z80.clearC();
-            Z80._register.a = ((Z80._register.a<<1)+carryOut)&255;
-            if (!Z80._register.a) Z80.setZ(); else Z80.clearZ();
-            Z80._register.t = 8;
-        },
-        RLC_B: function () { // CB 0x00
-            Z80.clearN(); Z80.clearH();
-            let carryOut = Z80._register.b&0x80?1:0;
-            if (carryOut) Z80.setC(); else Z80.clearC();
-            Z80._register.b = ((Z80._register.b<<1)+carryOut)&255;
-            if (!Z80._register.b) Z80.setZ(); else Z80.clearZ();
-            Z80._register.t = 8;
-        },
-        RLC_C: function () { // CB 0x01
-            Z80.clearN(); Z80.clearH();
-            let carryOut = Z80._register.c&0x80?1:0;
-            if (carryOut) Z80.setC(); else Z80.clearC();
-            Z80._register.c = ((Z80._register.c<<1)+carryOut)&255;
-            if (!Z80._register.c) Z80.setZ(); else Z80.clearZ();
-            Z80._register.t = 8;
-        },
-        RLC_D: function () { // CB 0x02
-            Z80.clearN(); Z80.clearH();
-            let carryOut = Z80._register.d&0x80?1:0;
-            if (carryOut) Z80.setC(); else Z80.clearC();
-            Z80._register.d = ((Z80._register.d<<1)+carryOut)&255;
-            if (!Z80._register.d) Z80.setZ(); else Z80.clearZ();
-            Z80._register.t = 8;
-        },
-        RLC_E: function () { // CB 0x03
-            Z80.clearN(); Z80.clearH();
-            let carryOut = Z80._register.e&0x80?1:0;
-            if (carryOut) Z80.setC(); else Z80.clearC();
-            Z80._register.e = ((Z80._register.e<<1)+carryOut)&255;
-            if (!Z80._register.e) Z80.setZ(); else Z80.clearZ();
-            Z80._register.t = 8;
-        },
-        RLC_H: function () { // CB 0x04
-            Z80.clearN(); Z80.clearH();
-            let carryOut = Z80._register.h&0x80?1:0;
-            if (carryOut) Z80.setC(); else Z80.clearC();
-            Z80._register.h = ((Z80._register.h<<1)+carryOut)&255;
-            if (!Z80._register.h) Z80.setZ(); else Z80.clearZ();
-            Z80._register.t = 8;
-        },
-        RLC_L: function () { // CB 0x05
-            Z80.clearN(); Z80.clearH();
-            let carryOut = Z80._register.l&0x80?1:0;
-            if (carryOut) Z80.setC(); else Z80.clearC();
-            Z80._register.l = ((Z80._register.l<<1)+carryOut)&255;
-            if (!Z80._register.l) Z80.setZ(); else Z80.clearZ();
-            Z80._register.t = 8;
-        },
-        RLC_HLmem: function () { // CB 0x06
-            Z80.clearN(); Z80.clearH();
-            let hl = MMU.readByte((Z80._register.h<<8)+Z80._register.l);
-            let carryOut = hl&0x80?1:0;
-            if (carryOut) Z80.setC(); else Z80.clearC();
-            hl = ((hl<<1)+carryOut)&255;
-            if (!hl) Z80.setZ(); else Z80.clearZ();
-            MMU.writeByte((Z80._register.h<<8)+Z80._register.l, hl);
-            Z80._register.t = 16;
-        },
+        
 
         // RRC n
         RRC_A: function () { // CB 0x0F
@@ -328,81 +241,7 @@ Z80 = {
             Z80._register.t = 16;
         },
 
-        // RL n
-        RL_A: function () { // CB 0x17
-            Z80.clearN(); Z80.clearH();
-            let carryOut = Z80._register.a&0x80?1:0;
-            let carryIn = Z80._register.f&Z80._flags.carry?1:0;
-            if (carryOut) Z80.setC(); else Z80.clearC();
-            Z80._register.a = ((Z80._register.a<<1)+carryIn)&255;
-            if (!Z80._register.a) Z80.setZ(); else Z80.clearZ();
-            Z80._register.t = 8;
-        },
-        RL_B: function () { // CB 0x10
-            Z80.clearN(); Z80.clearH();
-            let carryOut = Z80._register.b&0x80?1:0;
-            let carryIn = Z80._register.f&Z80._flags.carry?1:0;
-            if (carryOut) Z80.setC(); else Z80.clearC();
-            Z80._register.b = ((Z80._register.b<<1)+carryIn)&255;
-            if (!Z80._register.b) Z80.setZ(); else Z80.clearZ();
-            Z80._register.t = 8;
-        },
-        RL_C: function () { // CB 0x11            
-            Z80.clearN(); Z80.clearH();
-            let carryOut = Z80._register.c&0x80?1:0;
-            let carryIn = Z80._register.f&Z80._flags.carry?1:0;
-            if (carryOut) Z80.setC(); else Z80.clearC();
-            Z80._register.c = ((Z80._register.c<<1)+carryIn)&255;
-            if (!Z80._register.c) Z80.setZ(); else Z80.clearZ();
-            Z80._register.t = 8;
-        },
-        RL_D: function () { // CB 0x12
-            Z80.clearN(); Z80.clearH();
-            let carryOut = Z80._register.d&0x80?1:0;
-            let carryIn = Z80._register.f&Z80._flags.carry?1:0;
-            if (carryOut) Z80.setC(); else Z80.clearC();
-            Z80._register.d = ((Z80._register.d<<1)+carryIn)&255;
-            if (!Z80._register.d) Z80.setZ(); else Z80.clearZ();
-            Z80._register.t = 8;
-        },
-        RL_E: function () { // CB 0x13
-            Z80.clearN(); Z80.clearH();
-            let carryOut = Z80._register.e&0x80?1:0;
-            let carryIn = Z80._register.f&Z80._flags.carry?1:0;
-            if (carryOut) Z80.setC(); else Z80.clearC();
-            Z80._register.e = ((Z80._register.e<<1)+carryIn)&255;
-            if (!Z80._register.e) Z80.setZ(); else Z80.clearZ();
-            Z80._register.t = 8;
-        },
-        RL_H: function () { // CB 0x14
-            Z80.clearN(); Z80.clearH();
-            let carryOut = Z80._register.h&0x80?1:0;
-            let carryIn = Z80._register.f&Z80._flags.carry?1:0;
-            if (carryOut) Z80.setC(); else Z80.clearC();
-            Z80._register.h = ((Z80._register.h<<1)+carryIn)&255;
-            if (!Z80._register.h) Z80.setZ(); else Z80.clearZ();
-            Z80._register.t = 8;
-        },
-        RL_L: function () { // CB 0x15
-            Z80.clearN(); Z80.clearH();
-            let carryOut = Z80._register.l&0x80?1:0;
-            let carryIn = Z80._register.f&Z80._flags.carry?1:0;
-            if (carryOut) Z80.setC(); else Z80.clearC();
-            Z80._register.l = ((Z80._register.l<<1)+carryIn)&255;
-            if (!Z80._register.l) Z80.setZ(); else Z80.clearZ();
-            Z80._register.t = 8;
-        },
-        RL_HLmem: function () { // CB 0x16
-            Z80.clearN(); Z80.clearH();
-            let hl = MMU.readByte((Z80._register.h<<8)+Z80._register.l);
-            let carryOut = hl&0x80?1:0;
-            let carryIn = Z80._register.f&Z80._flags.carry?1:0;
-            if (carryOut) Z80.setC(); else Z80.clearC();
-            hl = ((hl<<1)+carryIn)&255;
-            if (!hl) Z80.setZ(); else Z80.clearZ();
-            MMU.writeByte((Z80._register.h<<8)+Z80._register.l, hl);
-            Z80._register.t = 16;
-        },
+      
 
         // RRC n
         RR_A: function () { // CB 0x1F

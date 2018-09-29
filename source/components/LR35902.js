@@ -152,8 +152,14 @@ class LR35902 {
                 return () => { this.RET_cc() };
             case 0xD9:
                 return () => { this.RETI() };
+            case 0x17:
+                return () => { this.RLA() };
             case 0x07:
                 return () => { this.RLCA() };
+            case 0x1F:
+                return () => { this.RRA() };
+            case 0x0F:
+                return () => { this.RRCA() };
             case 0xC7: case 0xCF: case 0xD7: case 0xDF: case 0xE7: case 0xEF: case 0xF7: case 0xFF: 
                 return () => { this.RST() };
             case 0x37:
@@ -170,6 +176,10 @@ class LR35902 {
             //*****************************************************************
             case 0xCB:
                 return () => { this.CB() };
+            case 0xCB00: case 0xCB01: case 0xCB02: case 0xCB03: case 0xCB04: case 0xCB05: case 0xCB06: case 0xCB07:
+                return () => { this.RLC() };
+            case 0xCB10: case 0xCB11: case 0xCB12: case 0xCB13: case 0xCB14: case 0xCB15: case 0xCB16: case 0xCB17:
+                return () => { this.RL() };
             case 0xCB20: case 0xCB21: case 0xCB22: case 0xCB23: case 0xCB24: case 0xCB25: case 0xCB26: case 0xCB27: 
                 return () => { this.SLA() };
             case 0xCB30: case 0xCB31: case 0xCB32: case 0xCB33: case 0xCB34: case 0xCB35: case 0xCB36: case 0xCB37: 
@@ -1076,18 +1086,45 @@ class LR35902 {
     }
 
     RETI() {
-        let address = this.system.mmu.readWord(this.register.sp);
+        const address = this.system.mmu.readWord(this.register.sp);
         this.register.sp+=2;
         this.register.pc = address;
         this.ime = true;
         this.system.consumeClockCycles(16);
     }
 
+    RLA() {
+        const a = this.register.a;
+        const carryOut = this.register.a&0x80?1:0;
+        const carryIn = this.register.f&0x10?1:0; 
+        this.register.a = ((a<<1)+carryIn)&0xFF;
+        if (carryOut) this.setC(); else this.clearC();
+        this.clearZ(); this.clearN(); this.clearH();
+        this.system.consumeClockCycles(4);
+    }
+
     RLCA() {
         this.clearN(); this.clearH(); this.clearZ();
-        let carryOut = this.register.a&0x80?1:0;
+        const carryOut = this.register.a&0x80?1:0;
         if (carryOut) this.setC(); else this.clearC();
         this.register.a = ((this.register.a<<1)+carryOut)&0xFF;
+        this.system.consumeClockCycles(4);
+    }
+
+    RRA() {
+        const carryIn = this.register.f&0x10?1:0;
+        const carryOut = this.register.a&0x01?1:0;
+        this.register.a = ((this.register.a>>1)+(carryIn<<7))&0xFF;
+        if (carryOut) this.setC(); else this.clearC();
+        this.clearZ(); this.clearN(); this.clearH();
+        this.system.consumeClockCycles(4);
+    }
+
+    RRCA() {
+        this.clearN(); this.clearH(); this.clearZ();
+        const carryOut = this.register.a&0x01?1:0;
+        if (carryOut) this.setC(); else this.clearC();
+        this.register.a = ((this.register.a>>1)+(carryOut<<7))&0xFF;
         this.system.consumeClockCycles(4);
     }
 
@@ -1257,6 +1294,75 @@ class LR35902 {
         }
 
         this.system.consumeClockCycles(cycles);
+    }
+
+    RL() {
+        this.clearN(); this.clearH();
+        let cycles = null;
+        let result = null;
+        
+        switch (this.instructionCode) {
+            case 0xCB17: // RL A
+                this.register.a = result = this._RL(this.register.a); cycles = 8; break;
+            case 0xCB10: // RL B
+                this.register.b = result = this._RL(this.register.b); cycles = 8; break;
+            case 0xCB11: // RL C
+                this.register.c = result = this._RL(this.register.c); cycles = 8; break;
+            case 0xCB12: // RL D
+                this.register.d = result = this._RL(this.register.d); cycles = 8; break;
+            case 0xCB13: // RL E
+                this.register.e = result = this._RL(this.register.e); cycles = 8; break;
+            case 0xCB14: // RL H
+                this.register.h = result = this._RL(this.register.h); cycles = 8; break;
+            case 0xCB15: // RL L
+                this.register.l = result = this._RL(this.register.l); cycles = 8; break;
+            case 0xCB16: // RL (HL)                
+                result = this._RL(this.system.mmu.readByte(this.getHL())); this.system.mmu.writeByte(this.getHL(), result); cycles = 16; break;
+        }
+            
+        if (result) this.clearZ(); else this.setZ();
+        this.system.consumeClockCycles(cycles);
+    }
+
+    _RL(register) {
+        const carryOut = register&0x80?1:0;
+        const carryIn = this.register.f&0x10?1:0;
+        if (carryOut) this.setC(); else this.clearC();
+        return ((register<<1)+carryIn)&0xFF;
+    }
+
+    RLC() {
+        this.clearN(); this.clearH();
+        let cycles = null;
+        let result = null;
+
+        switch (this.instructionCode) {
+            case 0xCB07: // RLC A
+                this.register.a = result = this._RLC(this.register.a); cycles = 8; break;
+            case 0xCB00: // RLC B
+                this.register.b = result = this._RLC(this.register.b); cycles = 8; break;
+            case 0xCB01: // RLC C
+                this.register.c = result = this._RLC(this.register.c); cycles = 8; break;
+            case 0xCB02: // RLC D
+                this.register.d = result = this._RLC(this.register.d); cycles = 8; break;
+            case 0xCB03: // RLC E
+                this.register.e = result = this._RLC(this.register.e); cycles = 8; break;
+            case 0xCB04: // RLC H
+                this.register.h = result = this._RLC(this.register.h); cycles = 8; break;
+            case 0xCB05: // RLC L
+                this.register.l = result = this._RLC(this.register.l); cycles = 8; break;
+            case 0xCB06: // RLC (HL)
+                result = this._RLC(this.system.mmu.readByte(this.getHL())); this.system.mmu.writeByte(this.getHL(), result); cycles = 16; break;
+        }
+            
+        if (result) this.clearZ(); else this.setZ();
+        this.system.consumeClockCycles(cycles);
+    }
+
+    _RLC(register) {
+        const carryOut = register&0x80?1:0;
+        if (carryOut) this.setC(); else this.clearC();
+        return ((register<<1)+carryOut)&0xFF;
     }
 
     SET() {

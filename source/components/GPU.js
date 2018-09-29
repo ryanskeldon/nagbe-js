@@ -46,6 +46,11 @@ class GPU {
             return this.vram[(address-0x8000)+(this.register.vbk*0x2000)];
         }
 
+        // Sprite Attribute Memory
+        if (address >= 0xFE00 && address <= 0xFE9F) {
+            return this.vram[address-0x8000];
+        }
+
         switch (address) {
             case 0xFF40: return this.register.lcdc;
             case 0xFF41: 
@@ -116,10 +121,10 @@ class GPU {
     transferDMA() {
         let address = this.register.dma << 8;
 
-        for (let i = 0; i < 160; i++)
+        for (let i = 0; i < 160; i++) {
             this.system.mmu.writeByte(0xFE00+i, this.system.mmu.readByte(address+i));
-
-        this.system.consumeClockCycles(640); // TODO: Is this correct?
+            this.system.consumeClockCycles(4);
+        }
     }
 
     isLcdEnabled() {
