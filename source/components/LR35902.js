@@ -69,12 +69,12 @@ class LR35902 {
             case 0x3F:
                 return () => { this.CCF() };
             case 0xBF: case 0xB8: case 0xB9: case 0xBA: case 0xBB: case 0xBC: case 0xBD: case 0xBE: case 0xFE: 
-                return () => { this.CP_n() };
+                return () => { this.CP() };
             case 0x2F:
                 return () => { this.CPL() };
             case 0x27:
                 return () => { this.DAA() };
-            case 0x3D: case 0x05: case 0x0D: case 0x1D: case 0x1D: case 0x25: case 0x2D: case 0x35: 
+            case 0x3D: case 0x05: case 0x0D: case 0x15: case 0x1D: case 0x25: case 0x2D: case 0x35: 
                 return () => { this.DEC() };
             case 0x0B: case 0x1B: case 0x2B: case 0x3B: 
                 return () => { this.DEC_nn() };
@@ -98,7 +98,9 @@ class LR35902 {
                 return () => { this.JR_cc_n() };
             case 0x18:
                 return () => { this.JR_n() };
-            case 0x7F: case 0x78: case 0x79: case 0x7A: case 0x7B: case 0x7C: case 0x7D: case 0x0A: case 0x1A: case 0x7E: case 0x3E: case 0xFA:            
+            case 0x08:
+                return () => { this.LD_d16_SP() };
+            case 0x78: case 0x79: case 0x7A: case 0x7B: case 0x7C: case 0x7D: case 0x0A: case 0x1A: case 0x7E: case 0x3E: case 0xFA:            
                 return () => { this.LD_A_n() };
             case 0x40: case 0x41: case 0x42: case 0x43: case 0x44: case 0x45: case 0x46:
                 return () => { this.LD_B_n() };
@@ -112,6 +114,8 @@ class LR35902 {
                 return () => { this.LD_H_n() };
             case 0x68: case 0x69: case 0x6A: case 0x6B: case 0x6C: case 0x6D: case 0x6E:
                 return () => { this.LD_L_n() };
+            case 0xF8:
+                return () => { this.LD_HL_SP_r8() };            
             case 0x70: case 0x71: case 0x72: case 0x73: case 0x74: case 0x75: case 0x36:
                 return () => { this.LD_HLmem_n() };
             case 0x7F: case 0x47: case 0x4F: case 0x57: case 0x5F: case 0x67: case 0x6F: case 0x02: case 0x12: case 0x77: case 0xEA: 
@@ -162,6 +166,8 @@ class LR35902 {
                 return () => { this.RRCA() };
             case 0xC7: case 0xCF: case 0xD7: case 0xDF: case 0xE7: case 0xEF: case 0xF7: case 0xFF: 
                 return () => { this.RST() };
+            case 0x98: case 0x99: case 0x9A: case 0x9B: case 0x9C: case 0x9D: case 0x9E: case 0x9F: case 0xDE: 
+                return () => { this.SBC() };
             case 0x37:
                 return () => { this.SCF() };
             case 0x10:
@@ -169,7 +175,7 @@ class LR35902 {
             case 0x97: case 0x90: case 0x91: case 0x92: case 0x93: case 0x94: case 0x95: case 0x96: case 0xD6: 
                 return () => { this.SUB() };
             case 0xAF: case 0xA8: case 0xA9: case 0xAA: case 0xAB: case 0xAC: case 0xAD: case 0xAE: case 0xEE:
-                return () => { this.XOR_n() };
+                return () => { this.XOR() };
                 
             //*****************************************************************
             // CB Instructions
@@ -178,10 +184,16 @@ class LR35902 {
                 return () => { this.CB() };
             case 0xCB00: case 0xCB01: case 0xCB02: case 0xCB03: case 0xCB04: case 0xCB05: case 0xCB06: case 0xCB07:
                 return () => { this.RLC() };
+            case 0xCB08: case 0xCB09: case 0xCB0A: case 0xCB0B: case 0xCB0C: case 0xCB0D: case 0xCB0E: case 0xCB0F: 
+                return () => { this.RRC() };
             case 0xCB10: case 0xCB11: case 0xCB12: case 0xCB13: case 0xCB14: case 0xCB15: case 0xCB16: case 0xCB17:
                 return () => { this.RL() };
+            case 0xCB18: case 0xCB19: case 0xCB1A: case 0xCB1B: case 0xCB1C: case 0xCB1D: case 0xCB1E: case 0xCB1F:
+                return () => { this.RR() };
             case 0xCB20: case 0xCB21: case 0xCB22: case 0xCB23: case 0xCB24: case 0xCB25: case 0xCB26: case 0xCB27: 
                 return () => { this.SLA() };
+            case 0xCB28: case 0xCB29: case 0xCB2A: case 0xCB2B: case 0xCB2C: case 0xCB2D: case 0xCB2E: case 0xCB2F: 
+                return () => { this.SRA() };
             case 0xCB30: case 0xCB31: case 0xCB32: case 0xCB33: case 0xCB34: case 0xCB35: case 0xCB36: case 0xCB37: 
                 return () => { this.SWAP() };
             case 0xCB38: case 0xCB39: case 0xCB3A: case 0xCB3B: case 0xCB3C: case 0xCB3D: case 0xCB3E: case 0xCB3F: 
@@ -233,7 +245,7 @@ class LR35902 {
     getBC() { return (this.register.b<<8)+this.register.c; }
     getDE() { return (this.register.d<<8)+this.register.e; }
     getHL() { return (this.register.h<<8)+this.register.l; }
-    setAF(value) { this.register.a = (value>>8)&0xFF; this.register.f = value&0xFF; }
+    setAF(value) { this.register.a = (value>>8)&0xFF; this.register.f = value&0xF0; }
     setBC(value) { this.register.b = (value>>8)&0xFF; this.register.c = value&0xFF; }
     setDE(value) { this.register.d = (value>>8)&0xFF; this.register.e = value&0xFF; }
     setHL(value) { this.register.h = (value>>8)&0xFF; this.register.l = value&0xFF; }
@@ -246,28 +258,19 @@ class LR35902 {
         let input = null;
 
         switch (this.instructionCode) {
-            case 0x8F: // ADC A, A
-                input = this.register.a; cycles = 4; break;
-            case 0x88: // ADC A, B
-                input = this.register.b; cycles = 4; break;
-            case 0x89: // ADC A, C
-                input = this.register.c; cycles = 4; break;
-            case 0x8A: // ADC A, D
-                input = this.register.d; cycles = 4; break;
-            case 0x8B: // ADC A, E
-                input = this.register.e; cycles = 4; break;
-            case 0x8C: // ADC A, H
-                input = this.register.h; cycles = 4; break;
-            case 0x8D: // ADC A, L
-                input = this.register.l; cycles = 4; break;
-            case 0x8E: // ADC A, (HL)
-                input = this.system.mmu.readByte(this.getHL()); cycles = 8; break;
-            case 0xCE: // ADC A, #
-                input = this.system.mmu.readByte(this.register.pc++); cycles = 8; break;
+            case 0x8F: input = this.register.a; cycles = 4; break;
+            case 0x88: input = this.register.b; cycles = 4; break;
+            case 0x89: input = this.register.c; cycles = 4; break;
+            case 0x8A: input = this.register.d; cycles = 4; break;
+            case 0x8B: input = this.register.e; cycles = 4; break;
+            case 0x8C: input = this.register.h; cycles = 4; break;
+            case 0x8D: input = this.register.l; cycles = 4; break;
+            case 0x8E: input = this.system.mmu.readByte(this.getHL()); cycles = 8; break;
+            case 0xCE: input = this.system.mmu.readByte(this.register.pc++); cycles = 8; break;
         }
 
-        let a = this.register.a;
-        let carry = this.register.f&0x10?1:0;
+        const a = this.register.a;
+        const carry = this.register.f&0x10?1:0;
         let result = a + input + carry;
         this.clearN();
         if (result>0xFF) this.setC(); else this.clearC();
@@ -283,32 +286,23 @@ class LR35902 {
         let cycles = null;
 
         switch (this.instructionCode) {
-            case 0x87: // ADD A, A
-                value = this.register.a; cycles = 4; break;
-            case 0x80: // ADD A, B
-                value = this.register.b; cycles = 4; break;
-            case 0x81: // ADD A, C
-                value = this.register.c; cycles = 4; break;
-            case 0x82: // ADD A, D
-                value = this.register.d; cycles = 4; break;
-            case 0x83: // ADD A, E
-                value = this.register.e; cycles = 4; break;
-            case 0x84: // ADD A, H
-                value = this.register.h; cycles = 4; break;
-            case 0x85: // ADD A, L
-                value = this.register.l; cycles = 4; break;
-            case 0x86: // ADD A, (HL)
-                value = this.system.mmu.readByte(this.getHL()); cycles = 8; break;
-            case 0xC6: // ADD A, #
-                value = this.system.mmu.readByte(this.register.pc++); cycles = 8; break;
+            case 0x87: value = this.register.a; cycles = 4; break;
+            case 0x80: value = this.register.b; cycles = 4; break;
+            case 0x81: value = this.register.c; cycles = 4; break;
+            case 0x82: value = this.register.d; cycles = 4; break;
+            case 0x83: value = this.register.e; cycles = 4; break;
+            case 0x84: value = this.register.h; cycles = 4; break;
+            case 0x85: value = this.register.l; cycles = 4; break;
+            case 0x86: value = this.system.mmu.readByte(this.getHL()); cycles = 8; break;
+            case 0xC6: value = this.system.mmu.readByte(this.register.pc++); cycles = 8; break;
         }
 
-        let a = this.register.a;
+        const a = this.register.a;
         this.register.a += value;
-        if (this.register.a > 255) this.setC(); else this.clearC();
+        if (this.register.a>0xFF) this.setC(); else this.clearC();
         this.register.a &= 0xFF;
         this.clearN();
-        if (this.register.a === 0) this.setZ(); else this.clearZ();
+        if (this.register.a===0) this.setZ(); else this.clearZ();
         if (((a&0xF)+(value&0xF))>0xF) this.setH(); else this.clearH();
         this.system.consumeClockCycles(cycles);
     }
@@ -317,14 +311,10 @@ class LR35902 {
         let value = null;
 
         switch (this.instructionCode) {
-            case 0x09: // ADD HL, BC
-                value = this.getBC(); break;
-            case 0x19: // ADD HL, DE
-                value = this.getDE(); break;
-            case 0x29: // ADD HL, HL
-                value = this.getHL(); break;
-            case 0x39: // ADD HL, SP
-                value = this.register.sp; break;
+            case 0x09: value = this.getBC(); break;
+            case 0x19: value = this.getDE(); break;
+            case 0x29: value = this.getHL(); break;
+            case 0x39: value = this.register.sp; break;
         }
 
         let hl = this.getHL();
@@ -338,12 +328,12 @@ class LR35902 {
 
     ADD_SP_n() {
         let n = this.system.mmu.readByte(this.register.pc++);
-        if (n>127) n = -((~n+1)&255);
-        let result = this.register.sp + n;
+        if (n>127) n = -((~n+1)&0xFF);
+        const result = this.register.sp+n;
         this.clearZ(); this.clearN();
-        if ((this.register.sp ^ n ^ result) & 0x10) this.setH(); else this.clearH();
-        if ((this.register.sp ^ n ^ result) & 0x100) this.setC(); else this.clearC();
-        this._register.sp = result&0xFFFF;
+        if ((this.register.sp^n^result)&0x10) this.setH(); else this.clearH();
+        if ((this.register.sp^n^result)&0x100) this.setC(); else this.clearC();
+        this.register.sp = result&0xFFFF;
         this.system.consumeClockCycles(16);
     }
 
@@ -352,46 +342,33 @@ class LR35902 {
         let cycles = null;
 
         switch (this.instructionCode) {
-            case 0xA7: // AND A
-                value = this.register.a; cycles = 4; break;
-            case 0xA0: // AND B
-                value = this.register.b; cycles = 4; break;
-            case 0xA1: // AND C
-                value = this.register.c; cycles = 4; break;
-            case 0xA2: // AND D
-                value = this.register.d; cycles = 4; break;
-            case 0xA3: // AND E
-                value = this.register.e; cycles = 4; break;
-            case 0xA4: // AND H
-                value = this.register.h; cycles = 4; break;
-            case 0xA5: // AND L
-                value = this.register.l; cycles = 4; break;
-            case 0xA6: // AND (HL)
-                value = this.system.mmu.readByte(this.getHL()); cycles = 8; break;
-            case 0xE6: // AND n
-                value = this.system.mmu.readByte(this.register.pc++); cycles = 8; break;
+            case 0xA7: value = this.register.a; cycles = 4; break;
+            case 0xA0: value = this.register.b; cycles = 4; break;
+            case 0xA1: value = this.register.c; cycles = 4; break;
+            case 0xA2: value = this.register.d; cycles = 4; break;
+            case 0xA3: value = this.register.e; cycles = 4; break;
+            case 0xA4: value = this.register.h; cycles = 4; break;
+            case 0xA5: value = this.register.l; cycles = 4; break;
+            case 0xA6: value = this.system.mmu.readByte(this.getHL()); cycles = 8; break;
+            case 0xE6: value = this.system.mmu.readByte(this.register.pc++); cycles = 8; break;
         }
 
         this.register.a = (this.register.a&value)&0xFF;
-        if (!this.register.a) this.setZ(); else this.clearZ();
+        if (this.register.a) this.clearZ(); else this.setZ();
         this.clearN(); this.setH(); this.clearC();
         this.system.consumeClockCycles(cycles);
     }
 
     CALL_cc_nn() {
         let condition = null;
-        let address = this.system.mmu.readWord(this.register.pc);
+        const address = this.system.mmu.readWord(this.register.pc);
         this.register.pc += 2;
 
         switch (this.instructionCode) {
-            case 0xC4: // CALL NZ
-                condition = !(this.register.f&0x80); break;
-            case 0xCC: // CALL Z
-                condition = this.register.f&0x80; break;
-            case 0xD4: // CALL NC
-                condition = !(this.register.f&0x10); break;
-            case 0xDC: // CALL C
-                condition = this.register.f&0x10; break;
+            case 0xC4: condition = !(this.register.f&0x80); break;
+            case 0xCC: condition = this.register.f&0x80; break;
+            case 0xD4: condition = !(this.register.f&0x10); break;
+            case 0xDC: condition = this.register.f&0x10; break;
         }
 
         if (condition) {
@@ -417,37 +394,27 @@ class LR35902 {
         this.system.consumeClockCycles(4);
     }
 
-    CP_n() {
+    CP() {
         let value = null;
         let cycles = null;
 
         switch (this.instructionCode) {
-            case 0xBF: // CP A
-                value = this.register.a; cycles = 4; break;
-            case 0xB8: // CP B
-                value = this.register.b; cycles = 4; break;
-            case 0xB9: // CP C
-                value = this.register.c; cycles = 4; break;
-            case 0xBA: // CP D
-                value = this.register.d; cycles = 4; break;
-            case 0xBB: // CP E
-                value = this.register.e; cycles = 4; break;
-            case 0xBC: // CP H
-                value = this.register.h; cycles = 4; break;
-            case 0xBD: // CP L
-                value = this.register.l; cycles = 4; break;
-            case 0xBE: // CP (HL)
-                value = this.system.mmu.readByte(this.getHL()); cycles = 8; break;
-            case 0xFE: // CP d8
-                value = this.system.mmu.readByte(this.register.pc++); cycles = 8; break;
+            case 0xBF: value = this.register.a; cycles = 4; break;
+            case 0xB8: value = this.register.b; cycles = 4; break;
+            case 0xB9: value = this.register.c; cycles = 4; break;
+            case 0xBA: value = this.register.d; cycles = 4; break;
+            case 0xBB: value = this.register.e; cycles = 4; break;
+            case 0xBC: value = this.register.h; cycles = 4; break;
+            case 0xBD: value = this.register.l; cycles = 4; break;
+            case 0xBE: value = this.system.mmu.readByte(this.getHL()); cycles = 8; break;
+            case 0xFE: value = this.system.mmu.readByte(this.register.pc++); cycles = 8; break;
         }
 
-        let result = this.register.a - value;
+        const result = this.register.a - value;
         if ((result&0xFF) === 0) this.setZ(); else this.clearZ();
         this.setN();
-        if (this.register.a < result) this.setC(); else this.clearC();
-        if ((this.register.a&0xF) < (result&0xF)) this.setH(); else this.clearH();
-
+        if (this.register.a < value) this.setC(); else this.clearC();
+        if ((this.register.a&0xF) < (value&0xF)) this.setH(); else this.clearH();
         this.system.consumeClockCycles(cycles);
     }
 
@@ -459,9 +426,9 @@ class LR35902 {
 
     DAA() {
         let correction = 0;
-        let flagN = !!(this.register.f&0x40);
-        let flagH = !!(this.register.f&0x20);
-        let flagC = !!(this.register.f&0x10);
+        const flagN = !!(this.register.f&0x40);
+        const flagH = !!(this.register.f&0x20);
+        const flagC = !!(this.register.f&0x10);
 
         if (flagH || (!flagN && (this.register.a & 0xF) > 9))
             correction = 6;
@@ -472,7 +439,7 @@ class LR35902 {
         }
 
         this.register.a += flagN ? -correction : correction;
-        this.register.a &= 255;
+        this.register.a &= 0xFF;
         this.clearH();
 
         if (!this.register.a) this.setZ(); else this.clearZ();
@@ -485,49 +452,39 @@ class LR35902 {
         let cycles = null;
         
         switch (this.instructionCode) {
-            case 0x3D: // DEC A
-                original = this.register.a; result = (original-1)&0xFF; this.register.a = result; cycles = 4; break;
-            case 0x05: // DEC B
-                original = this.register.b; result = (original-1)&0xFF; this.register.b = result; cycles = 4; break;
-            case 0x0D: // DEC C
-                original = this.register.c; result = (original-1)&0xFF; this.register.c = result; cycles = 4; break;
-            case 0x15: // DEC D
-                original = this.register.d; result = (original-1)&0xFF; this.register.d = result; cycles = 4; break;
-            case 0x1D: // DEC E
-                original = this.register.e; result = (original-1)&0xFF; this.register.e = result; cycles = 4; break;
-            case 0x25: // DEC H
-                original = this.register.h; result = (original-1)&0xFF; this.register.h = result; cycles = 4; break;
-            case 0x2D: // DEC L
-                original = this.register.l; result = (original-1)&0xFF; this.register.l = result; cycles = 4; break;
-            case 0x35: // DEC (HL)
-                original = this.system.mmu.readByte(this.getHL()); result = (original-1)&0xFF; this.system.mmu.writeByte(this.getHL(), result); cycles = 12; break;
+            case 0x3D: original = this.register.a; result = (original-1)&0xFF; this.register.a = result; cycles = 4; break;
+            case 0x05: original = this.register.b; result = (original-1)&0xFF; this.register.b = result; cycles = 4; break;
+            case 0x0D: original = this.register.c; result = (original-1)&0xFF; this.register.c = result; cycles = 4; break;
+            case 0x15: original = this.register.d; result = (original-1)&0xFF; this.register.d = result; cycles = 4; break;
+            case 0x1D: original = this.register.e; result = (original-1)&0xFF; this.register.e = result; cycles = 4; break;
+            case 0x25: original = this.register.h; result = (original-1)&0xFF; this.register.h = result; cycles = 4; break;
+            case 0x2D: original = this.register.l; result = (original-1)&0xFF; this.register.l = result; cycles = 4; break;
+            case 0x35: original = this.system.mmu.readByte(this.getHL()); result = (original-1)&0xFF; this.system.mmu.writeByte(this.getHL(), result); cycles = 12; break;
         }
 
         if (result === 0) this.setZ(); else this.clearZ();
         this.setN();
-        if ((original&0xf)-1<0) this.setH(); else this.clearH();
+        if ((original&0xF)-1<0) this.setH(); else this.clearH();
         this.system.consumeClockCycles(cycles);
     }
 
     DEC_nn() {
         switch (this.instructionCode) {
-            case 0x0B: // DEC BC
-                this.register.c = (this.register.c-1)&0xFF; if (this.register.c === 0xFF) this.register.b = (this.register.b-1)&0xFF; this.system.consumeClockCycles(8); break;
-            case 0x1B: // DEC DE
-                this.register.e = (this.register.e-1)&0xFF; if (this.register.e === 0xFF) this.register.d = (this.register.d-1)&0xFF; this.system.consumeClockCycles(8); break;
-            case 0x2B: // DEC HL
-                this.register.l = (this.register.l-1)&0xFF; if (this.register.l === 0xFF) this.register.h = (this.register.h-1)&0xFF; this.system.consumeClockCycles(8); break;
-            case 0x3B: // DEC SP
-                this.register.sp = (this.register.sp-1)&0xFFFF; this.system.consumeClockCycles(8); break;
+            case 0x0B: this.register.c = (this.register.c-1)&0xFF; if (this.register.c === 0xFF) this.register.b = (this.register.b-1)&0xFF; break;
+            case 0x1B: this.register.e = (this.register.e-1)&0xFF; if (this.register.e === 0xFF) this.register.d = (this.register.d-1)&0xFF; break;
+            case 0x2B: this.register.l = (this.register.l-1)&0xFF; if (this.register.l === 0xFF) this.register.h = (this.register.h-1)&0xFF; break;
+            case 0x3B: this.register.sp = (this.register.sp-1)&0xFFFF; break;
         }
+
+        this.system.consumeClockCycles(8);
     }
 
-    DI() { // Disable Interrupts
+    DI() {
         this.pendingDisableInterrupts = 0x11;
         this.system.consumeClockCycles(4);
     }
 
-    EI() { // Enable Interrupts
+    EI() {
         this.pendingEnableInterrupts = 0x11;
         this.system.consumeClockCycles(4);
     }
@@ -543,40 +500,28 @@ class LR35902 {
         let cycles = null;
 
         switch (this.instructionCode) {
-            case 0x3C: // INC A
-                original = this.register.a; result = (original+1)&0xFF; this.register.a = result; cycles = 4; break;
-            case 0x04: // INC B
-                original = this.register.b; result = (original+1)&0xFF; this.register.b = result; cycles = 4; break;
-            case 0x0C: // INC C
-                original = this.register.c; result = (original+1)&0xFF; this.register.c = result; cycles = 4; break;
-            case 0x14: // INC D
-                original = this.register.d; result = (original+1)&0xFF; this.register.d = result; cycles = 4; break;
-            case 0x1C: // INC E
-                original = this.register.e; result = (original+1)&0xFF; this.register.e = result; cycles = 4; break;
-            case 0x24: // INC H
-                original = this.register.h; result = (original+1)&0xFF; this.register.h = result; cycles = 4; break;
-            case 0x2C: // INC L
-                original = this.register.l; result = (original+1)&0xFF; this.register.l = result; cycles = 4; break;
-            case 0x34: // INC (HL)
-                original = this.system.mmu.readByte(this.getHL()); result = (original+1)&0xFF; this.system.mmu.writeByte(this.getHL(), result); cycles = 12; break;
-        }
+            case 0x3C: original = this.register.a; result = (original+1)&0xFF; this.register.a = result; cycles = 4; break;
+            case 0x04: original = this.register.b; result = (original+1)&0xFF; this.register.b = result; cycles = 4; break;
+            case 0x0C: original = this.register.c; result = (original+1)&0xFF; this.register.c = result; cycles = 4; break;
+            case 0x14: original = this.register.d; result = (original+1)&0xFF; this.register.d = result; cycles = 4; break;
+            case 0x1C: original = this.register.e; result = (original+1)&0xFF; this.register.e = result; cycles = 4; break;
+            case 0x24: original = this.register.h; result = (original+1)&0xFF; this.register.h = result; cycles = 4; break;
+            case 0x2C: original = this.register.l; result = (original+1)&0xFF; this.register.l = result; cycles = 4; break;
+            case 0x34: original = this.system.mmu.readByte(this.getHL()); result = (original+1)&0xFF; this.system.mmu.writeByte(this.getHL(), result); cycles = 12; break;
+        }        
 
-        if (result === 0) this.setZ(); else this.clearZ();
+        if (result) this.clearZ(); else this.setZ();
         this.clearN();
-        if ((this.register.c&0xF)+1>0xF) this.setH(); else this.clearH();
+        if ((original&0xF)+1>0xF) this.setH(); else this.clearH();
         this.system.consumeClockCycles(cycles);
     }
 
     INC_nn() {
         switch (this.instructionCode) {
-            case 0x03: // INC BC
-                this.register.c = (this.register.c+1)&0xFF; if (this.register.c === 0) this.register.b = (this.register.b+1)&0xFF; break;
-            case 0x13: // INC DE
-                this.register.e = (this.register.e+1)&0xFF; if (this.register.e === 0) this.register.d = (this.register.d+1)&0xFF; break;
-            case 0x23: // INC HL
-                this.register.l = (this.register.l+1)&0xFF; if (this.register.l === 0) this.register.h = (this.register.h+1)&0xFF; break;
-            case 0x33: // INC SP
-                this.register.sp = (this.register.sp+1)&0xFFFF; break;
+            case 0x03: this.register.c = (this.register.c+1)&0xFF; if (this.register.c === 0) this.register.b = (this.register.b+1)&0xFF; break;
+            case 0x13: this.register.e = (this.register.e+1)&0xFF; if (this.register.e === 0) this.register.d = (this.register.d+1)&0xFF; break;
+            case 0x23: this.register.l = (this.register.l+1)&0xFF; if (this.register.l === 0) this.register.h = (this.register.h+1)&0xFF; break;
+            case 0x33: this.register.sp = (this.register.sp+1)&0xFFFF; break;
         }
 
         this.system.consumeClockCycles(8);
@@ -593,14 +538,10 @@ class LR35902 {
         let cycles = null;
 
         switch (this.instructionCode) {
-            case 0xC2: // JP NZ
-                condition = !(this.register.f&0x80); break;
-            case 0xCA: // JP Z
-                condition = this.register.f&0x80; break;
-            case 0xD2: // JP NC
-                condition = !(this.register.f&0x10); break;
-            case 0xDA: // JP C
-                condition = this.register.f&0x10; break;
+            case 0xC2: condition = !(this.register.f&0x80); break;
+            case 0xCA: condition = this.register.f&0x80; break;
+            case 0xD2: condition = !(this.register.f&0x10); break;
+            case 0xDA: condition = this.register.f&0x10; break;
         }
 
         if (condition) {
@@ -629,18 +570,14 @@ class LR35902 {
         let move = this.system.mmu.readByte(this.register.pc++);
 
         switch (this.instructionCode) {
-            case 0x20: // JR NZ
-                condition = !(this.register.f&0x80); break;
-            case 0x28: // JR Z
-                condition = this.register.f&0x80; break;
-            case 0x30: // JR NC
-                condition = !(this.register.f&0x10); break;
-            case 0x38: // JR C
-                condition = this.register.f&0x10; break;
+            case 0x20: condition = !(this.register.f&0x80); break;
+            case 0x28: condition = this.register.f&0x80; break;
+            case 0x30: condition = !(this.register.f&0x10); break;
+            case 0x38: condition = this.register.f&0x10; break;
         }
 
         if (condition) {
-            if (move > 127) move = -((~move+1)&255);
+            if (move > 127) move = -((~move+1)&0xFF);
             this.register.pc += move;
             this.system.consumeClockCycles(12);
         } else {
@@ -650,9 +587,16 @@ class LR35902 {
 
     JR_n() {
         let move = this.system.mmu.readByte(this.register.pc++);
-        if (move > 127) move = -((~move+1)&255); 
+        if (move > 127) move = -((~move+1)&0xFF);
         this.register.pc += move; 
         this.system.consumeClockCycles(12);
+    }
+
+    LD_d16_SP() {
+        const address = this.system.mmu.readWord(this.register.pc); 
+        this.register.pc+=2; 
+        this.system.mmu.writeWord(address, this.register.sp); 
+        this.system.consumeClockCycles(20);
     }
 
     LD_A_n() {
@@ -660,30 +604,17 @@ class LR35902 {
         let cycles = null;
         
         switch (this.instructionCode) {
-            case 0x7F: // LD A, A
-                value = this.register.a; cycles = 4; break;
-            case 0x78: // LD A, B
-                value = this.register.b; cycles = 4; break;
-            case 0x79: // LD A, C
-                value = this.register.c; cycles = 4; break;
-            case 0x7A: // LD A, D
-                value = this.register.d; cycles = 4; break;
-            case 0x7B: // LD A, E
-                value = this.register.e; cycles = 4; break;
-            case 0x7C: // LD A, H
-                value = this.register.h; cycles = 4; break;
-            case 0x7D: // LD A, L
-                value = this.register.l; cycles = 4; break;
-            case 0x0A: // LD A, (BC)
-                value = this.system.mmu.readByte(this.getBC()); cycles = 8; break;
-            case 0x1A: // LD A, (DE)
-                value = this.system.mmu.readByte(this.getDE()); cycles = 8; break;
-            case 0x7E: // LD A, (HL)
-                value = this.system.mmu.readByte(this.getHL()); cycles = 8; break;
-            case 0x3E: // LD A, n
-                value = this.system.mmu.readByte(this.register.pc++); cycles = 8; break;
-            case 0xFA: // LD A, (nn)
-                value = this.system.mmu.readByte(this.system.mmu.readWord(this.register.pc)); this.register.pc+=2; cycles = 16; break;
+            case 0x78: value = this.register.b; cycles = 4; break;
+            case 0x79: value = this.register.c; cycles = 4; break;
+            case 0x7A: value = this.register.d; cycles = 4; break;
+            case 0x7B: value = this.register.e; cycles = 4; break;
+            case 0x7C: value = this.register.h; cycles = 4; break;
+            case 0x7D: value = this.register.l; cycles = 4; break;
+            case 0x0A: value = this.system.mmu.readByte(this.getBC()); cycles = 8; break;
+            case 0x1A: value = this.system.mmu.readByte(this.getDE()); cycles = 8; break;
+            case 0x7E: value = this.system.mmu.readByte(this.getHL()); cycles = 8; break;
+            case 0x3E: value = this.system.mmu.readByte(this.register.pc++); cycles = 8; break;
+            case 0xFA: value = this.system.mmu.readByte(this.system.mmu.readWord(this.register.pc)); this.register.pc+=2; cycles = 16; break;
         }
 
         this.register.a = value;
@@ -695,20 +626,13 @@ class LR35902 {
         let cycles = null;
 
         switch(this.instructionCode) {
-            case 0x40: // LD B, B
-                value = this.register.b; cycles = 4; break;
-            case 0x41: // LD B, C
-                value = this.register.c; cycles = 4; break;
-            case 0x42: // LD B, D
-                value = this.register.d; cycles = 4; break;
-            case 0x43: // LD B, E
-                value = this.register.e; cycles = 4; break;
-            case 0x44: // LD B, H
-                value = this.register.h; cycles = 4; break;
-            case 0x45: // LD B, L
-                value = this.register.l; cycles = 4; break;
-            case 0x46: // LD B, (HL)
-                value = this.system.mmu.readByte(this.getHL()); cycles = 8; break;
+            case 0x40: value = this.register.b; cycles = 4; break;
+            case 0x41: value = this.register.c; cycles = 4; break;
+            case 0x42: value = this.register.d; cycles = 4; break;
+            case 0x43: value = this.register.e; cycles = 4; break;
+            case 0x44: value = this.register.h; cycles = 4; break;
+            case 0x45: value = this.register.l; cycles = 4; break;
+            case 0x46: value = this.system.mmu.readByte(this.getHL()); cycles = 8; break;
         }
 
         this.register.b = value;
@@ -720,20 +644,13 @@ class LR35902 {
         let cycles = null;
 
         switch(this.instructionCode) {
-            case 0x48: // LD C, B
-                value = this.register.b; cycles = 4; break;
-            case 0x49: // LD C, C
-                value = this.register.c; cycles = 4; break;
-            case 0x4A: // LD C, D
-                value = this.register.d; cycles = 4; break;
-            case 0x4B: // LD C, E
-                value = this.register.e; cycles = 4; break;
-            case 0x4C: // LD C, H
-                value = this.register.h; cycles = 4; break;
-            case 0x4D: // LD C, L
-                value = this.register.l; cycles = 4; break;
-            case 0x4E: // LD C, (HL)
-                value = this.system.mmu.readByte(this.getHL()); cycles = 8; break;
+            case 0x48: value = this.register.b; cycles = 4; break;
+            case 0x49: value = this.register.c; cycles = 4; break;
+            case 0x4A: value = this.register.d; cycles = 4; break;
+            case 0x4B: value = this.register.e; cycles = 4; break;
+            case 0x4C: value = this.register.h; cycles = 4; break;
+            case 0x4D: value = this.register.l; cycles = 4; break;
+            case 0x4E: value = this.system.mmu.readByte(this.getHL()); cycles = 8; break;
         }
 
         this.register.c = value;
@@ -745,20 +662,13 @@ class LR35902 {
         let cycles = null;
 
         switch(this.instructionCode) {
-            case 0x50: // LD D, B
-                value = this.register.b; cycles = 4; break;
-            case 0x51: // LD D, C
-                value = this.register.c; cycles = 4; break;
-            case 0x52: // LD D, D
-                value = this.register.d; cycles = 4; break;
-            case 0x53: // LD D, E
-                value = this.register.e; cycles = 4; break;
-            case 0x54: // LD D, H
-                value = this.register.h; cycles = 4; break;
-            case 0x55: // LD D, L
-                value = this.register.l; cycles = 4; break;
-            case 0x56: // LD D, (HL)
-                value = this.system.mmu.readByte(this.getHL()); cycles = 8; break;
+            case 0x50: value = this.register.b; cycles = 4; break;
+            case 0x51: value = this.register.c; cycles = 4; break;
+            case 0x52: value = this.register.d; cycles = 4; break;
+            case 0x53: value = this.register.e; cycles = 4; break;
+            case 0x54: value = this.register.h; cycles = 4; break;
+            case 0x55: value = this.register.l; cycles = 4; break;
+            case 0x56: value = this.system.mmu.readByte(this.getHL()); cycles = 8; break;
         }
 
         this.register.d = value;
@@ -770,20 +680,13 @@ class LR35902 {
         let cycles = null;
 
         switch(this.instructionCode) {
-            case 0x58: // LD E, B
-                value = this.register.b; cycles = 4; break;
-            case 0x59: // LD E, C
-                value = this.register.c; cycles = 4; break;
-            case 0x5A: // LD E, D
-                value = this.register.d; cycles = 4; break;
-            case 0x5B: // LD E, E
-                value = this.register.e; cycles = 4; break;
-            case 0x5C: // LD E, H
-                value = this.register.h; cycles = 4; break;
-            case 0x5D: // LD E, L
-                value = this.register.l; cycles = 4; break;
-            case 0x5E: // LD E, (HL)
-                value = this.system.mmu.readByte(this.getHL()); cycles = 8; break;
+            case 0x58: value = this.register.b; cycles = 4; break;
+            case 0x59: value = this.register.c; cycles = 4; break;
+            case 0x5A: value = this.register.d; cycles = 4; break;
+            case 0x5B: value = this.register.e; cycles = 4; break;
+            case 0x5C: value = this.register.h; cycles = 4; break;
+            case 0x5D: value = this.register.l; cycles = 4; break;
+            case 0x5E: value = this.system.mmu.readByte(this.getHL()); cycles = 8; break;
         }
 
         this.register.e = value;
@@ -795,20 +698,13 @@ class LR35902 {
         let cycles = null;
 
         switch(this.instructionCode) {
-            case 0x60: // LD H, B
-                value = this.register.b; cycles = 4; break;
-            case 0x61: // LD H, C
-                value = this.register.c; cycles = 4; break;
-            case 0x62: // LD H, D
-                value = this.register.d; cycles = 4; break;
-            case 0x63: // LD H, E
-                value = this.register.e; cycles = 4; break;
-            case 0x64: // LD H, H
-                value = this.register.h; cycles = 4; break;
-            case 0x65: // LD H, L
-                value = this.register.l; cycles = 4; break;
-            case 0x66: // LD H, (HL)
-                value = this.system.mmu.readByte(this.getHL()); cycles = 8; break;
+            case 0x60: value = this.register.b; cycles = 4; break;
+            case 0x61: value = this.register.c; cycles = 4; break;
+            case 0x62: value = this.register.d; cycles = 4; break;
+            case 0x63: value = this.register.e; cycles = 4; break;
+            case 0x64: value = this.register.h; cycles = 4; break;
+            case 0x65: value = this.register.l; cycles = 4; break;
+            case 0x66: value = this.system.mmu.readByte(this.getHL()); cycles = 8; break;
         }
 
         this.register.h = value;
@@ -820,24 +716,29 @@ class LR35902 {
         let cycles = null;
 
         switch(this.instructionCode) {
-            case 0x68: // LD L, B
-                value = this.register.b; cycles = 4; break;
-            case 0x69: // LD L, C
-                value = this.register.c; cycles = 4; break;
-            case 0x6A: // LD L, D
-                value = this.register.d; cycles = 4; break;
-            case 0x6B: // LD L, E
-                value = this.register.e; cycles = 4; break;
-            case 0x6C: // LD L, H
-                value = this.register.h; cycles = 4; break;
-            case 0x6D: // LD L, L
-                value = this.register.l; cycles = 4; break;
-            case 0x6E: // LD L, (HL)
-                value = this.system.mmu.readByte(this.getHL()); cycles = 8; break;
+            case 0x68: value = this.register.b; cycles = 4; break;
+            case 0x69: value = this.register.c; cycles = 4; break;
+            case 0x6A: value = this.register.d; cycles = 4; break;
+            case 0x6B: value = this.register.e; cycles = 4; break;
+            case 0x6C: value = this.register.h; cycles = 4; break;
+            case 0x6D: value = this.register.l; cycles = 4; break;
+            case 0x6E: value = this.system.mmu.readByte(this.getHL()); cycles = 8; break;
         }
 
         this.register.l = value;
         this.system.consumeClockCycles(cycles);
+    }
+
+    LD_HL_SP_r8() {
+        let n = this.system.mmu.readByte(this.register.pc++);
+        if (n>127) n = -((~n+1)&0xFF);
+        const result = (n + this.register.sp)&0xFFFF;
+        this.register.h = (result>>8)&0xFF;            
+        this.register.l = result&0xFF;            
+        this.clearZ(); this.clearN();
+        if (((this.register.sp^n^result)&0x100)==0x100) this.setC(); else this.clearC();
+        if (((this.register.sp^n^result)&0x10)==0x10) this.setH(); else this.clearH();
+        this.system.consumeClockCycles(12);
     }
 
     LD_HLmem_n() {
@@ -845,20 +746,13 @@ class LR35902 {
         let cycles = null;
 
         switch (this.instructionCode) {
-            case 0x70: // LD (HL), B
-                value = this.register.b; cycles = 8; break;
-            case 0x71: // LD (HL), C
-                value = this.register.c; cycles = 8; break;
-            case 0x72: // LD (HL), D
-                value = this.register.d; cycles = 8; break;
-            case 0x73: // LD (HL), E
-                value = this.register.e; cycles = 8; break;
-            case 0x74: // LD (HL), H
-                value = this.register.h; cycles = 8; break;
-            case 0x75: // LD (HL), L
-                value = this.register.l; cycles = 8; break;
-            case 0x36: // LD (HL), n
-                value = this.system.mmu.readByte(this.register.pc++); cycles = 12; break;
+            case 0x70: value = this.register.b; cycles = 8; break;
+            case 0x71: value = this.register.c; cycles = 8; break;
+            case 0x72: value = this.register.d; cycles = 8; break;
+            case 0x73: value = this.register.e; cycles = 8; break;
+            case 0x74: value = this.register.h; cycles = 8; break;
+            case 0x75: value = this.register.l; cycles = 8; break;
+            case 0x36: value = this.system.mmu.readByte(this.register.pc++); cycles = 12; break;
         }
 
         this.system.mmu.writeByte(this.getHL(), value);
@@ -870,35 +764,25 @@ class LR35902 {
         this.register.pc+=2;
 
         switch (this.instructionCode) {
-            case 0x01: // LD BC, nn
-                this.register.b = (word>>8)&0xFF; this.register.c = word&0xFF; break;
-            case 0x11: // LD DE, nn
-                this.register.d = (word>>8)&0xFF; this.register.e = word&0xFF; break;
-            case 0x21: // LD HL, nn
-                this.register.h = (word>>8)&0xFF; this.register.l = word&0xFF; break;
-            case 0x31: // LD SP, nn
-                this.register.sp = word; break;
+            case 0x01: this.register.b = (word>>8)&0xFF; this.register.c = word&0xFF; break;
+            case 0x11: this.register.d = (word>>8)&0xFF; this.register.e = word&0xFF; break;
+            case 0x21: this.register.h = (word>>8)&0xFF; this.register.l = word&0xFF; break;
+            case 0x31: this.register.sp = word; break;
         }
 
         this.system.consumeClockCycles(12);
     }
 
-    LD_nn_n() { // Put the value of n into nn.
+    LD_nn_n() {
         let value = this.system.mmu.readByte(this.register.pc++);
 
         switch (this.instructionCode) {
-            case 0x06: // LD B, n
-                this.register.b = value; break;
-            case 0x0E: // LD C, n
-                this.register.c = value; break;
-            case 0x16: // LD D, n
-                this.register.d = value; break;
-            case 0x1E: // LD E, n
-                this.register.e = value; break;
-            case 0x26: // LD H, n
-                this.register.h = value; break;
-            case 0x2E: // LD L, n
-                this.register.l = value; break;
+            case 0x06: this.register.b = value; break;
+            case 0x0E: this.register.c = value; break;
+            case 0x16: this.register.d = value; break;
+            case 0x1E: this.register.e = value; break;
+            case 0x26: this.register.h = value; break;
+            case 0x2E: this.register.l = value; break;
         }
 
         this.system.consumeClockCycles(8);
@@ -906,28 +790,17 @@ class LR35902 {
 
     LD_n_A() {
         switch (this.instructionCode) {
-            case 0x7F: // LD A, A
-                this.register.a = this.register.a; this.system.consumeClockCycles(4); break;
-            case 0x47: // LD B, A
-                this.register.b = this.register.a; this.system.consumeClockCycles(4); break;
-            case 0x4F: // LD C, A
-                this.register.c = this.register.a; this.system.consumeClockCycles(4); break;
-            case 0x57: // LD D, A
-                this.register.d = this.register.a; this.system.consumeClockCycles(4); break;
-            case 0x5F: // LD E, A
-                this.register.e = this.register.a; this.system.consumeClockCycles(4); break;
-            case 0x67: // LD H, A
-                this.register.h = this.register.a; this.system.consumeClockCycles(4); break;
-            case 0x6F: // LD L, A
-                this.register.l = this.register.a; this.system.consumeClockCycles(4); break;
-            case 0x02: // LD (BC), A
-                this.system.mmu.writeByte(this.getBC(), this.register.a); this.system.consumeClockCycles(8); break;
-            case 0x12: // LD (DE), A
-                this.system.mmu.writeByte(this.getDE(), this.register.a); this.system.consumeClockCycles(8); break;
-            case 0x77: // LD (HL), A
-                this.system.mmu.writeByte(this.getHL(), this.register.a); this.system.consumeClockCycles(8); break;
-            case 0xEA: // LD (nn), A
-                this.system.mmu.writeByte(this.system.mmu.readWord(this.register.pc), this.register.a); this.register.pc+=2; this.system.consumeClockCycles(16); break;
+            case 0x7F: this.register.a = this.register.a; this.system.consumeClockCycles(4); break;
+            case 0x47: this.register.b = this.register.a; this.system.consumeClockCycles(4); break;
+            case 0x4F: this.register.c = this.register.a; this.system.consumeClockCycles(4); break;
+            case 0x57: this.register.d = this.register.a; this.system.consumeClockCycles(4); break;
+            case 0x5F: this.register.e = this.register.a; this.system.consumeClockCycles(4); break;
+            case 0x67: this.register.h = this.register.a; this.system.consumeClockCycles(4); break;
+            case 0x6F: this.register.l = this.register.a; this.system.consumeClockCycles(4); break;
+            case 0x02: this.system.mmu.writeByte(this.getBC(), this.register.a); this.system.consumeClockCycles(8); break;
+            case 0x12: this.system.mmu.writeByte(this.getDE(), this.register.a); this.system.consumeClockCycles(8); break;
+            case 0x77: this.system.mmu.writeByte(this.getHL(), this.register.a); this.system.consumeClockCycles(8); break;
+            case 0xEA: this.system.mmu.writeByte(this.system.mmu.readWord(this.register.pc), this.register.a); this.register.pc+=2; this.system.consumeClockCycles(16); break;
         }
     }
 
@@ -939,14 +812,14 @@ class LR35902 {
     LDD_A_HLmem() {
         this.register.a = this.system.mmu.readByte(this.getHL());
         this.register.l = (this.register.l-1)&0xFF;
-        if (this.register.l == 0xFF) this.register.h = (this.register.h-1)&0xFF;
+        if (this.register.l===0xFF) this.register.h = (this.register.h-1)&0xFF;
         this.system.consumeClockCycles(8);
     }
 
-    LDD_HLmem_A() { // Put A into memory address HL. Decrement HL.
+    LDD_HLmem_A() {
         this.system.mmu.writeByte(this.getHL(), this.register.a);
         this.register.l = (this.register.l-1)&0xFF;
-        if (this.register.l == 255) this.register.h = (this.register.h-1)&0xFF
+        if (this.register.l===0xFF) this.register.h = (this.register.h-1)&0xFF
         this.system.consumeClockCycles(8);
     }
 
@@ -960,17 +833,17 @@ class LR35902 {
         this.system.consumeClockCycles(8);
     }
 
-    LDH_A_d8mem() { // Put memory address $FF00 + n into A.
+    LDH_A_d8mem() {
         this.register.a = this.system.mmu.readByte(0xFF00+this.system.mmu.readByte(this.register.pc++));
         this.system.consumeClockCycles(12);
     }
 
-    LDH_d8mem_A() { // Put A into memory address $FF00 + n.
+    LDH_d8mem_A() {
         this.system.mmu.writeByte(0xFF00+this.system.mmu.readByte(this.register.pc++), this.register.a);
         this.system.consumeClockCycles(12);
     }
 
-    LDI_A_HLmem() { // Put value at address HL into A. Increment HL.
+    LDI_A_HLmem() {
         this.register.a = this.system.mmu.readByte(this.getHL());
         this.register.l = (this.register.l+1)&0xFF;
         if (this.register.l === 0) this.register.h = (this.register.h+1)&0xFF;
@@ -984,7 +857,7 @@ class LR35902 {
         this.system.consumeClockCycles(8);
     }
 
-    NOP() { // No operation.
+    NOP() {
         this.system.consumeClockCycles(4);
     }
 
@@ -993,47 +866,31 @@ class LR35902 {
         let cycles = null;
 
         switch (this.instructionCode) {
-            case 0xB7: // OR A
-                value = this.register.a; cycles = 4; break;
-            case 0xB0: // OR B
-                value = this.register.b; cycles = 4; break;
-            case 0xB1: // OR C
-                value = this.register.c; cycles = 4; break;
-            case 0xB2: // OR D
-                value = this.register.d; cycles = 4; break;
-            case 0xB3: // OR E
-                value = this.register.e; cycles = 4; break;
-            case 0xB4: // OR H
-                value = this.register.h; cycles = 4; break;
-            case 0xB5: // OR L
-                value = this.register.l; cycles = 4; break;
-            case 0xB6: // OR (HL)
-                value = this.system.mmu.readByte(this.getHL()); cycles = 8; break;
-            case 0xF6: // OR n
-                value = this.system.mmu.readByte(this.register.pc++); cycles = 8; break;
+            case 0xB7: value = this.register.a; cycles = 4; break;
+            case 0xB0: value = this.register.b; cycles = 4; break;
+            case 0xB1: value = this.register.c; cycles = 4; break;
+            case 0xB2: value = this.register.d; cycles = 4; break;
+            case 0xB3: value = this.register.e; cycles = 4; break;
+            case 0xB4: value = this.register.h; cycles = 4; break;
+            case 0xB5: value = this.register.l; cycles = 4; break;
+            case 0xB6: value = this.system.mmu.readByte(this.getHL()); cycles = 8; break;
+            case 0xF6: value = this.system.mmu.readByte(this.register.pc++); cycles = 8; break;
         }
 
         this.register.a = (this.register.a|value)&0xFF;
-        if (!this.register.a) this.setZ(); else this.clearZ();
+        if (this.register.a) this.clearZ(); else this.setZ();
         this.clearN(); this.clearH(); this.clearC();
         this.system.consumeClockCycles(cycles);
     }
 
     POP() {
-        let word = this.system.mmu.readWord(this.register.sp);
-        this.register.sp+=2;
-
         switch (this.instructionCode) {
-            case 0xF1: // POP AF
-                this.setAF(word); break;
-            case 0xC1: // POP BC
-                this.setBC(word); break;
-            case 0xD1: // POP DE
-                this.setDE(word); break;
-            case 0xE1: // POP HL
-                this.setHL(word); break;
+            case 0xF1: this.register.f = this.system.mmu.readByte(this.register.sp++)&0xF0; this.register.a = this.system.mmu.readByte(this.register.sp++); break;
+            case 0xC1: this.register.c = this.system.mmu.readByte(this.register.sp++); this.register.b = this.system.mmu.readByte(this.register.sp++); break;
+            case 0xD1: this.register.e = this.system.mmu.readByte(this.register.sp++); this.register.d = this.system.mmu.readByte(this.register.sp++); break;
+            case 0xE1: this.register.l = this.system.mmu.readByte(this.register.sp++); this.register.h = this.system.mmu.readByte(this.register.sp++); break;
         }
-
+        
         this.system.consumeClockCycles(12);
     }
 
@@ -1041,14 +898,10 @@ class LR35902 {
         let value = null;
 
         switch (this.instructionCode) {
-            case 0xF5: // PUSH AF
-                value = this.getAF(); break;
-            case 0xC5: // PUSH BC
-                value = this.getBC(); break;
-            case 0xD5: // PUSH DE
-                value = this.getDE(); break;
-            case 0xE5: // PUSH HL
-                value = this.getHL(); break;
+            case 0xF5: value = this.getAF(); break;
+            case 0xC5: value = this.getBC(); break;
+            case 0xD5: value = this.getDE(); break;
+            case 0xE5: value = this.getHL(); break;
         }
 
         this.register.sp-=2;
@@ -1066,14 +919,10 @@ class LR35902 {
         let condition = null;
 
         switch (this.instructionCode) {
-            case 0xC0: // RET NZ
-                condition = !(this.register.f&0x80); break;
-            case 0xC8: // RET Z
-                condition = this.register.f&0x80; break;
-            case 0xD0: // RET NC
-                condition = !(this.register.f&0x10); break;
-            case 0xD8: // RET C
-                condition = this.register.f&0x10; break;
+            case 0xC0: condition = !(this.register.f&0x80); break;
+            case 0xC8: condition = this.register.f&0x80; break;
+            case 0xD0: condition = !(this.register.f&0x10); break;
+            case 0xD8: condition = this.register.f&0x10; break;
         }
 
         if (condition) {
@@ -1128,7 +977,7 @@ class LR35902 {
         this.system.consumeClockCycles(4);
     }
 
-    RST() { // Push present address onto stack. Jump to address $0000 + n.
+    RST() {
         let offset = null;
 
         switch (this.instructionCode) {
@@ -1139,13 +988,40 @@ class LR35902 {
             case 0xE7: offset = 0x20; break;
             case 0xEF: offset = 0x28; break;
             case 0xF7: offset = 0x30; break;
-            case 0xFF: offset = 0x38; throw `Reset 38 Hit. Stopping execution.`; break;
+            case 0xFF: offset = 0x38; break;
         }
 
         this.register.sp-=2;
         this.system.mmu.writeWord(this.register.sp, this.register.pc);
         this.register.pc = 0x0000 + offset;
-        this.system.consumeClockCycles(32);
+        this.system.consumeClockCycles(16);
+    }
+
+    SBC() {
+        let cycles = null;
+        let input = null;
+        const a = this.register.a;
+
+        switch (this.instructionCode) {
+            case 0x9F: input = this.register.a; cycles = 4; break;
+            case 0x98: input = this.register.b; cycles = 4; break;
+            case 0x99: input = this.register.c; cycles = 4; break;
+            case 0x9A: input = this.register.d; cycles = 4; break;
+            case 0x9B: input = this.register.e; cycles = 4; break;
+            case 0x9C: input = this.register.h; cycles = 4; break;
+            case 0x9D: input = this.register.l; cycles = 4; break;
+            case 0x9E: input = this.system.mmu.readByte(this.getHL()); cycles = 8; break;
+            case 0xDE: input = this.system.mmu.readByte(this.register.pc++); cycles = 8; break;
+        }
+
+        const result = a-input-(this.register.f&0x10?1:0);
+        this.setN();
+        if (result&0xFF) this.clearZ(); else this.setZ();        
+        if (result&0x100) this.setC(); else this.clearC();        
+        if (((a^input^result)&0x10)!=0) this.setH(); else this.clearH();
+        this.register.a = result&0xFF;
+
+        this.system.consumeClockCycles(cycles);
     }
 
     SCF() {
@@ -1164,24 +1040,15 @@ class LR35902 {
         let input = null;
 
         switch (this.instructionCode) {
-            case 0x97: // SUB A
-                input = this.register.a; cycles = 4; break;
-            case 0x90: // SUB B
-                input = this.register.b; cycles = 4; break;
-            case 0x91: // SUB C
-                input = this.register.c; cycles = 4; break;
-            case 0x92: // SUB D
-                input = this.register.d; cycles = 4; break;
-            case 0x93: // SUB E
-                input = this.register.e; cycles = 4; break;
-            case 0x94: // SUB H
-                input = this.register.h; cycles = 4; break;
-            case 0x95: // SUB L
-                input = this.register.l; cycles = 4; break;
-            case 0x96: // SUB (HL)
-                input = this.system.mmu.readByte(this.getHL()); cycles = 8; break;
-            case 0xD6: // SUB #
-                input = this.system.mmu.readByte(this.register.pc++); cycles = 8; break;
+            case 0x97: input = this.register.a; cycles = 4; break;
+            case 0x90: input = this.register.b; cycles = 4; break;
+            case 0x91: input = this.register.c; cycles = 4; break;
+            case 0x92: input = this.register.d; cycles = 4; break;
+            case 0x93: input = this.register.e; cycles = 4; break;
+            case 0x94: input = this.register.h; cycles = 4; break;
+            case 0x95: input = this.register.l; cycles = 4; break;
+            case 0x96: input = this.system.mmu.readByte(this.getHL()); cycles = 8; break;
+            case 0xD6: input = this.system.mmu.readByte(this.register.pc++); cycles = 8; break;
         }
 
         let a = this.register.a;
@@ -1189,13 +1056,13 @@ class LR35902 {
         this.setN();        
         if (this.register.a < 0) this.setC(); else this.clearC();
         this.register.a &= 0xFF;
-        if (!this.register.a) this.setZ(); else this.clearZ();
+        if (this.register.a) this.clearZ(); else this.setZ();
         if ((this.register.a^input^a) & 0x10) this.setH(); else this.clearH();
 
         this.system.consumeClockCycles(cycles);
     }
 
-    XOR_n() {
+    XOR() {
         let value = null;
         let cycles = null;
 
@@ -1242,8 +1109,8 @@ class LR35902 {
         let value = null;
         let cycles = null;
 
-        let codeHI = (this.instructionCode>>4)&0xF;
-        let codeLO = this.instructionCode&0xF;
+        const codeHI = (this.instructionCode>>4)&0xF;
+        const codeLO = this.instructionCode&0xF;
 
         switch (codeLO) {
             case 0x7: case 0xF: value = this.register.a; cycles = 8; break;
@@ -1253,7 +1120,7 @@ class LR35902 {
             case 0x3: case 0xB: value = this.register.e; cycles = 8; break;
             case 0x4: case 0xC: value = this.register.h; cycles = 8; break;
             case 0x5: case 0xD: value = this.register.l; cycles = 8; break;
-            case 0x6: case 0xE: value = this.system.mmu.readByte(this.getHL()); cycles = 16; break;
+            case 0x6: case 0xE: value = this.system.mmu.readByte(this.getHL()); cycles = 12; break;
         }
 
         switch (codeHI) {
@@ -1272,8 +1139,8 @@ class LR35902 {
         let bit = null;
         let cycles = null;
 
-        let codeHI = (this.instructionCode>>4)&0xF;
-        let codeLO = this.instructionCode&0xF;
+        const codeHI = (this.instructionCode>>4)&0xF;
+        const codeLO = this.instructionCode&0xF;
 
         switch (codeHI) {
             case 0x8: if (codeLO >= 0x0 && codeLO <= 0x7) bit = 0; else bit = 1; break;
@@ -1302,22 +1169,14 @@ class LR35902 {
         let result = null;
         
         switch (this.instructionCode) {
-            case 0xCB17: // RL A
-                this.register.a = result = this._RL(this.register.a); cycles = 8; break;
-            case 0xCB10: // RL B
-                this.register.b = result = this._RL(this.register.b); cycles = 8; break;
-            case 0xCB11: // RL C
-                this.register.c = result = this._RL(this.register.c); cycles = 8; break;
-            case 0xCB12: // RL D
-                this.register.d = result = this._RL(this.register.d); cycles = 8; break;
-            case 0xCB13: // RL E
-                this.register.e = result = this._RL(this.register.e); cycles = 8; break;
-            case 0xCB14: // RL H
-                this.register.h = result = this._RL(this.register.h); cycles = 8; break;
-            case 0xCB15: // RL L
-                this.register.l = result = this._RL(this.register.l); cycles = 8; break;
-            case 0xCB16: // RL (HL)                
-                result = this._RL(this.system.mmu.readByte(this.getHL())); this.system.mmu.writeByte(this.getHL(), result); cycles = 16; break;
+            case 0xCB17: this.register.a = result = this._RL(this.register.a); cycles = 8; break;
+            case 0xCB10: this.register.b = result = this._RL(this.register.b); cycles = 8; break;
+            case 0xCB11: this.register.c = result = this._RL(this.register.c); cycles = 8; break;
+            case 0xCB12: this.register.d = result = this._RL(this.register.d); cycles = 8; break;
+            case 0xCB13: this.register.e = result = this._RL(this.register.e); cycles = 8; break;
+            case 0xCB14: this.register.h = result = this._RL(this.register.h); cycles = 8; break;
+            case 0xCB15: this.register.l = result = this._RL(this.register.l); cycles = 8; break;
+            case 0xCB16: result = this._RL(this.system.mmu.readByte(this.getHL())); this.system.mmu.writeByte(this.getHL(), result); cycles = 16; break;
         }
             
         if (result) this.clearZ(); else this.setZ();
@@ -1334,43 +1193,89 @@ class LR35902 {
     RLC() {
         this.clearN(); this.clearH();
         let cycles = null;
-        let result = null;
 
         switch (this.instructionCode) {
-            case 0xCB07: // RLC A
-                this.register.a = result = this._RLC(this.register.a); cycles = 8; break;
-            case 0xCB00: // RLC B
-                this.register.b = result = this._RLC(this.register.b); cycles = 8; break;
-            case 0xCB01: // RLC C
-                this.register.c = result = this._RLC(this.register.c); cycles = 8; break;
-            case 0xCB02: // RLC D
-                this.register.d = result = this._RLC(this.register.d); cycles = 8; break;
-            case 0xCB03: // RLC E
-                this.register.e = result = this._RLC(this.register.e); cycles = 8; break;
-            case 0xCB04: // RLC H
-                this.register.h = result = this._RLC(this.register.h); cycles = 8; break;
-            case 0xCB05: // RLC L
-                this.register.l = result = this._RLC(this.register.l); cycles = 8; break;
-            case 0xCB06: // RLC (HL)
-                result = this._RLC(this.system.mmu.readByte(this.getHL())); this.system.mmu.writeByte(this.getHL(), result); cycles = 16; break;
+            case 0xCB07: this.register.a = this._RLC(this.register.a); cycles = 8; break;
+            case 0xCB00: this.register.b = this._RLC(this.register.b); cycles = 8; break;
+            case 0xCB01: this.register.c = this._RLC(this.register.c); cycles = 8; break;
+            case 0xCB02: this.register.d = this._RLC(this.register.d); cycles = 8; break;
+            case 0xCB03: this.register.e = this._RLC(this.register.e); cycles = 8; break;
+            case 0xCB04: this.register.h = this._RLC(this.register.h); cycles = 8; break;
+            case 0xCB05: this.register.l = this._RLC(this.register.l); cycles = 8; break;
+            case 0xCB06: this.system.mmu.writeByte(this.getHL(), this._RLC(this.system.mmu.readByte(this.getHL()))); cycles = 16; break;
         }
             
-        if (result) this.clearZ(); else this.setZ();
         this.system.consumeClockCycles(cycles);
     }
-
+    
     _RLC(register) {
         const carryOut = register&0x80?1:0;
         if (carryOut) this.setC(); else this.clearC();
-        return ((register<<1)+carryOut)&0xFF;
+        const result = ((register<<1)+carryOut)&0xFF;
+        if (result) this.clearZ(); else this.setZ();
+        return result;
+    }
+
+    RR() {
+        this.clearN(); this.clearH();
+        let cycles = null;
+
+        switch (this.instructionCode) {
+            case 0xCB1F: this.register.a = this._RR(this.register.a); cycles = 8; break;
+            case 0xCB18: this.register.b = this._RR(this.register.b); cycles = 8; break;
+            case 0xCB19: this.register.c = this._RR(this.register.c); cycles = 8; break;
+            case 0xCB1A: this.register.d = this._RR(this.register.d); cycles = 8; break;
+            case 0xCB1B: this.register.e = this._RR(this.register.e); cycles = 8; break;
+            case 0xCB1C: this.register.h = this._RR(this.register.h); cycles = 8; break;
+            case 0xCB1D: this.register.l = this._RR(this.register.l); cycles = 8; break;
+            case 0xCB1E: this.system.mmu.writeByte(this.getHL(), this._RR(this.system.mmu.readByte(this.getHL()))); cycles = 16; break;
+        }        
+
+        this.system.consumeClockCycles(cycles);
+    }
+
+    _RR(register) {
+        const carryOut = register&0x01?1:0;
+        const carryIn = this.register.f&0x10?1:0;
+        if (carryOut) this.setC(); else this.clearC();
+        const result = ((register>>1)+(carryIn<<7))&0xFF;
+        if (result) this.clearZ(); else this.setZ();
+        return result;
+    }
+
+    RRC() {
+        let cycles = null;
+
+        this.clearN(); this.clearH();
+
+        switch (this.instructionCode) {
+            case 0xCB0F: this.register.a = this._RRC(this.register.a); cycles = 8; break;
+            case 0xCB08: this.register.b = this._RRC(this.register.b); cycles = 8; break;
+            case 0xCB09: this.register.c = this._RRC(this.register.c); cycles = 8; break;
+            case 0xCB0A: this.register.d = this._RRC(this.register.d); cycles = 8; break;
+            case 0xCB0B: this.register.e = this._RRC(this.register.e); cycles = 8; break;
+            case 0xCB0C: this.register.h = this._RRC(this.register.h); cycles = 8; break;
+            case 0xCB0D: this.register.l = this._RRC(this.register.l); cycles = 8; break;
+            case 0xCB0E: this.system.mmu.writeByte(this.getHL(), this._RRC(this.system.mmu.readByte(this.getHL()))); cycles = 16; break;
+        }
+
+        this.system.consumeClockCycles(cycles);
+    }
+
+    _RRC(register) {
+        const carryOut = register&0x01?1:0;
+        if (carryOut) this.setC(); else this.clearC();
+        const result = ((register>>1)+(carryOut<<7))&0xFF;
+        if (result) this.clearZ(); else this.setZ();
+        return result;
     }
 
     SET() {
         let bit = null;
         let cycles = null;
 
-        let codeHI = (this.instructionCode>>4)&0xF;
-        let codeLO = this.instructionCode&0xF;
+        const codeHI = (this.instructionCode>>4)&0xF;
+        const codeLO = this.instructionCode&0xF;
 
         switch (codeHI) {
             case 0xC: if (codeLO >= 0x0 && codeLO <= 0x7) bit = 0; else bit = 1; break;
@@ -1400,25 +1305,39 @@ class LR35902 {
         let result = null;
 
         switch (this.instructionCode) {
-            case 0xCB27: // SLA A
-                original = this.register.a; result = (original<<1)&0xFF; this.register.a = result; cycles = 8; break;
-            case 0xCB20: // SLA B
-                original = this.register.b; result = (original<<1)&0xFF; this.register.b = result; cycles = 8; break;
-            case 0xCB21: // SLA C
-                original = this.register.c; result = (original<<1)&0xFF; this.register.c = result; cycles = 8; break;
-            case 0xCB22: // SLA D
-                original = this.register.d; result = (original<<1)&0xFF; this.register.d = result; cycles = 8; break;
-            case 0xCB23: // SLA E
-                original = this.register.e; result = (original<<1)&0xFF; this.register.e = result; cycles = 8; break;
-            case 0xCB24: // SLA H
-                original = this.register.h; result = (original<<1)&0xFF; this.register.h = result; cycles = 8; break;
-            case 0xCB25: // SLA L
-                original = this.register.l; result = (original<<1)&0xFF; this.register.l = result; cycles = 8; break;
-            case 0xCB26: // SLA (HL)
-                original = this.system.mmu.readByte(this.getHL()); result = (original<<1)&0xFF; this.system.mmu.writeByte(this.getHL(), result); cycles = 16; break;
+            case 0xCB27: original = this.register.a; result = (original<<1)&0xFF; this.register.a = result; cycles = 8; break;
+            case 0xCB20: original = this.register.b; result = (original<<1)&0xFF; this.register.b = result; cycles = 8; break;
+            case 0xCB21: original = this.register.c; result = (original<<1)&0xFF; this.register.c = result; cycles = 8; break;
+            case 0xCB22: original = this.register.d; result = (original<<1)&0xFF; this.register.d = result; cycles = 8; break;
+            case 0xCB23: original = this.register.e; result = (original<<1)&0xFF; this.register.e = result; cycles = 8; break;
+            case 0xCB24: original = this.register.h; result = (original<<1)&0xFF; this.register.h = result; cycles = 8; break;
+            case 0xCB25: original = this.register.l; result = (original<<1)&0xFF; this.register.l = result; cycles = 8; break;
+            case 0xCB26: original = this.system.mmu.readByte(this.getHL()); result = (original<<1)&0xFF; this.system.mmu.writeByte(this.getHL(), result); cycles = 16; break;
         }
 
         if (original&0x80) this.setC(); else this.clearC();
+        if (result) this.clearZ(); else this.setZ();
+        this.system.consumeClockCycles(cycles);
+    }
+
+    SRA() {
+        let cycles = null;
+        let original = null;
+        let result = null;
+        this.clearN(); this.clearH();
+
+        switch (this.instructionCode) {
+            case 0xCB2F: original = this.register.a; result = ((original>>1)+(original&0x80))&0xFF; this.register.a = result; cycles = 8; break;
+            case 0xCB28: original = this.register.b; result = ((original>>1)+(original&0x80))&0xFF; this.register.b = result; cycles = 8; break;
+            case 0xCB29: original = this.register.c; result = ((original>>1)+(original&0x80))&0xFF; this.register.c = result; cycles = 8; break;
+            case 0xCB2A: original = this.register.d; result = ((original>>1)+(original&0x80))&0xFF; this.register.d = result; cycles = 8; break;
+            case 0xCB2B: original = this.register.e; result = ((original>>1)+(original&0x80))&0xFF; this.register.e = result; cycles = 8; break;
+            case 0xCB2C: original = this.register.h; result = ((original>>1)+(original&0x80))&0xFF; this.register.h = result; cycles = 8; break;
+            case 0xCB2D: original = this.register.l; result = ((original>>1)+(original&0x80))&0xFF; this.register.l = result; cycles = 8; break;
+            case 0xCB2E: original = this.system.mmu.readByte(this.getHL()); result = ((original>>1)+(original&0x80))&0xFF; this.system.mmu.writeByte(this.getHL(), result); cycles = 16; break;
+        }
+            
+        if (original&0x01) this.setC(); else this.clearC();
         if (result) this.clearZ(); else this.setZ();
         this.system.consumeClockCycles(cycles);
     }
@@ -1430,22 +1349,14 @@ class LR35902 {
         this.clearN(); this.clearH();
 
         switch (this.instructionCode) {
-            case 0xCB3F: // SRL A
-                original = this.register.a; result = (original>>1)&0xFF; this.register.a = result; cycles = 8; break;
-            case 0xCB38: // SRL B
-                original = this.register.b; result = (original>>1)&0xFF; this.register.b = result; cycles = 8; break;
-            case 0xCB39: // SRL C
-                original = this.register.c; result = (original>>1)&0xFF; this.register.c = result; cycles = 8; break;
-            case 0xCB3A: // SRL D
-                original = this.register.d; result = (original>>1)&0xFF; this.register.d = result; cycles = 8; break;
-            case 0xCB3B: // SRL E
-                original = this.register.e; result = (original>>1)&0xFF; this.register.e = result; cycles = 8; break;
-            case 0xCB3C: // SRL H
-                original = this.register.h; result = (original>>1)&0xFF; this.register.h = result; cycles = 8; break;
-            case 0xCB3D: // SRL L
-                original = this.register.l; result = (original>>1)&0xFF; this.register.l = result; cycles = 8; break;
-            case 0xCB3E: // SRL (HL)
-                original = this.system.mmu.readByte(this.getHL()); result = (original>>1)&0xFF; this.system.mmu.writeByte(this.getHL(), result); cycles = 16; break;
+            case 0xCB3F: original = this.register.a; result = (original>>1)&0xFF; this.register.a = result; cycles = 8; break;
+            case 0xCB38: original = this.register.b; result = (original>>1)&0xFF; this.register.b = result; cycles = 8; break;
+            case 0xCB39: original = this.register.c; result = (original>>1)&0xFF; this.register.c = result; cycles = 8; break;
+            case 0xCB3A: original = this.register.d; result = (original>>1)&0xFF; this.register.d = result; cycles = 8; break;
+            case 0xCB3B: original = this.register.e; result = (original>>1)&0xFF; this.register.e = result; cycles = 8; break;
+            case 0xCB3C: original = this.register.h; result = (original>>1)&0xFF; this.register.h = result; cycles = 8; break;
+            case 0xCB3D: original = this.register.l; result = (original>>1)&0xFF; this.register.l = result; cycles = 8; break;
+            case 0xCB3E: original = this.system.mmu.readByte(this.getHL()); result = (original>>1)&0xFF; this.system.mmu.writeByte(this.getHL(), result); cycles = 16; break;
         }
 
         if (original&0x01) this.setC(); else this.clearC();
@@ -1459,22 +1370,14 @@ class LR35902 {
         let cycles = null;
 
         switch (this.instructionCode) {
-            case 0xCB37:
-                result = this._SWAP(this.register.a); this.register.a = result; cycles = 8; break;
-            case 0xCB30:
-                result = this._SWAP(this.register.b); this.register.b = result; cycles = 8; break;
-            case 0xCB31:
-                result = this._SWAP(this.register.c); this.register.c = result; cycles = 8; break;
-            case 0xCB32:
-                result = this._SWAP(this.register.d); this.register.d = result; cycles = 8; break;
-            case 0xCB33:
-                result = this._SWAP(this.register.e); this.register.e = result; cycles = 8; break;
-            case 0xCB34:
-                result = this._SWAP(this.register.h); this.register.h = result; cycles = 8; break;
-            case 0xCB35:
-                result = this._SWAP(this.register.l); this.register.l = result; cycles = 8; break;
-            case 0xCB36:
-                result = this._SWAP(this.system.mmu.readByte(this.getHL())); this.system.mmu.writeByte(this.getHL(), result); cycles = 16; break;
+            case 0xCB37: result = this._SWAP(this.register.a); this.register.a = result; cycles = 8; break;
+            case 0xCB30: result = this._SWAP(this.register.b); this.register.b = result; cycles = 8; break;
+            case 0xCB31: result = this._SWAP(this.register.c); this.register.c = result; cycles = 8; break;
+            case 0xCB32: result = this._SWAP(this.register.d); this.register.d = result; cycles = 8; break;
+            case 0xCB33: result = this._SWAP(this.register.e); this.register.e = result; cycles = 8; break;
+            case 0xCB34: result = this._SWAP(this.register.h); this.register.h = result; cycles = 8; break;
+            case 0xCB35: result = this._SWAP(this.register.l); this.register.l = result; cycles = 8; break;
+            case 0xCB36: result = this._SWAP(this.system.mmu.readByte(this.getHL())); this.system.mmu.writeByte(this.getHL(), result); cycles = 16; break;
         }
         
         if (result) this.clearZ(); else this.setZ(); 

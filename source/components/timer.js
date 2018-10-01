@@ -59,7 +59,7 @@ class Timer {
         if (!this.isClockEnabled()) return;
 
         this.counter += cycles;
-        let interval = this.system.clockSpeed / this.frequency;
+        const interval = this.system.clockSpeed / this.frequency;
 
         while (this.counter >= interval) {
             this.counter -= interval;
