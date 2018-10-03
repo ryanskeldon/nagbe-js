@@ -3,7 +3,7 @@ class nagbe {
         this.clockSpeed = 4194304; // Hz, double speed for GBC mode.
         this.clockMultiplier = 1; // Default to 1x multiplier for DMG clock speed.
 
-        this.frameIntervalDelay = 1; // 1/60s = ~16ms
+        this.frameIntervalDelay = 16; // 1/60s = ~16ms
 
         // Load any previously saved ROMs.
         let rom = localStorage.getItem(`ROM`);
@@ -12,6 +12,29 @@ class nagbe {
             console.log(`Cartridge ROM found in local storage.`);
             this.cartridge = new Cartridge(rom.split(",").map(value => { return parseInt(value); }));
         }
+
+        this.buttons = [
+            "l", // Right
+            "j", // Left
+            "i", // Up
+            "k", // Down
+            "f", // A
+            "d", // B
+            "e", // Select
+            "r", // Start
+        ];
+    
+        document.getElementById("screen").addEventListener("keydown", (event) => {
+            if (this.buttons.includes(event.key)) {
+                this.joypad.buttonPressed(this.buttons.indexOf(event.key));
+            }
+        }, false);
+
+        document.getElementById("screen").addEventListener("keyup", (event) => {
+            if (this.buttons.includes(event.key)) {
+                this.joypad.buttonReleased(this.buttons.indexOf(event.key));
+            }
+        }, false);
     }
 
     loadFile(file) {
@@ -50,10 +73,12 @@ class nagbe {
             this.cpu.setBC(0x0013);
             this.cpu.setDE(0x00D8);
             this.cpu.setHL(0x014D);
-        }           
+        }
         
         this.cpu.register.pc = 0x0100;
-        this.cpu.register.sp = 0xFFFE;        
+        this.cpu.register.sp = 0xFFFE;
+
+        this.gpu.register.lcdc = 0x91;
 
         if (!this.frameInterval) {
             this.frameInterval = setInterval(() => { this.frame(runToInstruction); }, this.frameIntervalDelay);

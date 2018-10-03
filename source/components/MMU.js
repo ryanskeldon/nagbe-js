@@ -43,17 +43,17 @@ class MMU {
             return this.system.cartridge.readByte(address);
 
         // WRAM Bank 0
-        if (address >= 0xC000 && address <= 0xCFFF)
+        if (address >= 0xC000 && address <= 0xDFFF)
             return this.wram[address - 0xC000];
         
         // WRAM Switchable Banks 1-7
-        if (address >= 0xD000 && address <= 0xDFFF)
-            return this.wram[(address-0xC000)+(this.wramBank*0x1000)];
+        // if (address >= 0xD000 && address <= 0xDFFF)
+        //     return this.wram[(address-0xC000)+(this.wramBank*0x1000)];
 
         // WRAM Echo
         if (address >= 0xE000 && address <= 0xFDFF) {
             console.log(`MMU: Reading from WRAM Echo @ $${address.toHex(4)}`);
-            return this.readByte(address-0x2000);
+            return this.wram[address-0xE000];
         };
 
         // Sprite Attribute Table (OAM)
@@ -135,22 +135,22 @@ class MMU {
         }
 
         // WRAM Bank 0
-        if (address >= 0xC000 && address <= 0xCFFF) {
+        if (address >= 0xC000 && address <= 0xDFFF) {
             this.wram[address-0xC000] = byte;
             return;
         }
         
         // WRAM Switchable Banks 1-7
-        if (address >= 0xD000 && address <= 0xDFFF) {
-            this.wram[(address-0xC000)+(this.wramBank*0x1000)] = byte;
-            return;
-        }
+        // if (address >= 0xD000 && address <= 0xDFFF) {
+        //     this.wram[(address-0xC000)+(this.wramBank*0x1000)] = byte;
+        //     return;
+        // }
 
         // WRAM Echo
         if (address >= 0xE000 && address <= 0xFDFF) { 
             //console.log(`MMU: Writing to WRAM Echo @ $${address.toHex(4)}`);
-            //this.wram[address-0xE000] = byte;
-            this.writeByte(address-0x2000, byte);
+            this.wram[address-0xE000] = byte;
+            // this.writeByte(address-0x2000, byte);
             return;
         }
 

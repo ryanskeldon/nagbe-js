@@ -140,7 +140,7 @@ class Cartridge {
         if (address >= 0xA000 && address <= 0xBFFF) {
             if (!this.hasRam) return 0xFF;
 
-            return this.mbc.readByte(address, byte);
+            return this.mbc.readByte(address);
         }
 
         throw `Cartridge: Unsupported read at $${address.toHex(4)}.`;

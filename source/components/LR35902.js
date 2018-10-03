@@ -31,7 +31,7 @@ class LR35902 {
         } else {
             let programCounter = this.register.pc++;
             this.instructionCode = this.system.mmu.readByte(programCounter);
-            //console.log(`PC: $${programCounter.toHex(4)} / INS: 0x${this.instructionCode.toHex(2)}`);
+            // console.log(`PC: $${programCounter.toHex(4)} / INS: 0x${this.instructionCode.toHex(2)}`);
             let instruction = this.decodeInstruction(this.instructionCode);
             instruction();
         }
