@@ -106,6 +106,7 @@ class nagbe {
             if (runToInstruction && this.cpu.register.pc === runToInstruction) {
                 this.stop();
                 console.log(`DEBUG: Stop address reached: ${runToInstruction.toHex(4)}`);
+                updateRegisterDisplay();
                 break;
             }
 
@@ -123,7 +124,7 @@ class nagbe {
 
         // Save RAM to local storage if there's a battery in the cartridge.
         if (this.cartridge.hasBattery && this.cartridge.ramIsDirty) {
-            // TODO: Save RAM to local storage.
+            localStorage.setItem(`RAM-${this.cartridge.title}-${this.cartridge.globalChecksum}`, this.cartridge.ram);            
             this.cartridge.ramIsDirty = false;
         }
     }

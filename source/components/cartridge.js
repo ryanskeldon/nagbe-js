@@ -1,3 +1,5 @@
+"use strict";
+
 class Cartridge {
     /* Header 
         $0134->$0142 Cartridge title.
@@ -108,22 +110,22 @@ class Cartridge {
             }
         }
 
+        // Read header checksum.
+        this.headerChecksum = this.rom[0x014D];
+
+        // Read global checksum.
+        this.globalChecksum = this.rom[0x014E] + this.rom[0x014F];        
+
         // Load "battery-backed" RAM for storage.
         if (this.hasBattery) {
+            this.ramIsDirty = false;
             let ram = localStorage.getItem(`RAM-${this.title}-${this.globalChecksum}`);
-
             if (ram) {
                 console.log(`Cartridge RAM found in local storage.`);
                 ram = ram.split(",");
                 this.ram = ram.map(value => { return parseInt(value); });
             }
-        }
-        
-        // Read header checksum.
-        this.headerChecksum = this.rom[0x014D];
-
-        // Read global checksum.
-        this.globalChecksum = this.rom[0x014E] + this.rom[0x014F];
+        }       
 
         console.log(this);
     }
