@@ -364,7 +364,7 @@ class GPU {
                     let py = ly - sprite.y;
 
                     if (sprite.yFlip) {
-                        py -= height;
+                        py -= height-1;
                         py *= -1;
                     }
 

@@ -14,6 +14,8 @@ class EasyJoypad {
     }
 
     _storeButtonState() {
+        if (!this.gamepadIndex) return;
+
         const gamepad = navigator.getGamepads()[this.gamepadIndex];
         this.lastButtonState = [];
 
@@ -23,6 +25,7 @@ class EasyJoypad {
     }
 
     startListener(callback) {
+        if (!this.gamepadIndex) return;
         this.listener = setInterval(() => {
             const gamepad = navigator.getGamepads()[this.gamepadIndex];
 
