@@ -52,7 +52,6 @@ class MMU {
 
         // WRAM Echo
         if (address >= 0xE000 && address <= 0xFDFF) {
-            console.log(`MMU: Reading from WRAM Echo @ $${address.toHex(4)}`);
             return this.wram[address-0xE000];
         };
 
@@ -101,7 +100,7 @@ class MMU {
             return this.register.ie;
         }
 
-        console.log(`Warning: Read attempt @ $${address.toHex(4)} / instr: $${this.system.cpu.instructionCode.toHex(2)}`);
+        // console.log(`Warning: Read attempt @ $${address.toHex(4)} / instr: $${this.system.cpu.instructionCode.toHex(2)}`);
         return 0xFF;
     }
 
@@ -223,7 +222,7 @@ class MMU {
             return;
         }
 
-        console.log(`MMU: Write attempt @ $${address.toHex(4)} value: ${byte.toHex(2)}`);
+        // console.log(`MMU: Write attempt @ $${address.toHex(4)} value: ${byte.toHex(2)}`);
     }
 
     writeWord(address, word) {

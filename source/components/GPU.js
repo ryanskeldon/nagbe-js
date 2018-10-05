@@ -164,7 +164,6 @@ class GPU {
 
         for (let i = 0; i < 160; i++) {
             this.system.mmu.writeByte(0xFE00+i, this.system.mmu.readByte(address+i));
-            this.system.consumeClockCycles(4);
         }
     }
 

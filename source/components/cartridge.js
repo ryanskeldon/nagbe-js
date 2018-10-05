@@ -27,7 +27,7 @@ class Cartridge {
         }        
 
         // Read Color GB flag.
-        this.colorGameboyFlag = this.rom[0x0143] == 0x80; // TODO: Should this worry about GBC only flag?
+        this.colorGameboyFlag = this.rom[0x0143] == 0xC0; // TODO: Should this worry about GBC only flag?
 
         // Read Super GB flag.
         this.superGameboyFlag = this.rom[0x0146] == 0x03;
@@ -42,30 +42,21 @@ class Cartridge {
             case 0x01: this.mbc = new MBC1(this); break;
             case 0x02: this.mbc = new MBC1(this); this.hasRam = true; break;
             case 0x03: this.mbc = new MBC1(this); this.hasRam = true; this.hasBattery = true; break;
-            // case 0x05: this.mbc = new MBC2(this); break;
-            // case 0x06: this.mbc = new MBC2(this); this.hasBattery = true; break;
-            // case 0x08: break;
-            // case 0x09: this.hasBattery = true; break;
-            // case 0x0B: break; // MMM01
-            // case 0x0C: break; // MMM01+RAM
-            // case 0x0D: break; // MMM01+RAM+BATTERY
-            // case 0x0F: this.mbc = new MBC3(this); this.hasBattery = true; break;
-            // case 0x10: this.mbc = new MBC3(this); this.hasBattery = true; break;
-            // case 0x11: this.mbc = new MBC3(this); break;
-            // case 0x12: this.mbc = new MBC3(this); this.hasRam = true; break;
-            // case 0x13: this.mbc = new MBC3(this); this.hasRam = true; this.rtcExists = true; this.hasBattery = true; break;
-            // case 0x19: this._mbc.type = 5; break;
-            // case 0x1A: this._mbc.type = 5; break;
-            // case 0x1B: this.mbc = new MBC5(this); this.hasRam = true; this.hasBattery = true; break;
-            // case 0x1C: this._mbc.type = 5; break;
-            // case 0x1D: this._mbc.type = 5; break;
-            // case 0x1E: this._mbc.type = 5; this._memory.hasBattery = true; break;
-            // case 0x20: this._mbc.type = 6; break;
-            // case 0x22: this._mbc.type = 7; this._memory.hasBattery = true; break;
-            // case 0xFC: break;
-            // case 0xFD: break;
-            // case 0xFE: break;
-            // case 0xFF: this._memory.hasBattery = true; break; 
+            case 0x05: this.mbc = new MBC2(this); break;
+            case 0x06: this.mbc = new MBC2(this); this.hasBattery = true; break;
+            case 0x08: this.hasRam = true; break;
+            case 0x08: this.hasRam = true; this.hasBattery = true; break;
+            case 0x0F: this.mbc = new MBC3(this); this.hasBattery = true; break;
+            case 0x10: this.mbc = new MBC3(this); this.hasBattery = true; break;
+            case 0x11: this.mbc = new MBC3(this); break;
+            case 0x12: this.mbc = new MBC3(this); this.hasRam = true; break;
+            case 0x13: this.mbc = new MBC3(this); this.hasRam = true; this.rtcExists = true; this.hasBattery = true; break;
+            case 0x19: this.mbc = new MBC5(this); break;
+            case 0x1A: this.mbc = new MBC5(this); this.hasRam = true; break;
+            case 0x1B: this.mbc = new MBC5(this); this.hasRam = true; this.hasBattery = true; break;
+            case 0x1C: this.mbc = new MBC5(this); this.hasRumble = true; break;
+            case 0x1D: this.mbc = new MBC5(this); this.hasRumble = true; this.hasRam = true; break;
+            case 0x1E: this.mbc = new MBC5(this); this.hasRumble = true; this.hasRam = true; this.hasBattery = true; break;
             default:
                 throw `Cartridge: Unsupported cartridge type: ${this.cartridgeType.toHex(2)}`;
         }
@@ -114,7 +105,7 @@ class Cartridge {
         this.headerChecksum = this.rom[0x014D];
 
         // Read global checksum.
-        this.globalChecksum = this.rom[0x014E] + this.rom[0x014F];        
+        this.globalChecksum = (this.rom[0x014E]<<8) + this.rom[0x014F];        
 
         // Load "battery-backed" RAM for storage.
         if (this.hasBattery) {

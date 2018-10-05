@@ -1,16 +1,56 @@
-document.addEventListener("DOMContentLoaded", function() {
-    window.nagbe = new nagbe();
+let emu;
+let easyjoypad;
+document.addEventListener("DOMContentLoaded", () => {
+    emu = new nagbe();
+    easyjoypad = new EasyJoypad();
+    easyjoypad.startListener((id, pressed) => {
+        /* 360 Controller mapping
+            A = 0
+            B = 1
+            X = 2
+            Y = 3
+            L1 = 4
+            R1 = 5
+            L2 = 6
+            R2 = 7
+            Select = 8
+            Start = 9
+            L3 = 10
+            R3 = 11
+            Up = 12
+            Down = 13
+            Left = 14
+            Right = 15
+        */
+
+        const buttons = [
+            15,
+            14,
+            12,
+            13,
+            1,
+            0,
+            8,
+            9
+        ]
+
+        if (pressed) {
+            emu.joypad.buttonPressed(buttons.indexOf(id));
+        } else {
+            emu.joypad.buttonReleased(buttons.indexOf(id));
+        }            
+    });
 
     document.getElementById("romFileSelect").addEventListener("change", function (e) {
         if (e.target.files.length === 0) return;
     
-        window.nagbe.loadFile(this.files[0]);
+        emu.loadFile(this.files[0]);
     });
 });
 
 
 document.getElementById("stepButton").addEventListener("click", function () {
-    window.nagbe.step();
+    emu.step();
     updateRegisterDisplay();
 });
 
@@ -20,13 +60,15 @@ document.getElementById("frameButton").addEventListener("click", function () {
 });
 
 document.getElementById("runButton").addEventListener("click", function () {
-    window.nagbe.start();
+    emu.start();
 });
 
-
+window.addEventListener("gamepadconnected", (e) => {
+    console.log(e);
+});
 
 function updateRegisterDisplay() {
-    const cpu = window.nagbe.cpu;
+    const cpu = emu.cpu;
     
     document.getElementById("af_register").value = ((cpu.register.a<<8)+cpu.register.f).toHex(4);
     document.getElementById("bc_register").value = ((cpu.register.b<<8)+cpu.register.c).toHex(4);

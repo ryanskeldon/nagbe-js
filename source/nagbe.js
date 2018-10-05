@@ -3,7 +3,7 @@ class nagbe {
         this.clockSpeed = 4194304; // Hz, double speed for GBC mode.
         this.clockMultiplier = 1; // Default to 1x multiplier for DMG clock speed.
 
-        this.frameIntervalDelay = 16; // 1/60s = ~16ms
+        this.frameIntervalDelay = 16.67; // 1/60s = ~16ms
 
         // Load any previously saved ROMs.
         let rom = localStorage.getItem(`ROM`);
