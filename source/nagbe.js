@@ -1,3 +1,5 @@
+"use strict";
+
 class nagbe {
     constructor() {
         this.clockSpeed = 4194304; // Hz, double speed for GBC mode.
@@ -23,6 +25,45 @@ class nagbe {
             "e", // Select
             "r", // Start
         ];
+
+        // this.easygamepad = new EasyGamepad();
+        // this.easygamepad.addEventListener(0, (gamepad) => {
+        //     /* 360 Controller mapping
+        //         A = 0
+        //         B = 1
+        //         X = 2
+        //         Y = 3
+        //         L1 = 4
+        //         R1 = 5
+        //         L2 = 6
+        //         R2 = 7
+        //         Select = 8
+        //         Start = 9
+        //         L3 = 10
+        //         R3 = 11
+        //         Up = 12
+        //         Down = 13
+        //         Left = 14
+        //         Right = 15
+        //     */
+    
+        //     const buttons = [
+        //         15,
+        //         14,
+        //         12,
+        //         13,
+        //         1,
+        //         0,
+        //         8,
+        //         9
+        //     ]
+    
+        //     if (gamepad.buttonPressed) {
+        //         this.joypad.buttonPressed(buttons.indexOf(gamepad.buttonId));
+        //     } else {
+        //         this.joypad.buttonReleased(buttons.indexOf(gamepad.buttonId));
+        //     }            
+        // });
     
         document.getElementById("screen").addEventListener("keydown", (event) => {
             if (this.buttons.includes(event.key)) {
@@ -35,6 +76,8 @@ class nagbe {
                 this.joypad.buttonReleased(this.buttons.indexOf(event.key));
             }
         }, false);
+
+        this.systemInitialized = false;
     }
 
     loadFile(file) {
@@ -52,33 +95,37 @@ class nagbe {
             return;
         }
 
-        // Initialize components.
-        this.cpu = new LR35902(this);
-        this.mmu = new MMU(this);
-        this.gpu = new GPU(this);
-        this.serial = new Serial(this);
-        this.apu = new APU(this);
-        this.timer = new Timer(this);
-        this.joypad = new Joypad(this);
+        if (!this.systemInitialized) {
+            // Initialize components.
+            this.cpu = new LR35902(this);
+            this.mmu = new MMU(this);
+            this.gpu = new GPU(this);
+            this.serial = new Serial(this);
+            this.apu = new APU(this);
+            this.timer = new Timer(this);
+            this.joypad = new Joypad(this);
+            
+            // Set starting register values.
+            if (this.cartridge.colorGameboyFlag) {
+                this.cpu.setAF(0x1180);
+                this.cpu.setBC(0x0000);
+                this.cpu.setDE(0xFF56);
+                this.cpu.setHL(0x000D);
+            }
+            else {
+                this.cpu.setAF(0x01B0);
+                this.cpu.setBC(0x0013);
+                this.cpu.setDE(0x00D8);
+                this.cpu.setHL(0x014D);
+            }
+            
+            this.cpu.register.pc = 0x0100;
+            this.cpu.register.sp = 0xFFFE;
+            
+            this.gpu.register.lcdc = 0x91;
 
-        // Set starting register values.
-        if (this.cartridge.colorGameboyFlag) {
-            this.cpu.setAF(0x1180);
-            this.cpu.setBC(0x0000);
-            this.cpu.setDE(0xFF56);
-            this.cpu.setHL(0x000D);
+            this.systemInitialized = true;
         }
-        else {
-            this.cpu.setAF(0x01B0);
-            this.cpu.setBC(0x0013);
-            this.cpu.setDE(0x00D8);
-            this.cpu.setHL(0x014D);
-        }
-        
-        this.cpu.register.pc = 0x0100;
-        this.cpu.register.sp = 0xFFFE;
-
-        this.gpu.register.lcdc = 0x91;
 
         if (!this.frameInterval) {
             this.frameInterval = setInterval(() => { this.frame(runToInstruction); }, this.frameIntervalDelay);
@@ -100,7 +147,7 @@ class nagbe {
 
     frame(runToInstruction) {
         let baseFrameCycleLimit = 70224;
-        let frameClockLimit = this.cpuClock + (baseFrameCycleLimit * this.clockMultiplier);
+        let frameClockLimit = (baseFrameCycleLimit * this.clockMultiplier);
 
         do {
             if (runToInstruction && this.cpu.register.pc === runToInstruction) {

@@ -17,7 +17,13 @@ class Cartridge {
     */
     constructor(rom) {
         // Save raw ROM bytes.
-        this.rom = rom;        
+        this.rom = rom;
+        
+        // Read header checksum.
+        this.headerChecksum = this.rom[0x014D];
+
+        // Read global checksum.
+        this.globalChecksum = (this.rom[0x014E]<<8) + this.rom[0x014F];                
 
         // Read ROM title.
         this.title = "";
@@ -100,12 +106,6 @@ class Cartridge {
                 this.ram[i] = Math.floor(Math.random() * 256);
             }
         }
-
-        // Read header checksum.
-        this.headerChecksum = this.rom[0x014D];
-
-        // Read global checksum.
-        this.globalChecksum = (this.rom[0x014E]<<8) + this.rom[0x014F];        
 
         // Load "battery-backed" RAM for storage.
         if (this.hasBattery) {
