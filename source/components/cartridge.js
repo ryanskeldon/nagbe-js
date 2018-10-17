@@ -33,10 +33,10 @@ class Cartridge {
         }        
 
         // Read Color GB flag.
-        this.colorGameboyFlag = this.rom[0x0143] == 0xC0; // TODO: Should this worry about GBC only flag?
+        this.colorGameboyFlag = this.rom[0x0143] !== 0x00; // TODO: Should this worry about GBC only flag?
 
         // Read Super GB flag.
-        this.superGameboyFlag = this.rom[0x0146] == 0x03;
+        this.superGameboyFlag = this.rom[0x0146] === 0x03;
 
         // Read cartridge type, determine memory bank controller and other cartridge properties.
         this.cartridgeType = this.rom[0x0147];

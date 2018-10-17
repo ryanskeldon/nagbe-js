@@ -82,8 +82,7 @@ class GPU {
 
     readByte(address) {
         if (address >= 0x8000 && address <= 0x9FFF) {
-            // return this.vram[(address-0x8000)+(this.register.vbk*0x2000)];
-            return this.vram[address-0x8000];
+            return this.vram[(address-0x8000)+(this.register.vbk*0x2000)];
         }
 
         // Sprite Attribute Memory
@@ -128,8 +127,7 @@ class GPU {
     writeByte(address, byte) {
         // Video RAM
         if (address >= 0x8000 && address <= 0x9FFF) {
-            // this.vram[(address-0x8000)+(this.register.vbk*0x2000)] = byte;
-            this.vram[address-0x8000] = byte;
+            this.vram[(address-0x8000)+(this.register.vbk*0x2000)] = byte;
             return;
         }
 
@@ -153,7 +151,9 @@ class GPU {
             case 0xFF49: this.register.obj1 = byte; return;
             case 0xFF4A: this.register.wy = byte; return;
             case 0xFF4B: this.register.wx = byte; return;
-            case 0xFF4F: this.register.vbk = byte&0x01; return;
+            case 0xFF4F: 
+                this.register.vbk = byte&0x01; 
+                return;
         }
 
         throw `GPU: Unknown write at $${address.toHex(4)} / value: 0x${byte.toHex(2)}`;
@@ -164,7 +164,6 @@ class GPU {
 
         for (let i = 0; i < 160; i++) {
             this.system.mmu.writeByte(0xFE00+i, this.system.mmu.readByte(address+i));
-            this.system.consumeClockCycles(4);
         }
     }
 
