@@ -1,6 +1,4 @@
-"use strict";
-
-class LR35902 {
+export default class LR35902 {
     constructor(system) {
         this.system = system; // Reference to the emulator system.        
 
@@ -41,10 +39,10 @@ class LR35902 {
             else { this.ime = true; this.pendingEnableInterrupts = 0; }
         }
 
-        if (this.pendingDisableInterrupts) {
-            if (this.pendingDisableInterrupts&0xF>0) this.pendingDisableInterrupts--;
-            else { this.ime = false; this.pendingDisableInterrupts = 0; }
-        }
+        // if (this.pendingDisableInterrupts) {
+        //     if (this.pendingDisableInterrupts&0xF>0) this.pendingDisableInterrupts--;
+        //     else { this.ime = false; this.pendingDisableInterrupts = 0; }
+        // }
     }
 
     decodeInstruction(code) {
@@ -480,7 +478,7 @@ class LR35902 {
     }
 
     DI() {
-        this.pendingDisableInterrupts = 0x11;
+        this.ime = false;
         this.system.consumeClockCycles(4);
     }
 

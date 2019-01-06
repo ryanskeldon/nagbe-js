@@ -1,6 +1,4 @@
-"use strict";
-
-class Joypad {
+export default class Joypad {
     constructor(system) {
         this.system = system;
 

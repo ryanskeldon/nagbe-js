@@ -1,6 +1,13 @@
-"use strict";
+import Cartridge from "./cartridge";
+import LR35902 from "./lr35902";
+import MMU from "./mmu";
+import GPU from "./gpu";
+import Serial from "./serial";
+import APU from "./apu";
+import Timer from "./timer";
+import Joypad from "./joypad";
 
-class nagbe {
+export default class nagbe {
     constructor() {
         this.clockSpeed = 4194304; // Hz, double speed for GBC mode.
         this.clockMultiplier = 1; // Default to 1x multiplier for DMG clock speed.
@@ -77,6 +84,7 @@ class nagbe {
             }
         }, false);
 
+        this.gbcModeEnabled = false;
         this.systemInitialized = false;
     }
 
@@ -107,6 +115,7 @@ class nagbe {
             
             // Set starting register values.
             if (this.cartridge.colorGameboyFlag) {
+                this.gbcModeEnabled = true;
                 this.cpu.setAF(0x1180);
                 this.cpu.setBC(0x0000);
                 this.cpu.setDE(0xFF56);

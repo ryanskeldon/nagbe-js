@@ -1,6 +1,4 @@
-"use strict";
-
-class Timer {
+export default class Timer {
     constructor(system) {
         this.system = system;
 

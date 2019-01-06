@@ -1,6 +1,4 @@
-"use strict";
-
-class MBC3 {
+export default class MBC3 {
     constructor(cartridge) {
         this.cartridge = cartridge;
         this.romBank = 0x01;

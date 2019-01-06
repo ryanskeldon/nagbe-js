@@ -1,6 +1,9 @@
-"use strict";
+import MBC1 from "./mbc1";
+import MBC2 from "./mbc2";
+import MBC3 from "./mbc3";
+import MBC5 from "./mbc5";
 
-class Cartridge {
+export default class Cartridge {
     /* Header 
         $0134->$0142 Cartridge title.
         $0143 Color GB flag. A value of 0x80 means GBC, anything else is not GBC.
@@ -42,7 +45,7 @@ class Cartridge {
         this.cartridgeType = this.rom[0x0147];
         this.mbc = null;
         this.hasRam = false;
-        this.hasBattery = false;
+        this.hasBattery = false;        
         switch (this.cartridgeType) {
             case 0x00: break;
             case 0x01: this.mbc = new MBC1(this); break;

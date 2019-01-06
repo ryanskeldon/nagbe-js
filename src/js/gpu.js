@@ -1,8 +1,8 @@
-"use strict";
-
-class GPU {
+export default class GPU {
     constructor(system) {
         this.system = system;
+
+        this.displayScale = 1;
 
         this.vram = [];
         this.oam = [];
@@ -11,6 +11,10 @@ class GPU {
 
         for (var i = 0; i < 8192; i++) this.vram[i] = Math.floor(Math.random() * 256); // Reset Video RAM (8kB)       
         for (var i = 0; i < 160; i++)  this.oam[i]  = Math.floor(Math.random() * 256); // Sprite Attribute Memory (OAM) (160B)
+
+        // DMA
+        this.oamDmaActive = false;
+        this.oamDmaByte = 0;
 
         // Registers
         this.register = {
@@ -69,7 +73,7 @@ class GPU {
         this.screenCanvas = this.backgroundMapElement.getContext("2d");
         this.screenData = this.screenCanvas.createImageData(160, 144);
 
-        for (var i = 0; i < 160*144*4;) {
+        for (let i = 0; i < 160*144*4;) {
             this.screenData.data[i] = 0xEF;
             this.screenData.data[i+1] = 0xEF;
             this.screenData.data[i+2] = 0xEF;
@@ -118,7 +122,7 @@ class GPU {
             case 0xFF49: return this.register.obj1;
             case 0xFF4A: return this.register.wy;
             case 0xFF4B: return this.register.wx;
-            case 0xFF4F: return this.readByte.vbk;
+            case 0xFF4F: return this.register.vbk;
         }
 
         throw `GPU: Unknown read at $${address.toHex(4)}`;
@@ -145,26 +149,21 @@ class GPU {
             case 0xFF43: this.register.scx = byte; return;                
             case 0xFF44: this.register.ly = 0; return; // Note: any outside write to LY resets the value to 0;
             case 0xFF45: this.register.lyc = byte; return;
-            case 0xFF46: this.register.dma = byte; this.transferDMA(); return;
+            case 0xFF46: this.register.dma = byte; this.initializeOAM_DMA(); return;
             case 0xFF47: this.register.bgp = byte; return;
             case 0xFF48: this.register.obj0 = byte; return;
             case 0xFF49: this.register.obj1 = byte; return;
             case 0xFF4A: this.register.wy = byte; return;
             case 0xFF4B: this.register.wx = byte; return;
-            case 0xFF4F: 
-                this.register.vbk = byte&0x01; 
-                return;
+            case 0xFF4F: this.register.vbk = byte; return;
         }
 
         throw `GPU: Unknown write at $${address.toHex(4)} / value: 0x${byte.toHex(2)}`;
     }
 
-    transferDMA() {
-        let address = this.register.dma << 8;
-
-        for (let i = 0; i < 160; i++) {
-            this.system.mmu.writeByte(0xFE00+i, this.system.mmu.readByte(address+i));
-        }
+    initializeOAM_DMA() {
+        this.oamDmaActive = true;
+        this.oamDmaByte = 0;
     }
 
     isLcdEnabled() {
@@ -181,6 +180,23 @@ class GPU {
     }
 
     step(cycles) {
+        // Process OAM DMA transfer.
+        if (this.oamDmaActive) {
+            const address = this.register.dma<<8;
+            let cyclesToProcess = cycles/4;
+            
+            for (let i = 0; i < cyclesToProcess; i++) {
+                this.system.mmu.writeByte(0xFE00+this.oamDmaByte, this.system.mmu.readByte(address+this.oamDmaByte));
+                this.oamDmaByte++;
+            }
+            
+            if (this.oamDmaByte >= 160) {
+                // Transfer complete
+                this.oamDmaActive = false;
+                this.oamDmaByte = 0;
+            }
+        }
+
         if (this.isLcdEnabled()) {
             this.clock = (this.clock+cycles)&0xFFFFFFFF;
         } else {

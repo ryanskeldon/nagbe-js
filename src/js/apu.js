@@ -1,6 +1,4 @@
-"use strict";
-
-class APU {
+export default class APU {
     constructor(system) {
         this.system = system;
 

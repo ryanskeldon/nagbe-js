@@ -1,4 +1,7 @@
+import nagbe from "./nagbe";
+
 let emu;
+
 document.addEventListener("DOMContentLoaded", () => {
     emu = new nagbe();
 
@@ -8,7 +11,6 @@ document.addEventListener("DOMContentLoaded", () => {
         emu.loadFile(this.files[0]);
     });
 });
-
 
 document.getElementById("stepButton").addEventListener("click", function () {
     emu.step();

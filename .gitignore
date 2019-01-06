@@ -3,3 +3,5 @@
 *.gbc
 *.sav
 *.sym
+node_modules/
+dist/

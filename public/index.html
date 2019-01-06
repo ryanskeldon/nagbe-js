@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>nagbe-js</title>
+    <link rel="stylesheet" type="text/css" href="./css/emulator.css">
+</head>
+
+<body>
+    <div>
+        <button id="runButton">Run</button>
+        <button id="stepButton">Step</button>
+        <button id="frameButton">Frame</button>
+    </div>
+    <div>
+        <input id="romFileSelect" type="file"><br />
+        <span>ROM: </span> <span id="romName">none</span>
+    </div>
+
+    <div id="screenContainer">
+        <canvas id="screen" width="480" height="432" tabindex="1"></canvas>
+    </div>
+
+
+    <div>
+        <p><b>Registers</b></p>
+        <table>
+            <tbody>
+                <tr>
+                    <td>AF</td>
+                    <td><input type="text" id="af_register" size="4"></td>
+                </tr>
+                <tr>
+                    <td>BC</td>
+                    <td><input type="text" id="bc_register" size="4"></td>
+                </tr>
+                <tr>
+                    <td>DE</td>
+                    <td><input type="text" id="de_register" size="4"></td>
+                </tr>
+                <tr>
+                    <td>HL</td>
+                    <td><input type="text" id="hl_register" size="4"></td>
+                </tr>
+                <tr>
+                    <td>SP</td>
+                    <td><input type="text" id="sp_register" size="4"></td>
+                </tr>
+                <tr>
+                    <td>PC</td>
+                    <td><input type="text" id="pc_register" size="4"></td>
+                </tr>
+                <tr>
+                    <td>DIV</td>
+                    <td><input type="text" id="div_register" size="4"></td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div>
+        <textarea id="serialOut" cols="40" rows="20"></textarea>
+    </div>
+
+    <script src="../dist/bundle.js"></script>
+</body>
+
+</html>

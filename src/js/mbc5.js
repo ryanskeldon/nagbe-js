@@ -1,12 +1,10 @@
-"use strict";
-
-class MBC1 {
+export default class MBC5 {
     constructor(cartridge) {
         this.cartridge = cartridge;
-        this.romBank = 0x01;
+        this.romBankLo = 0x01; // Actually goes up to 9-bits of banking.
+        this.romBankHi = 0x00;
         this.ramBank = 0x00;
         this.ramEnabled = false;
-        this.bankMode = 0;
     }
 
     readByte(address) {
@@ -15,9 +13,10 @@ class MBC1 {
             return this.cartridge.rom[address];
         }
 
-        // ROM Banks 01-7F
+        // ROM Banks 00-1FF
         if (address >= 0x4000 && address <= 0x7FFF) {
-            let offset = 0x4000 * this.romBank;
+            const romBank = (this.romBankHi<<8)+this.romBankLo;            
+            let offset = 0x4000 * romBank;
             return this.cartridge.rom[(address-0x4000)+offset];
         }
 
@@ -37,47 +36,33 @@ class MBC1 {
             return;
         }
 
-        // ROM Banking
-        if (address >= 0x2000 && address <= 0x3FFF) {
-            let romBank = byte & 0x1F; // Mask for lower 5 bits.
-            this.romBank &= 0xE0; // Turn off lower 5 bits.
-            this.romBank |= romBank; // Set lower 5 bits.
-            if (this.romBank === 0) this.romBank++;
+        // ROM Banking Low
+        if (address >= 0x2000 && address <= 0x2FFF) {
+            this.romBankLo = byte;            
             return;
         }
 
-        // RAM/ROM Banking
+        // ROM Banking High
+        if (address >= 0x3000 && address <= 0x3FFF) {
+            this.romBankHi = byte;
+            return;
+        }
+
+        // RAM Banking
         if (address >= 0x4000 && address <= 0x5FFF) {
-            if (this.bankMode === 0x00) { // ROM Banking
-                let romBank = (byte<<5); // Move bits into correct location.
-                this.romBank &= 0x60; // Turn off bits 5 and 6.
-                this.romBank |= romBank; // Set bits 5 and 6.
-            } else if (this.bankMode === 0x01) { // RAM Banking
-                this.ramBank = byte&0x03;
-            }
+            this.ramBank = byte&0x0F;
             return;
         }
 
-        // ROM/RAM Mode Select
-        if (address >= 0x6000 && address <= 0x7FFF) {
-            this.bankMode = byte & 0x01;
-            return;
-        }
-
+        // RAM
         if (address >= 0xA000 && address <= 0xBFFF) {
             if (!this.ramEnabled) return; // RAM disabled.
 
             // Mark for persistance at the end of the next frame.
             if (this.cartridge.hasBattery) this.cartridge.ramIsDirty = true;
 
-            if (this.bankMode === 0) { // ROM mode, only write to bank 0x00 of RAM.
-                this.cartridge.ram[address-0xA000] = byte;
-                return;    
-            }
-
             let offset = this.ramBank * 0x2000;
             this.cartridge.ram[(address-0xA000)+offset] = byte;
-
             return;
         }
     }

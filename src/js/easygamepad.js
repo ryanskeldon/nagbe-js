@@ -1,6 +1,4 @@
-"use strict";
-
-class EasyGamepad {
+export default class EasyGamepad {
     constructor(pollingInterval) {
         // Polling interval in milliseconds. Default to 100ms.
         this.pollingInterval = pollingInterval | 100;

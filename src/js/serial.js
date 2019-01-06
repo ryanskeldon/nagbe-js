@@ -1,6 +1,4 @@
-"use strict";
-
-class Serial {
+export default class Serial {
     constructor(system) {
         this.system = system;
 

@@ -1,8 +1,7 @@
-class MBC5 {
+export default class MBC1 {
     constructor(cartridge) {
         this.cartridge = cartridge;
-        this.romBankLo = 0x01; // Actually goes up to 9-bits of banking.
-        this.romBankHi = 0x00;
+        this.romBank = 0x01;
         this.ramBank = 0x00;
         this.ramEnabled = false;
         this.bankMode = 0;
@@ -14,10 +13,9 @@ class MBC5 {
             return this.cartridge.rom[address];
         }
 
-        // ROM Banks 00-1FF
+        // ROM Banks 01-7F
         if (address >= 0x4000 && address <= 0x7FFF) {
-            const romBank = (this.romBankHi<<8)+this.romBankLo;            
-            let offset = 0x4000 * romBank;
+            let offset = 0x4000 * this.romBank;
             return this.cartridge.rom[(address-0x4000)+offset];
         }
 
@@ -37,21 +35,24 @@ class MBC5 {
             return;
         }
 
-        // ROM Banking Low
-        if (address >= 0x2000 && address <= 0x2FFF) {
-            this.romBankLo = byte;            
+        // ROM Banking
+        if (address >= 0x2000 && address <= 0x3FFF) {
+            let romBank = byte & 0x1F; // Mask for lower 5 bits.
+            this.romBank &= 0xE0; // Turn off lower 5 bits.
+            this.romBank |= romBank; // Set lower 5 bits.
+            if (this.romBank === 0) this.romBank++;
             return;
         }
 
-        // ROM Banking High
-        if (address >= 0x3000 && address <= 0x3FFF) {
-            this.romBankHi = byte;
-            return;
-        }
-
-        // RAM Banking
+        // RAM/ROM Banking
         if (address >= 0x4000 && address <= 0x5FFF) {
-            this.ramBank = byte&0x0F;
+            if (this.bankMode === 0x00) { // ROM Banking
+                let romBank = (byte<<5); // Move bits into correct location.
+                this.romBank &= 0x60; // Turn off bits 5 and 6.
+                this.romBank |= romBank; // Set bits 5 and 6.
+            } else if (this.bankMode === 0x01) { // RAM Banking
+                this.ramBank = byte&0x03;
+            }
             return;
         }
 
