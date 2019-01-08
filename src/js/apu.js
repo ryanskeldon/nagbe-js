@@ -6,7 +6,7 @@ export default class APU {
         this.waveRam = []; 
         
         // Randomize wave RAM.
-        for (var i = 0; i < 32; i++) this.waveRam[i] = Math.floor(Math.random() * 256); // Reset wave RAM (32B)
+        for (let i = 0; i < 32; i++) this.waveRam[i] = Math.floor(Math.random() * 256); // Reset wave RAM (32B)
 
         this.register = {
             // Channel 1 - Tone & Sweep

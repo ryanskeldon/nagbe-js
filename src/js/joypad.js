@@ -4,7 +4,7 @@ export default class Joypad {
 
         this.register = {
             p1: 0 // $FF00 P1
-        }
+        };
 
         this.keys = 0xFF;
     }

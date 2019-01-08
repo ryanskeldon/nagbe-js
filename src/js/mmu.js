@@ -6,8 +6,8 @@ export default class MMU {
         this.zram = []; // Zero-page RAM
 
         // Initialize RAM
-        for (var i = 0; i < 32768; i++) this.wram[i] = Math.floor(Math.random() * 256); // Reset Working RAM (32KB)
-        for (var i = 0; i < 128; i++) this.zram[i]  = Math.floor(Math.random() * 256);  // Reset Zero-page RAM (128B)
+        for (let i = 0; i < 32768; i++) this.wram[i] = Math.floor(Math.random() * 256); // Reset Working RAM (32KB)
+        for (let i = 0; i < 128; i++) this.zram[i]  = Math.floor(Math.random() * 256);  // Reset Zero-page RAM (128B)
 
         // Registers
         this.register = {
@@ -18,7 +18,7 @@ export default class MMU {
             key1: 0x7E, // $FF4D Prepare Speed Switch
             tp: 0, // $FF56 Infrared Communications Port
             svbk: 0 // $FF70 WRAM Bank
-        }        
+        };        
     }
 
     readByte(address) {
@@ -48,7 +48,7 @@ export default class MMU {
         // WRAM Echo
         if (address >= 0xE000 && address <= 0xFDFF) {
             return this.wram[address-0xE000];
-        };
+        }
 
         // Sprite Attribute Table (OAM)
         if (address >= 0xFE00 && address <= 0xFE9F)

@@ -26,7 +26,7 @@ export default class EasyGamepad {
                 index: gamepad.index,
                 id: gamepad.id,
                 buttons: []
-            }
+            };
 
             // Set initial state of buttons.
             for (let b = 0; b < gamepad.buttons.length; b++) {                

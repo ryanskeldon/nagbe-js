@@ -10,7 +10,7 @@ export default class Timer {
             tima: 0, // 0xFF05 (r/w) Timer counter
             tma:  0, // 0xFF06 (r/w) Timer modulo
             tac:  0, // 0xFF07 (r/w) Timer control
-        }
+        };
     }
 
     readByte(address) {

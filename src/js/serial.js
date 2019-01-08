@@ -5,7 +5,7 @@ export default class Serial {
         this.register = {
             sb: 0, // 0xFF01 (r/w) Serial transfer data
             sc: 0 // 0xFF02 (r/w) Serial I/O control
-        }
+        };
     }
 
     readByte(address) {
