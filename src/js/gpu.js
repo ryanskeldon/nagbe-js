@@ -342,11 +342,6 @@ export default class GPU {
         // Load color palette for background.
         const bgPalette = this.readByte(0xFF47);
 
-        const color0 = this.bgColors[bgPalette & 0x3];
-        const color1 = this.bgColors[(bgPalette >> 2) & 0x3];
-        const color2 = this.bgColors[(bgPalette >> 4) & 0x3];
-        const color3 = this.bgColors[(bgPalette >> 6) & 0x3];
-
         // Calculate which scanline we're on.
         let yPos = 0;
         if (windowEnabled)
@@ -389,25 +384,25 @@ export default class GPU {
 
             let l = lb & (1 << (7 - px)) ? 1 : 0;
             let h = hb & (1 << (7 - px)) ? 1 : 0;
-            let color = (h << 1) + l;
+            const colorCode = (h << 1) + l;
             let pixelColor = 0;
 
-            switch (color) {
+            switch (colorCode) {
                 case 0:
-                    pixelColor = color0;
+                    pixelColor = this.bgColors[bgPalette & 0x03];
                     break;
                 case 1:
-                    pixelColor = color1;
+                    pixelColor = this.bgColors[(bgPalette >> 2) & 0x3];
                     break;
                 case 2:
-                    pixelColor = color2;
+                    pixelColor = this.bgColors[(bgPalette >> 4) & 0x3];
                     break;
                 case 3:
-                    pixelColor = color3;
+                    pixelColor = this.bgColors[(bgPalette >> 6) & 0x3];
                     break;
             }
 
-            pixels[x] = pixelColor;
+            pixels[x] = { code: colorCode, color: pixelColor, type: "BG" };
         }
 
         // Load sprites
@@ -415,25 +410,20 @@ export default class GPU {
             let renderedSprites = 0;
 
             for (let spriteId = 0; spriteId < 40; spriteId++) {
-                let height = this.register.lcdc & 0x04 ? 16 : 8;
-                let sprite = this.getSprite(spriteId, height);
+                const height = this.register.lcdc & 0x04 ? 16 : 8;
+                const sprite = this.getSprite(spriteId, height);
 
                 if (ly >= sprite.y && ly < (sprite.y + height)) {
-                    // Load color palette for background.
-                    let palette = sprite.paletteId == 0 ? this.obj0Colors : this.obj1Colors;
-                    let color0 = palette[sprite.palette & 0x3];
-                    let color1 = palette[(sprite.palette >> 2) & 0x3];
-                    let color2 = palette[(sprite.palette >> 4) & 0x3];
-                    let color3 = palette[(sprite.palette >> 6) & 0x3];
-
-                    let py = ly - sprite.y;
-
-                    if (sprite.yFlip) {
-                        py -= height - 1;
-                        py *= -1;
-                    }
-
                     for (let tx = 0; tx < 8; tx++) {
+                        // Load color palette for background.
+                        const palette = sprite.paletteId == 0 ? this.obj0Colors : this.obj1Colors;
+                        let py = ly - sprite.y;
+
+                        if (sprite.yFlip) {
+                            py -= height - 1;
+                            py *= -1;
+                        }
+
                         // Find tile pixel data for color.
                         let px = tx;
                         if (sprite.xFlip) {
@@ -441,30 +431,39 @@ export default class GPU {
                             px *= -1;
                         }
 
-                        let color = sprite.pixels[py % height][px % 8];
+                        const colorCode = sprite.pixels[py % height][px % 8];
+                        if (colorCode === 0) continue; // Pixel is white meaning transparent.
+
                         let pixelColor = 0;
 
-                        if (color === 0) continue; // Skip pixel if it's transparent.
-                        if (sprite.priority === 1) continue;
-
-                        switch (color) {
+                        switch (colorCode) {
                             case 0:
-                                pixelColor = color0;
+                                pixelColor = palette[sprite.palette & 0x3];;
                                 break;
                             case 1:
-                                pixelColor = color1;
+                                pixelColor = palette[(sprite.palette >> 2) & 0x3];
                                 break;
                             case 2:
-                                pixelColor = color2;
+                                pixelColor = palette[(sprite.palette >> 4) & 0x3];
                                 break;
                             case 3:
-                                pixelColor = color3;
+                                pixelColor = palette[(sprite.palette >> 6) & 0x3];
                                 break;
                         }
 
-                        let pixel = sprite.x + tx;
+                        const pixel = sprite.x + tx;
 
-                        pixels[pixel] = pixelColor;
+                        if (sprite.priority === 0) {
+                            // Priority 0: sprite above background.                            
+                            pixels[pixel] = { code: colorCode, color: pixelColor, type: "OBJ", objId: spriteId };
+                        } else if (sprite.priority === 1) {
+                            const currentPixel = pixels[pixel];
+                            if (currentPixel && currentPixel.type === "BG" && currentPixel.code !== (bgPalette & 0x3)) continue;
+
+                            pixels[pixel] = { code: colorCode, color: pixelColor, type: "OBJ", objId: spriteId };
+                        } else {
+                            throw "Invalid sprite priority";
+                        }
                     }
 
                     renderedSprites++;
@@ -489,9 +488,9 @@ export default class GPU {
                     for (let sx = 0; sx < this.displayScale; sx++) {
                         const screenIndex = (this.screenWidth * this.displayScale * 4) * ((y * this.displayScale) + sy) + ((x * this.displayScale) + sx) * 4;
 
-                        screenData.data[screenIndex] = (pixel >> 16) & 255;
-                        screenData.data[screenIndex + 1] = (pixel >> 8) & 255;
-                        screenData.data[screenIndex + 2] = pixel & 255;
+                        screenData.data[screenIndex] = (pixel.color >> 16) & 255;
+                        screenData.data[screenIndex + 1] = (pixel.color >> 8) & 255;
+                        screenData.data[screenIndex + 2] = pixel.color & 255;
                         screenData.data[screenIndex + 3] = 255;
                     }
                 }
@@ -538,7 +537,7 @@ export default class GPU {
             pixels: pixels,
             palette: attributes & 0x10 ? this.readByte(0xFF49) : this.readByte(0xFF48),
             paletteId: attributes & 0x10,
-            priority: attributes & 0x80
+            priority: attributes >> 7
         };
     }
 }

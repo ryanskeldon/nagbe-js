@@ -1,33 +1,31 @@
 import nagbe from "./nagbe";
 
-let emu;
-
 document.addEventListener("DOMContentLoaded", () => {
-    emu = new nagbe();
+    window.emu = new nagbe();
 
     document.getElementById("romFileSelect").addEventListener("change", function (e) {
         if (e.target.files.length === 0) return;
     
-        emu.loadFile(this.files[0]);
+        window.emu.loadFile(this.files[0]);
     });
 });
 
 document.getElementById("stepButton").addEventListener("click", function () {
-    emu.step();
+    window.emu.step();
     updateRegisterDisplay();
 });
 
 document.getElementById("frameButton").addEventListener("click", function () {
-    emu.frame();
+    window.emu.frame();
     updateRegisterDisplay();
 });
 
 document.getElementById("runButton").addEventListener("click", function () {
-    emu.start();
+    window.emu.start();
 });
 
 function updateRegisterDisplay() {
-    const cpu = emu.cpu;
+    const cpu = window.emu.cpu;
     
     document.getElementById("af_register").value = ((cpu.register.a<<8)+cpu.register.f).toHex(4);
     document.getElementById("bc_register").value = ((cpu.register.b<<8)+cpu.register.c).toHex(4);
